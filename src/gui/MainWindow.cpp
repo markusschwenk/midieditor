@@ -576,7 +576,6 @@ void MainWindow::playStop() {
 }
 
 void MainWindow::play(){
-
 	if(file && !MidiInput::recording() && !MidiPlayer::isPlaying()){
 		mw_matrixWidget->timeMsChanged(file->msOfTick(file->cursorTick()), true);
 

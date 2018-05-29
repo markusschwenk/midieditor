@@ -25,6 +25,6 @@ before_script:
 
 script:
    - qmake -qt=qt5 -project -v
-   - qmake -qt=qt5 midieditor.pro -v
+   - qmake -qt=qt5 midieditor.pro
    - make
 
