@@ -25,6 +25,6 @@ before_script:
 
 script:
    - qmake -project
-   - qmake Ultron.pro
+   - qmake midieditor.pro
    - make
 
