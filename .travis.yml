@@ -24,7 +24,7 @@ before_install:
 before_script:
 
 script:
-   - qmake -project
-   - qmake midieditor.pro
+   - qmake -qt=qt5 -project
+   - qmake -qt=qt5 midieditor.pro
    - make
 
