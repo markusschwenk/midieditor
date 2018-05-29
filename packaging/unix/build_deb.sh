@@ -83,3 +83,6 @@ chmod +x $PACKAGE_DIR/bin/midieditor
 chmod +x $PACKAGE_DIR/usr/lib/midieditor/MidiEditor
 
 fakeroot dpkg-deb --build $PACKAGE_DIR
+
+mkdir deb
+mv $PACKAGE_DIR.deb deb/$PACKAGE_DIR.deb
