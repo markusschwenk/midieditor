@@ -8,11 +8,7 @@ os:
   - linux
 
 env:
-  - CONFIG=Release
-  - MIDIEDITOR_RELEASE_DATE="May 27th, 2018"
-  - MIDIEDITOR_RELEASE_VERSION_ID=2
-  - MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0
-  - MIDIEDITOR_PACKAGE_VERSION=1		# only used for linux releases 
+  - CONFIG=Release MIDIEDITOR_RELEASE_VERSION_ID=2 MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0 MIDIEDITOR_PACKAGE_VERSION=1 MIDIEDITOR_BINARY=MidiEditor
 
 before_install:
     - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
@@ -24,6 +20,7 @@ before_install:
     - sudo apt-get install libsfml-dev
     - sudo apt-get install libasound2-dev
     - sudo apt-get install curl
+    - sudo apt-get install fakeroot
     
 before_script:
 
@@ -31,5 +28,6 @@ script:
    - qmake -qt=qt5 -project -v
    - qmake -qt=qt5 midieditor.pro
    - make
+   - sh packaging/unix/build_deb.sh
    - ls -la
 

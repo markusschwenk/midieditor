@@ -1,0 +1,13 @@
+
+[Desktop Entry]
+Version=0.0.1
+Encoding=UTF-8
+Name=MidiEditor
+Comment=NONE
+Exec=midieditor
+Icon=midieditor.png
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;
+Name[de_DE]=MidiEditor
+Comment[de_DE.utf8]=Midi Editor
