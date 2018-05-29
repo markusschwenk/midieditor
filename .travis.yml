@@ -9,6 +9,10 @@ os:
 
 env:
   - CONFIG=Release
+  - MIDIEDITOR_RELEASE_DATE="May 27th, 2018"
+  - MIDIEDITOR_RELEASE_VERSION_ID=2
+  - MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0
+  - MIDIEDITOR_PACKAGE_VERSION=1		# only used for linux releases 
 
 before_install:
     - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
@@ -27,4 +31,5 @@ script:
    - qmake -qt=qt5 -project -v
    - qmake -qt=qt5 midieditor.pro
    - make
+   - ls -la
 
