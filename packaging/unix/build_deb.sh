@@ -26,6 +26,7 @@ mkdir $PACKAGE_DIR/usr/share
 mkdir $PACKAGE_DIR/usr/share/applications
 mkdir $PACKAGE_DIR/usr/share/pixmaps
 mkdir $PACKAGE_DIR/usr/share/midieditor
+mkdir $PACKAGE_DIR/usr/share/midieditor/assistant
 mkdir $PACKAGE_DIR/usr/share/doc/
 mkdir $PACKAGE_DIR/usr/share/doc/midieditor
 mkdir $PACKAGE_DIR/usr/lib
@@ -52,12 +53,6 @@ cp $BASEDIR/midieditor/copyright $PACKAGE_DIR/usr/share/doc/midieditor/copyright
 # copy DEBIAN/control (fields will be replaced below)
 cp $BASEDIR/midieditor/control $PACKAGE_DIR/DEBIAN/control
 
-# permissions
-find $PACKAGE_DIR -type d -exec chmod 755 {} \;
-find $PACKAGE_DIR -type f -exec chmod 644 {} \;
-chmod +x $PACKAGE_DIR/bin/midieditor
-chmod +x $PACKAGE_DIR/usr/lib/midieditor/MidiEditor
-
 # Update fields in DEBIAN/control file and in copyright
 sed -i 's/{DATE}/'$(date +%Y-%m-%d)'/g' $PACKAGE_DIR/usr/share/doc/midieditor/copyright
 sed -i 's/{VERSION}/'$MIDIEDITOR_RELEASE_VERSION_STRING'/g' $PACKAGE_DIR/DEBIAN/control
@@ -72,5 +67,19 @@ sed -i 's/{SIZE}/'"$SIZE"'/g' $PACKAGE_DIR/DEBIAN/control
 sed -i 's/{VERSION_ID}/'$MIDIEDITOR_RELEASE_VERSION_ID'/g' $PACKAGE_DIR/usr/share/midieditor/version_info.xml
 sed -i 's/{VERSION_STRING}/'$MIDIEDITOR_RELEASE_VERSION_STRING'/g' $PACKAGE_DIR/usr/share/midieditor/version_info.xml
 sed -i 's/{VERSION_DATE}/'$(date +%Y-%m-%d)'/g' $PACKAGE_DIR/usr/share/midieditor/version_info.xml
+
+# Create manual
+cp -R midieditor-manual/. $PACKAGE_DIR/usr/share/midieditor/assistant
+cp -a packaging/manual/. $PACKAGE_DIR/usr/share/midieditor/assistant
+D=${PWD}
+cd $PACKAGE_DIR/usr/share/midieditor/assistant
+qcollectiongenerator midieditor-collection.qhcp -o midieditor-collection.qhc
+cd $D
+
+# permissions
+find $PACKAGE_DIR -type d -exec chmod 755 {} \;
+find $PACKAGE_DIR -type f -exec chmod 644 {} \;
+chmod +x $PACKAGE_DIR/bin/midieditor
+chmod +x $PACKAGE_DIR/usr/lib/midieditor/MidiEditor
 
 fakeroot dpkg-deb --build $PACKAGE_DIR

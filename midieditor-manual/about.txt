@@ -1,0 +1,5 @@
+MidiEditor - Manual
+Copyright by Markus Schwenk (kontakt@markus-schwenk.de)
+Visit my Homepage: www.markus-schwenk.de
+
+Thanks to Romain Behar for helping with the creation of this manual!
