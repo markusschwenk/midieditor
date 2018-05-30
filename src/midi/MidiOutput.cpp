@@ -163,3 +163,7 @@ int MidiOutput::standardChannel(){
 	 array.append(prog);
 	 sendCommand(array);
  }
+
+ bool MidiOutput::isConnected() {
+     return _outPort != "";
+ }

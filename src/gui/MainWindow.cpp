@@ -93,6 +93,7 @@
 
 #include "../UpdateManager.h"
 #include "UpdateDialog.h"
+#include "CompleteMidiSetupDialog.h"
 
 #include <QtCore/qmath.h>
 
@@ -576,6 +577,12 @@ void MainWindow::playStop() {
 }
 
 void MainWindow::play(){
+    if (!MidiOutput::isConnected()) {
+        CompleteMidiSetupDialog *d = new CompleteMidiSetupDialog(this);
+        d->setModal(true);
+        d->exec();
+        return;
+    }
 	if(file && !MidiInput::recording() && !MidiPlayer::isPlaying()){
 		mw_matrixWidget->timeMsChanged(file->msOfTick(file->cursorTick()), true);
 

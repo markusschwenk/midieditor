@@ -10,7 +10,6 @@ HEADERS += $$files(**.h, true)
 SOURCES += $$files(**.cpp, true)
 FORMS += 
 RESOURCES += resources.qrc
-
 message(get arch)
 message($$(OVERRIDE_ARCH))
 ARCH_FORCE = $$(OVERRIDE_ARCH)

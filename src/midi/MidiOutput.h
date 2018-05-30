@@ -44,6 +44,7 @@ class MidiOutput : public QObject {
 		static void setStandardChannel(int channel);
 		static int standardChannel();
 		static void sendProgram(int channel, int prog);
+        static bool isConnected();
 
 	private:
 		static QString _outPort;
