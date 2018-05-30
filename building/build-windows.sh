@@ -11,5 +11,3 @@ cd .build
 $MXE/usr/i686-w64-mingw32.static/qt5/bin/qmake ../../ && make
 
 cd ../../
-mkdir deb
-cp windows32_build/.build/bin/MidiEditor.exe deb/MidiEditor.exe
