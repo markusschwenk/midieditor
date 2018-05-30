@@ -29,8 +29,9 @@ before_script:
 script:
    - sh building/build-linux.sh
    - sh packaging/unix/build_deb.sh
-   - travis_wait 60 git clone https://github.com/mxe/mxe.git mxe
-   - cd mxe && make qtbase && cd ..
+   - git clone https://github.com/mxe/mxe.git mxe
+   - travis_wait 60 cd mxe && make qtbase && cd ..
+   - sh building/build-windows.sh
 
 deploy:
   provider: pages
