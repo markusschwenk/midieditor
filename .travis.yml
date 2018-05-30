@@ -1,4 +1,3 @@
-install: travis_wait 30 mvn install
 language: cpp
 sudo: required
 dist: trusty
@@ -30,7 +29,7 @@ before_script:
 script:
    - sh building/build-linux.sh
    - sh packaging/unix/build_deb.sh
-   - git clone https://github.com/mxe/mxe.git mxe
+   - travis_wait 60 git clone https://github.com/mxe/mxe.git mxe
    - cd mxe && make qtbase && cd ..
 
 deploy:
