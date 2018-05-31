@@ -22,7 +22,7 @@ before_install:
     - sudo apt-get install curl
     - sudo apt-get install fakeroot
     # For mxe.cc (see http://mxe.cc/#requirements)
-    - echo 'deb http://pkg.mxe.cc/repos/apt/debian trusty main' | sudo tee -a /etc/apt/sources.list.d/mxeapt.list
+    - echo 'deb http://pkg.mxe.cc/repos/apt/debian wheezy main' | sudo tee -a /etc/apt/sources.list.d/mxeapt.list
     - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB
     - sudo apt-get update
     - sudo apt-get install mxe-i686-w64-mingw32.static-qtbase
