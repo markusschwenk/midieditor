@@ -8,7 +8,7 @@ os:
   - linux
 
 env:
-  - CONFIG=Release MIDIEDITOR_RELEASE_VERSION_ID=2 MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0 MIDIEDITOR_PACKAGE_VERSION=1 MIDIEDITOR_BINARY=MidiEditor MXE=mxe PATH=$MXE/usr/bin:$PATH INSTALLJAMMER=installjammer/installjammer MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
+  - CONFIG=Release MIDIEDITOR_RELEASE_VERSION_ID=2 MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0 MIDIEDITOR_PACKAGE_VERSION=1 MIDIEDITOR_BINARY=MidiEditor MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH INSTALLJAMMER=installjammer/installjammer MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
 
 before_install:
     - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
@@ -22,22 +22,25 @@ before_install:
     - sudo apt-get install curl
     - sudo apt-get install fakeroot
     # For mxe.cc (see http://mxe.cc/#requirements)
-    - sudo apt-get install autoconf automake autopoint bash bison bzip2 flex g++ g++-multilib gettext git gperf intltool libc6-dev-i386 libgdk-pixbuf2.0-dev libltdl-dev libssl-dev libtool libxml-parser-perl make openssl p7zip-full patch perl pkg-config python ruby scons sed unzip wget xz-utils
+    - echo 'deb http://pkg.mxe.cc/repos/apt/debian trusty main' | sudo tee -a /etc/apt/sources.list.d/mxeapt.list
+    - apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB
+    - sudo apt-get update
+    - sudo apt-get install mxe-i686-w64-mingw32.static-qtbase
     
 before_script:
 
 script:
    - sh building/build-linux.sh
    - sh packaging/unix/build_deb.sh
-   - git clone https://github.com/mxe/mxe.git mxe
-   - cd mxe 
-   - travis_wait 90 make qtbase 
-   - cd ..
+   #- git clone https://github.com/mxe/mxe.git mxe
+   #- cd mxe 
+   #- travis_wait 90 make qtbase 
+   #- cd ..
+   - sh building/build-windows.sh
    - git clone https://github.com/damoncourtney/installjammer.git installjammer
    - cd installjammer
    - git tag -l
    - git checkout tags/v1.2.14
-   - sh building/build-windows.sh
    - sh packaging/windows/create_windows_setup.sh
 
 deploy:
