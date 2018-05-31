@@ -39,11 +39,10 @@ class MidiFile;
  */
 class ProtocolEntry {
 
-	public:
+public:
+    virtual ~ProtocolEntry();
 
-		virtual ~ProtocolEntry();
-
-		/**
+    /**
 		 * \brief copies the ProtocolEntry.
 		 *
 		 * copy() should save the ProtocolEntrys state so that it will be able
@@ -52,26 +51,26 @@ class ProtocolEntry {
 		 * no need to save Layoutinformation because the program will relayout
 		 * after every call of the protocol.
 		 */
-		virtual ProtocolEntry *copy();
+    virtual ProtocolEntry* copy();
 
-		/**
+    /**
 		 * \brief reloads the state of entry.
 		 *
 		 * This Method has to reload the Objects old state, written to entry in
 		 * copy().
 		 */
-		virtual void reloadState(ProtocolEntry *entry);
-		
-		/**
+    virtual void reloadState(ProtocolEntry* entry);
+
+    /**
 		 * \brief writes the old object oldObj and the new object newObj to the
 		 * protocol.
 		 */
-		virtual void protocol(ProtocolEntry *oldObj, ProtocolEntry *newObj);
+    virtual void protocol(ProtocolEntry* oldObj, ProtocolEntry* newObj);
 
-		/**
+    /**
 		 * \brief return the entries file.
 		 */
-		virtual MidiFile *file();
+    virtual MidiFile* file();
 };
 
 #endif

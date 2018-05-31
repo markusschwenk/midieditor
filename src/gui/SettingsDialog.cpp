@@ -29,8 +29,8 @@
 #include "MidiSettingsWidget.h"
 #include "SettingsWidget.h"
 #ifdef ENABLE_REMOTE
-#include "RemoteSettingsWidget.h"
 #include "../remote/RemoteServer.h"
+#include "RemoteSettingsWidget.h"
 #endif
 #include "UpdateSettingsWidget.h"
 

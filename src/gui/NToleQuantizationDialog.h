@@ -6,18 +6,17 @@ class QComboBox;
 
 class NToleQuantizationDialog : public QDialog {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
+public:
+    NToleQuantizationDialog(QWidget* parent = 0);
+    static int ntoleNNum, ntoleBeatNum, replaceNumNum, replaceDenomNum;
 
-		NToleQuantizationDialog(QWidget *parent = 0);
-		static int ntoleNNum, ntoleBeatNum, replaceNumNum, replaceDenomNum;
+public slots:
+    void takeResults();
 
-	public slots:
-		void takeResults();
-
-	private:
-		QComboBox *ntoleN, *ntoleBeat, *replaceNum, *replaceDenom;
+private:
+    QComboBox *ntoleN, *ntoleBeat, *replaceNum, *replaceDenom;
 };
 
 #endif

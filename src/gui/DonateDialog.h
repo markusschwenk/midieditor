@@ -25,10 +25,10 @@
 
 class DonateDialog : public QDialog {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		DonateDialog(QWidget *parent=0);
+public:
+    DonateDialog(QWidget* parent = 0);
 };
 
 #endif

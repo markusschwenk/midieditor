@@ -26,19 +26,19 @@ class QTimer;
 
 class SingleNotePlayer : public QObject {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		SingleNotePlayer();
-		void play(NoteOnEvent *event);
+public:
+    SingleNotePlayer();
+    void play(NoteOnEvent* event);
 
-	public slots:
-		void timeout();
+public slots:
+    void timeout();
 
-	private:
-		QTimer *timer;
-		QByteArray offMessage;
-		bool playing;
+private:
+    QTimer* timer;
+    QByteArray offMessage;
+    bool playing;
 };
 
 #endif

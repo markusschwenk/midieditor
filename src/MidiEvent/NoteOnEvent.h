@@ -23,29 +23,29 @@
 
 class OffEvent;
 
-class NoteOnEvent : public OnEvent{
+class NoteOnEvent : public OnEvent {
 
-	public:
-		NoteOnEvent(int note, int velocity, int ch, MidiTrack *track);
-		NoteOnEvent(NoteOnEvent &other);
+public:
+    NoteOnEvent(int note, int velocity, int ch, MidiTrack* track);
+    NoteOnEvent(NoteOnEvent& other);
 
-		int note();
-		int velocity();
-		int line();
+    int note();
+    int velocity();
+    int line();
 
-		void setNote(int n);
-		void setVelocity(int v);
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
-		QString toMessage();
-		QString offEventMessage();
-		QByteArray save();
-		QByteArray saveOffEvent();
+    void setNote(int n);
+    void setVelocity(int v);
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
+    QString toMessage();
+    QString offEventMessage();
+    QByteArray save();
+    QByteArray saveOffEvent();
 
-		QString typeString();
+    QString typeString();
 
-	protected:
-		int _note, _velocity;
+protected:
+    int _note, _velocity;
 };
 
 #endif

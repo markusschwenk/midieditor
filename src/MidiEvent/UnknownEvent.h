@@ -22,25 +22,24 @@
 #include "MidiEvent.h"
 #include <QByteArray>
 
-class UnknownEvent : public MidiEvent{
+class UnknownEvent : public MidiEvent {
 
-	public:
-		UnknownEvent(int channel, int type, QByteArray data, MidiTrack *track);
-		UnknownEvent(UnknownEvent &other);
-		QByteArray data();
-		int line();
-		QByteArray save();
-		int type();
-		void setType(int type);
-		void setData(QByteArray d);
+public:
+    UnknownEvent(int channel, int type, QByteArray data, MidiTrack* track);
+    UnknownEvent(UnknownEvent& other);
+    QByteArray data();
+    int line();
+    QByteArray save();
+    int type();
+    void setType(int type);
+    void setData(QByteArray d);
 
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
 
-	private:
-		QByteArray _data;
-		int _type;
-
+private:
+    QByteArray _data;
+    int _type;
 };
 
 #endif

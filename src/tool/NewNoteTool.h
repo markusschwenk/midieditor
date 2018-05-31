@@ -23,28 +23,29 @@
 
 class NewNoteTool : public EventTool {
 
-	public:
-		NewNoteTool();
-		NewNoteTool(NewNoteTool &other);
+public:
+    NewNoteTool();
+    NewNoteTool(NewNoteTool& other);
 
-		ProtocolEntry *copy();
-		void reloadState(ProtocolEntry *entry);
+    ProtocolEntry* copy();
+    void reloadState(ProtocolEntry* entry);
 
-		void draw(QPainter *painter);
-		bool press(bool leftClick);
-		bool release();
-		bool move(int mouseX, int mouseY);
-		bool releaseOnly();
+    void draw(QPainter* painter);
+    bool press(bool leftClick);
+    bool release();
+    bool move(int mouseX, int mouseY);
+    bool releaseOnly();
 
-		static int editTrack();
-		static int editChannel();
-		static void setEditTrack(int i);
-		static void setEditChannel(int i);
-	private:
-		bool inDrag;
-		int line;
-		int xPos;
-		static int _channel, _track;
+    static int editTrack();
+    static int editChannel();
+    static void setEditTrack(int i);
+    static void setEditChannel(int i);
+
+private:
+    bool inDrag;
+    int line;
+    int xPos;
+    static int _channel, _track;
 };
 
 #endif

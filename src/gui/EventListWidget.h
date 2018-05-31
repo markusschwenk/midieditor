@@ -21,8 +21,8 @@
 
 class EventListWidget {
 public:
-	EventListWidget();
-	virtual ~EventListWidget();
+    EventListWidget();
+    virtual ~EventListWidget();
 };
 
 #endif /* EVENTLISTWIDGET_H_ */

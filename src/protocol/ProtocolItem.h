@@ -30,15 +30,15 @@ class ProtocolEntry;
  * The old saves the state which will be reloaded by the new Object
  * on calling release().
  */
-class ProtocolItem  {
+class ProtocolItem {
 
-	public:
-		/**
+public:
+    /**
 		 * \brief Creates a new ProtocolItem.
 		 */
-		ProtocolItem(ProtocolEntry *oldObj, ProtocolEntry *newObj);
+    ProtocolItem(ProtocolEntry* oldObj, ProtocolEntry* newObj);
 
-		/**
+    /**
 		 * \brief reloads the state of oldObj on newObj.
 		 *
 		 * Will call newObj.reloadState(newObj) and return a new ProtocolItem.
@@ -46,12 +46,12 @@ class ProtocolItem  {
 		 * information needed to load the state of the new Object to the old
 		 * Object.
 		 */
-		ProtocolItem* release();
-		
-	private:
-		/**
+    ProtocolItem* release();
+
+private:
+    /**
 		 * \brief Both states of the Object.
 		 */
-		ProtocolEntry *_oldObject, *_newObject;
+    ProtocolEntry *_oldObject, *_newObject;
 };
 #endif

@@ -28,54 +28,53 @@ class TextEvent;
 class MidiFile;
 class QColor;
 
-class MidiTrack : public QObject, public ProtocolEntry{
+class MidiTrack : public QObject, public ProtocolEntry {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
+public:
+    MidiTrack(MidiFile* file);
+    MidiTrack(MidiTrack& other);
+    virtual ~MidiTrack();
 
-		MidiTrack(MidiFile *file);
-		MidiTrack(MidiTrack &other);
-		virtual ~MidiTrack();
+    QString name();
+    void setName(QString name);
 
-		QString name();
-		void setName(QString name);
+    int number();
+    void setNumber(int number);
 
-		int number();
-		void setNumber(int number);
+    void setNameEvent(TextEvent* nameEvent);
+    TextEvent* nameEvent();
 
-		void setNameEvent(TextEvent *nameEvent);
-		TextEvent *nameEvent();
+    MidiFile* file();
 
-		MidiFile *file();
+    void assignChannel(int ch);
+    int assignedChannel();
 
-		void assignChannel(int ch);
-		int assignedChannel();
+    void setHidden(bool hidden);
+    bool hidden();
 
-		void setHidden(bool hidden);
-		bool hidden();
+    void setMuted(bool muted);
+    bool muted();
 
-		void setMuted(bool muted);
-		bool muted();
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
 
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
+    QColor* color();
 
-		QColor *color();
+    MidiTrack* copyToFile(MidiFile* file);
 
-		MidiTrack *copyToFile(MidiFile *file);
+signals:
+    void trackChanged();
 
-	signals:
-		void trackChanged();
+private:
+    int _number;
+    TextEvent* _nameEvent;
+    MidiFile* _file;
+    bool _hidden, _muted;
+    QColor* _color;
 
-	private:
-		int _number;
-		TextEvent *_nameEvent;
-		MidiFile *_file;
-		bool _hidden, _muted;
-		QColor *_color;
-
-		int _assignedChannel;
+    int _assignedChannel;
 };
 
 #endif

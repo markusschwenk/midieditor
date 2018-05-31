@@ -16,31 +16,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #ifndef TRANSPOSEDIALOG_H_
 #define TRANSPOSEDIALOG_H_
 
 #include <QDialog>
 #include <QList>
-#include <QSpinBox>
 #include <QRadioButton>
+#include <QSpinBox>
 
 class NoteOnEvent;
 class MidiFile;
 
 class TransposeDialog : public QDialog {
 
-	public:
-		TransposeDialog(QList<NoteOnEvent*> toTranspose, MidiFile *file, QWidget *parent=0);
+public:
+    TransposeDialog(QList<NoteOnEvent*> toTranspose, MidiFile* file, QWidget* parent = 0);
 
-	public slots:
-		void accept();
+public slots:
+    void accept();
 
-	private:
-		QList<NoteOnEvent*> _toTranspose;
-		QSpinBox *_valueBox;
-		QRadioButton *_up, *_down;
-		MidiFile *_file;
+private:
+    QList<NoteOnEvent*> _toTranspose;
+    QSpinBox* _valueBox;
+    QRadioButton *_up, *_down;
+    MidiFile* _file;
 };
 
 #endif

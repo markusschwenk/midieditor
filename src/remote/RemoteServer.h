@@ -16,16 +16,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #ifndef REMOTESERVER_H_
 #define REMOTESERVER_H_
 
 #include <QObject>
 
-#include <QtNetwork/QtNetwork>
 #include <QObject>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QtNetwork>
 
 #include <QtNetwork/QUdpSocket>
 
@@ -33,70 +32,70 @@ class MidiFile;
 
 class RemoteServer : public QObject {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		RemoteServer(QObject * parent = 0);
+public:
+    RemoteServer(QObject* parent = 0);
 
-		QString clientIp();
-		int clientPort();
+    QString clientIp();
+    int clientPort();
 
-		void setPort(int port);
-		void setIp(QString ip);
+    void setPort(int port);
+    void setIp(QString ip);
 
-		bool isConnected();
+    bool isConnected();
 
-		void stopServer();
-		void tryConnect();
-		QString clientName();
+    void stopServer();
+    void tryConnect();
+    QString clientName();
 
-	public slots:
+public slots:
 
-		void receive(QString message);
-		void setTime(int ms);
-		void setTonality(int tonality);
-		void setMeter(int num, int denum);
+    void receive(QString message);
+    void setTime(int ms);
+    void setTonality(int tonality);
+    void setMeter(int num, int denum);
 
-		void play();
-		void record();
-		void stop();
-		void pause();
+    void play();
+    void record();
+    void stop();
+    void pause();
 
-		void setFile(MidiFile *file);
-		void setMaxTime(int ms);
+    void setFile(MidiFile* file);
+    void setMaxTime(int ms);
 
-		void setMeasure(int measure);
-		void setPositionInMeasure(double pos);
+    void setMeasure(int measure);
+    void setPositionInMeasure(double pos);
 
-		void cursorPositionChanged();
+    void cursorPositionChanged();
 
-		void readUDP();
-		void sendMessage(QString message);
+    void readUDP();
+    void sendMessage(QString message);
 
-	signals:
-		void connected();
+signals:
+    void connected();
 
-		void playRequest();
-		void pauseRequest();
-		void stopRequest(bool autoConfirmRecord, bool addEvents);
-		void forwardRequest();
-		void backRequest();
-		void recordRequest();
-		void setTimeRequest(int timeMs);
-		void disconnected();
+    void playRequest();
+    void pauseRequest();
+    void stopRequest(bool autoConfirmRecord, bool addEvents);
+    void forwardRequest();
+    void backRequest();
+    void recordRequest();
+    void setTimeRequest(int timeMs);
+    void disconnected();
 
-	private:
-		QTcpServer server;
-		QTcpSocket* client;
-		int _timeSentLast;
-		MidiFile *_file;
+private:
+    QTcpServer server;
+    QTcpSocket* client;
+    int _timeSentLast;
+    MidiFile* _file;
 
-		QUdpSocket udpSocket;
+    QUdpSocket udpSocket;
 
-		QString _clientIp;
-		int _port;
-		QString _clientname;
-		bool _connected;
+    QString _clientIp;
+    int _port;
+    QString _clientname;
+    bool _connected;
 };
 
 #endif

@@ -22,9 +22,9 @@
 #include "../protocol/ProtocolEntry.h"
 
 #include <QDataStream>
+#include <QList>
 #include <QMultiMap>
 #include <QObject>
-#include <QList>
 
 class MidiEvent;
 class TimeSignatureEvent;
@@ -35,92 +35,92 @@ class MidiTrack;
 
 class MidiFile : public QObject, public ProtocolEntry {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		MidiFile(QString path, bool *ok, QStringList *log = 0);
-		MidiFile();
-		// needed to protocol fileLength
-		MidiFile(int maxTime, Protocol *p);
-		bool save(QString path);
-		QByteArray writeDeltaTime(int time);
-		int maxTime();
-		int endTick();
-		int timeMS(int midiTime);
-		int measure(int midiTime, int &midiTimeInMeasure);
-		QMap<int, MidiEvent*> *tempoEvents();
-		QMap<int, MidiEvent*> *timeSignatureEvents();
-		void calcMaxTime();
-		int tick(int ms);
-		int tick(int startms, int endms, QList<MidiEvent*> **events, int *endTick, int *msOfFirstEvent);
-		int measure(int startTick, int endTick, QList<TimeSignatureEvent*> **eventList, int *tickInMeasure = 0);
-		int msOfTick(int tick, QList<MidiEvent*> *events = 0, int msOfFirstEventInList = 0);
+public:
+    MidiFile(QString path, bool* ok, QStringList* log = 0);
+    MidiFile();
+    // needed to protocol fileLength
+    MidiFile(int maxTime, Protocol* p);
+    bool save(QString path);
+    QByteArray writeDeltaTime(int time);
+    int maxTime();
+    int endTick();
+    int timeMS(int midiTime);
+    int measure(int midiTime, int& midiTimeInMeasure);
+    QMap<int, MidiEvent*>* tempoEvents();
+    QMap<int, MidiEvent*>* timeSignatureEvents();
+    void calcMaxTime();
+    int tick(int ms);
+    int tick(int startms, int endms, QList<MidiEvent*>** events, int* endTick, int* msOfFirstEvent);
+    int measure(int startTick, int endTick, QList<TimeSignatureEvent*>** eventList, int* tickInMeasure = 0);
+    int msOfTick(int tick, QList<MidiEvent*>* events = 0, int msOfFirstEventInList = 0);
 
-		QList<MidiEvent*> *eventsBetween(int start, int end);
-		int ticksPerQuarter();
-		QMultiMap<int, MidiEvent*> *channelEvents(int channel);
+    QList<MidiEvent*>* eventsBetween(int start, int end);
+    int ticksPerQuarter();
+    QMultiMap<int, MidiEvent*>* channelEvents(int channel);
 
-		Protocol *protocol();
-		MidiChannel *channel(int i);
-		void preparePlayerData(int tickFrom);
-		QMultiMap<int, MidiEvent*> *playerData();
+    Protocol* protocol();
+    MidiChannel* channel(int i);
+    void preparePlayerData(int tickFrom);
+    QMultiMap<int, MidiEvent*>* playerData();
 
-		static QString instrumentName(int prog);
-		static QString controlChangeName(int control);
-		int cursorTick();
-		int pauseTick();
-		void setCursorTick(int tick);
-		void setPauseTick(int tick);
-		QString path();
-		bool saved();
-		void setSaved(bool b);
-		void setPath(QString path);
-		bool channelMuted(int ch);
-		int numTracks();
-		QList<MidiTrack*> *tracks();
-		void addTrack();
-		void setMaxLengthMs(int ms);
+    static QString instrumentName(int prog);
+    static QString controlChangeName(int control);
+    int cursorTick();
+    int pauseTick();
+    void setCursorTick(int tick);
+    void setPauseTick(int tick);
+    QString path();
+    bool saved();
+    void setSaved(bool b);
+    void setPath(QString path);
+    bool channelMuted(int ch);
+    int numTracks();
+    QList<MidiTrack*>* tracks();
+    void addTrack();
+    void setMaxLengthMs(int ms);
 
-		ProtocolEntry *copy();
-		void reloadState(ProtocolEntry *entry);
-		MidiFile *file();
-		bool removeTrack(MidiTrack *track);
-		MidiTrack *track(int number);
+    ProtocolEntry* copy();
+    void reloadState(ProtocolEntry* entry);
+    MidiFile* file();
+    bool removeTrack(MidiTrack* track);
+    MidiTrack* track(int number);
 
-		int tonalityAt(int tick);
-		void meterAt(int tick, int *num, int *denum);
+    int tonalityAt(int tick);
+    void meterAt(int tick, int* num, int* denum);
 
-		static int variableLengthvalue(QDataStream *content);
-		static QByteArray writeVariableLengthValue(int value);
-		static int defaultTimePerQuarter;
+    static int variableLengthvalue(QDataStream* content);
+    static QByteArray writeVariableLengthValue(int value);
+    static int defaultTimePerQuarter;
 
-		void registerCopiedTrack(MidiTrack *source, MidiTrack *destination, MidiFile *fileFrom);
-		MidiTrack *getPasteTrack(MidiTrack *source, MidiFile *fileFrom);
+    void registerCopiedTrack(MidiTrack* source, MidiTrack* destination, MidiFile* fileFrom);
+    MidiTrack* getPasteTrack(MidiTrack* source, MidiFile* fileFrom);
 
-		QList<int> quantization(int fractionSize);
+    QList<int> quantization(int fractionSize);
 
-	signals:
-		void cursorPositionChanged();
-		void recalcWidgetSize();
-		void trackChanged();
+signals:
+    void cursorPositionChanged();
+    void recalcWidgetSize();
+    void trackChanged();
 
-	private:
-		bool readMidiFile(QDataStream *content, QStringList *log);
-		bool readTrack(QDataStream *content, int num, QStringList *log);
-		int deltaTime(QDataStream *content);
+private:
+    bool readMidiFile(QDataStream* content, QStringList* log);
+    bool readTrack(QDataStream* content, int num, QStringList* log);
+    int deltaTime(QDataStream* content);
 
-		int timePerQuarter;
-		MidiChannel *channels[19];
+    int timePerQuarter;
+    MidiChannel* channels[19];
 
-		QString _path;
-		int midiTicks, maxTimeMS, _cursorTick, _pauseTick, _midiFormat;
-		Protocol *prot;
-		QMultiMap<int, MidiEvent*> *playerMap;
-		bool _saved;
-		QList<MidiTrack*> *_tracks;
-		QMap<MidiFile*, QMap<MidiTrack*, MidiTrack*> > pasteTracks;
+    QString _path;
+    int midiTicks, maxTimeMS, _cursorTick, _pauseTick, _midiFormat;
+    Protocol* prot;
+    QMultiMap<int, MidiEvent*>* playerMap;
+    bool _saved;
+    QList<MidiTrack*>* _tracks;
+    QMap<MidiFile*, QMap<MidiTrack*, MidiTrack*> > pasteTracks;
 
-		void printLog(QStringList *log);
+    void printLog(QStringList* log);
 };
 
 #endif

@@ -24,18 +24,18 @@
 
 class Tool;
 
-class ToolButton  : public QAction {
+class ToolButton : public QAction {
 
-	Q_OBJECT
-	
-	public:
-		ToolButton(Tool *tool, QKeySequence sequence = QKeySequence(), QWidget *parent = 0);
-	
-	public slots:
-		void buttonClick();
-		void releaseButton();
+    Q_OBJECT
 
-	private:
-		Tool *button_tool;
+public:
+    ToolButton(Tool* tool, QKeySequence sequence = QKeySequence(), QWidget* parent = 0);
+
+public slots:
+    void buttonClick();
+    void releaseButton();
+
+private:
+    Tool* button_tool;
 };
 #endif

@@ -27,23 +27,23 @@ class ProtocolStep;
 
 class ProtocolWidget : public QListWidget {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		ProtocolWidget(QWidget *parent = 0);
-		void setFile(MidiFile *f);
+public:
+    ProtocolWidget(QWidget* parent = 0);
+    void setFile(MidiFile* f);
 
-	public slots:
-		void protocolChanged();
-		void update();
-		void stepClicked(QListWidgetItem *item);
+public slots:
+    void protocolChanged();
+    void update();
+    void stepClicked(QListWidgetItem* item);
 
-	private:
-		MidiFile *file;
-		bool protocolHasChanged, nextChangeFromList;
+private:
+    MidiFile* file;
+    bool protocolHasChanged, nextChangeFromList;
 
-	//protected:
-	//	void paintEvent(QPaintEvent *event);
+    //protected:
+    //	void paintEvent(QPaintEvent *event);
 };
 
 #endif

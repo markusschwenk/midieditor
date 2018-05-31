@@ -24,40 +24,39 @@
 
 class TextEvent : public MidiEvent {
 
-	public:
+public:
+    TextEvent(int channel, MidiTrack* track);
+    TextEvent(TextEvent& other);
 
-		TextEvent(int channel, MidiTrack *track);
-		TextEvent(TextEvent &other);
+    QString text();
+    void setText(QString text);
 
-		QString text();
-		void setText(QString text);
+    int type();
+    void setType(int type);
 
-		int type();
-		void setType(int type);
+    int line();
 
-		int line();
+    QByteArray save();
 
-		QByteArray save();
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
 
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
+    enum {
+        TEXT = 0x01,
+        COPYRIGHT,
+        TRACKNAME,
+        INSTRUMENT_NAME,
+        LYRIK,
+        MARKER,
+        COMMENT
+    };
 
-		enum {
-			TEXT = 0x01,
-			COPYRIGHT,
-			TRACKNAME,
-			INSTRUMENT_NAME,
-			LYRIK,
-			MARKER,
-			COMMENT
-		};
+    QString typeString();
+    static QString textTypeString(int type);
 
-		QString typeString();
-		static QString textTypeString(int type);
-
-	private:
-		int _type;
-		QString _text;
+private:
+    int _type;
+    QString _text;
 };
 
 #endif

@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #ifndef INSTRUMENTCHOOSER_H_
 #define INSTRUMENTCHOOSER_H_
 
@@ -28,17 +27,17 @@ class QCheckBox;
 
 class InstrumentChooser : public QDialog {
 
-	public:
-		InstrumentChooser(MidiFile *f, int channel, QWidget *parent=0);
+public:
+    InstrumentChooser(MidiFile* f, int channel, QWidget* parent = 0);
 
-	public slots:
-		void accept();
+public slots:
+    void accept();
 
-	private:
-		MidiFile *_file;
-		QComboBox *_box;
-		QCheckBox *_removeOthers;
-		int _channel;
+private:
+    MidiFile* _file;
+    QComboBox* _box;
+    QCheckBox* _removeOthers;
+    int _channel;
 };
 
 #endif

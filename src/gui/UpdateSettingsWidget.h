@@ -8,17 +8,17 @@ class QCheckBox;
 
 class UpdateSettingsWidget : public SettingsWidget {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		UpdateSettingsWidget(QSettings *settings, QWidget *parent = 0);
+public:
+    UpdateSettingsWidget(QSettings* settings, QWidget* parent = 0);
 
-	public slots:
-		void enableAutoUpdates(bool enable);
+public slots:
+    void enableAutoUpdates(bool enable);
 
-	private:
-		QCheckBox *_auto;
-		QSettings *_settings;
+private:
+    QCheckBox* _auto;
+    QSettings* _settings;
 };
 
 #endif

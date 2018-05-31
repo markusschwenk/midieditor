@@ -21,33 +21,33 @@
 
 #include "MidiEvent.h"
 
+#include <QLabel>
 #include <QSpinBox>
 #include <QWidget>
-#include <QLabel>
 
 class KeyPressureEvent : public MidiEvent {
 
-	public:
-		KeyPressureEvent(int channel, int value, int note, MidiTrack *track);
-		KeyPressureEvent(KeyPressureEvent &other);
+public:
+    KeyPressureEvent(int channel, int value, int note, MidiTrack* track);
+    KeyPressureEvent(KeyPressureEvent& other);
 
-		virtual int line();
+    virtual int line();
 
-		QString toMessage();
-		QByteArray save();
+    QString toMessage();
+    QByteArray save();
 
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
 
-		QString typeString();
+    QString typeString();
 
-		int value();
-		int note();
-		void setValue(int v);
-		void setNote(int n);
+    int value();
+    int note();
+    void setValue(int v);
+    void setNote(int n);
 
-	private:
-		int _value, _note;
+private:
+    int _value, _note;
 };
 
 #endif

@@ -31,43 +31,40 @@ class QSettings;
 
 class AdditionalMidiSettingsWidget : public SettingsWidget {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		AdditionalMidiSettingsWidget(QSettings *settings, QWidget *parent = 0);
-		bool accept();
+public:
+    AdditionalMidiSettingsWidget(QSettings* settings, QWidget* parent = 0);
+    bool accept();
 
-	public slots:
-		void manualModeToggled(bool enable);
-		void setDefaultTimePerQuarter(int value);
+public slots:
+    void manualModeToggled(bool enable);
+    void setDefaultTimePerQuarter(int value);
 
-	private:
-		QCheckBox *_alternativePlayerModeBox;
-		QSettings *_settings;
-		QLineEdit *startCmd;
-		QSpinBox *_tpqBox;
-
+private:
+    QCheckBox* _alternativePlayerModeBox;
+    QSettings* _settings;
+    QLineEdit* startCmd;
+    QSpinBox* _tpqBox;
 };
 
 class MidiSettingsWidget : public SettingsWidget {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
+public:
+    MidiSettingsWidget(QWidget* parent = 0);
 
-		MidiSettingsWidget(QWidget *parent = 0);
+public slots:
 
-	public slots:
+    void reloadInputPorts();
+    void reloadOutputPorts();
+    void inputChanged(QListWidgetItem* item);
+    void outputChanged(QListWidgetItem* item);
 
-		void reloadInputPorts();
-		void reloadOutputPorts();
-		void inputChanged(QListWidgetItem *item);
-		void outputChanged(QListWidgetItem *item);
-
-	private:
-		QStringList *_inputPorts, *_outputPorts;
-		QListWidget *_inList, *_outList;
-
+private:
+    QStringList *_inputPorts, *_outputPorts;
+    QListWidget *_inList, *_outList;
 };
 
 #endif

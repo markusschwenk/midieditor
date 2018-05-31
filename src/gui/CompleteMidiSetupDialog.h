@@ -27,8 +27,8 @@ class CompleteMidiSetupDialog : public QDialog {
 
     Q_OBJECT
 
-    public:
-        CompleteMidiSetupDialog(QWidget *parent, bool alertAboutInput, bool alertAboutOutput);
+public:
+    CompleteMidiSetupDialog(QWidget* parent, bool alertAboutInput, bool alertAboutOutput);
 };
 
 #endif

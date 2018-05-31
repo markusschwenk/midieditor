@@ -19,29 +19,29 @@
 #ifndef CLICKBUTTON_H
 #define CLICKBUTTON_H
 
-#include <QPushButton>
 #include <QFont>
-#include <QPainter>
 #include <QImage>
+#include <QPainter>
+#include <QPushButton>
 
-class ClickButton  : public QPushButton {
+class ClickButton : public QPushButton {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		ClickButton(QString imageName, QWidget *parent = 0);
-		void setImageName(QString imageName);
+public:
+    ClickButton(QString imageName, QWidget* parent = 0);
+    void setImageName(QString imageName);
 
-	public slots:
-		void buttonClick();
+public slots:
+    void buttonClick();
 
-	protected:
-		void paintEvent(QPaintEvent *event);
-		void enterEvent(QEvent *event);
-		void leaveEvent(QEvent *event);
+protected:
+    void paintEvent(QPaintEvent* event);
+    void enterEvent(QEvent* event);
+    void leaveEvent(QEvent* event);
 
-	private:
-		bool button_mouseInButton, button_mouseClicked;
-		QImage *image;
+private:
+    bool button_mouseInButton, button_mouseClicked;
+    QImage* image;
 };
 #endif

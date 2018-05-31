@@ -23,25 +23,26 @@
 
 class PitchBendEvent : public MidiEvent {
 
-	public:
-		PitchBendEvent(int channel, int val, MidiTrack *track);
-		PitchBendEvent(PitchBendEvent &other);
+public:
+    PitchBendEvent(int channel, int val, MidiTrack* track);
+    PitchBendEvent(PitchBendEvent& other);
 
-		virtual int line();
-		int value();
-		void setValue(int v);
+    virtual int line();
+    int value();
+    void setValue(int v);
 
-		QString toMessage();
-		QByteArray save();
+    QString toMessage();
+    QByteArray save();
 
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
 
-		QString typeString();
+    QString typeString();
 
-		virtual bool isOnEvent();
-	private:
-		int _value;
+    virtual bool isOnEvent();
+
+private:
+    int _value;
 };
 
 #endif

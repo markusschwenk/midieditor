@@ -19,9 +19,9 @@
 #ifndef PLAYERTHREAD_H_
 #define PLAYERTHREAD_H_
 
-#include <QThread>
-#include <QObject>
 #include <QMultiMap>
+#include <QObject>
+#include <QThread>
 #include <QTimer>
 
 class MidiFile;
@@ -30,39 +30,39 @@ class QTime;
 
 class PlayerThread : public QThread {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		PlayerThread();
-		void setFile(MidiFile *f);
-		void stop();
-		void run();
-		void setInterval(int i);
-		int timeMs();
+public:
+    PlayerThread();
+    void setFile(MidiFile* f);
+    void stop();
+    void run();
+    void setInterval(int i);
+    int timeMs();
 
-	public slots:
-		void timeout();
+public slots:
+    void timeout();
 
-	signals:
-		void timeMsChanged(int ms);
-		void playerStopped();
-		void playerStarted();
+signals:
+    void timeMsChanged(int ms);
+    void playerStopped();
+    void playerStarted();
 
-		void tonalityChanged(int tonality);
-		void measureChanged(int measure, int tickInMeasure);
-		void meterChanged(int num, int denum);
+    void tonalityChanged(int tonality);
+    void measureChanged(int measure, int tickInMeasure);
+    void meterChanged(int num, int denum);
 
-		void measureUpdate(int measure, int tickInMeasure);
+    void measureUpdate(int measure, int tickInMeasure);
 
-	private:
-		MidiFile *file;
-		QMultiMap<int, MidiEvent*> *events;
-		int interval, position, timeoutSinceLastSignal;
-		volatile bool stopped;
-		QTimer *timer;
-		QTime *time;
+private:
+    MidiFile* file;
+    QMultiMap<int, MidiEvent*>* events;
+    int interval, position, timeoutSinceLastSignal;
+    volatile bool stopped;
+    QTimer* timer;
+    QTime* time;
 
-		int measure, posInMeasure;
+    int measure, posInMeasure;
 };
 
 #endif

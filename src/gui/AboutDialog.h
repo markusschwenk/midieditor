@@ -20,20 +20,20 @@
 #define ABOUTDIALOG_H_
 
 #include <QDialog>
-#include <QObject>
-#include <QWidget>
 #include <QList>
+#include <QObject>
 #include <QString>
+#include <QWidget>
 
 class AboutDialog : public QDialog {
 
-	Q_OBJECT
+    Q_OBJECT
 
-	public:
-		AboutDialog(QWidget *parent=0);
+public:
+    AboutDialog(QWidget* parent = 0);
 
-    private:
-        QList<QString>* loadContributors();
+private:
+    QList<QString>* loadContributors();
 };
 
 #endif

@@ -21,32 +21,32 @@
 
 #include "MidiEvent.h"
 
-class KeySignatureEvent  : public MidiEvent {
+class KeySignatureEvent : public MidiEvent {
 
-	public:
-		KeySignatureEvent(int channel, int tonality, bool minor, MidiTrack *track);
-		KeySignatureEvent(KeySignatureEvent &other);
+public:
+    KeySignatureEvent(int channel, int tonality, bool minor, MidiTrack* track);
+    KeySignatureEvent(KeySignatureEvent& other);
 
-		virtual int line();
+    virtual int line();
 
-		QString toMessage();
-		QByteArray save();
+    QString toMessage();
+    QByteArray save();
 
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
 
-		QString typeString();
+    QString typeString();
 
-		int tonality();
-		bool minor();
-		void setTonality(int t);
-		void setMinor(bool minor);
+    int tonality();
+    bool minor();
+    void setTonality(int t);
+    void setMinor(bool minor);
 
-		static QString toString(int tonality, bool minor);
+    static QString toString(int tonality, bool minor);
 
-	private:
-		int _tonality;
-		bool _minor;
+private:
+    int _tonality;
+    bool _minor;
 };
 
 #endif

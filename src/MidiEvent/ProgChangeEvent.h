@@ -23,25 +23,25 @@
 
 class ProgChangeEvent : public MidiEvent {
 
-	public:
-		ProgChangeEvent(int channel, int prog, MidiTrack *track);
-		ProgChangeEvent(ProgChangeEvent &other);
+public:
+    ProgChangeEvent(int channel, int prog, MidiTrack* track);
+    ProgChangeEvent(ProgChangeEvent& other);
 
-		virtual int line();
+    virtual int line();
 
-		QString toMessage();
-		QByteArray save();
+    QString toMessage();
+    QByteArray save();
 
-		virtual ProtocolEntry *copy();
-		virtual void reloadState(ProtocolEntry *entry);
+    virtual ProtocolEntry* copy();
+    virtual void reloadState(ProtocolEntry* entry);
 
-		QString typeString();
+    QString typeString();
 
-		int program();
-		void setProgram(int prog);
+    int program();
+    void setProgram(int prog);
 
-	private:
-		int _program;
+private:
+    int _program;
 };
 
 #endif

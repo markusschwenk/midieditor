@@ -26,24 +26,25 @@ class SelectTool;
 class SizeChangeTool;
 class NewNoteTool;
 
-class StandardTool :public EventTool {
+class StandardTool : public EventTool {
 
-	public:
-		StandardTool();
-		StandardTool(StandardTool &other);
+public:
+    StandardTool();
+    StandardTool(StandardTool& other);
 
-		void draw(QPainter *painter);
-		bool press(bool leftClick);
-		bool move(int mouseX, int mouseY);
-		bool release();
+    void draw(QPainter* painter);
+    bool press(bool leftClick);
+    bool move(int mouseX, int mouseY);
+    bool release();
 
-		ProtocolEntry *copy();
-		void reloadState(ProtocolEntry *entry);
-		bool showsSelection();
-	private:
-		EventMoveTool *moveTool;
-		SelectTool *selectTool;
-		SizeChangeTool *sizeChangeTool;
-		NewNoteTool *newNoteTool;
+    ProtocolEntry* copy();
+    void reloadState(ProtocolEntry* entry);
+    bool showsSelection();
+
+private:
+    EventMoveTool* moveTool;
+    SelectTool* selectTool;
+    SizeChangeTool* sizeChangeTool;
+    NewNoteTool* newNoteTool;
 };
 #endif

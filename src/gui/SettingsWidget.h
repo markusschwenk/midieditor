@@ -19,24 +19,23 @@
 #ifndef SETTINGSWIDGET_H_
 #define SETTINGSWIDGET_H_
 
-#include <QWidget>
 #include <QIcon>
+#include <QWidget>
 
 class QString;
 
 class SettingsWidget : public QWidget {
 
-	public:
+public:
+    SettingsWidget(QString title, QWidget* parent = 0);
+    QString title();
+    virtual bool accept();
+    QWidget* createInfoBox(QString info);
+    QWidget* separator();
+    virtual QIcon icon();
 
-		SettingsWidget(QString title, QWidget *parent = 0);
-		QString title();
-		virtual bool accept();
-		QWidget *createInfoBox(QString info);
-		QWidget *separator();
-		virtual QIcon icon();
-
-	private:
-		QString _title;
+private:
+    QString _title;
 };
 
 #endif
