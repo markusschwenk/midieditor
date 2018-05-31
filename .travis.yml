@@ -37,6 +37,7 @@ script:
    - cd installjammer
    - git tag -l
    - git checkout tags/v1.2.14
+   - ls -la
    - cd ../
    - sh packaging/windows/create_windows_setup.sh
 
