@@ -42,7 +42,7 @@ cp -R packaging/windows/windows-installer/. MidiEditor-win32
 
 cd MidiEditor-win32
 
-$INSTALLJAMMER -DVersion $MIDIEDITOR_RELEASE_VERSION_STRING --build-for-release windows-installer.mpi
+sh $INSTALLJAMMER -DVersion $MIDIEDITOR_RELEASE_VERSION_STRING --build-for-release windows-installer.mpi
 
 cd ..
 
