@@ -21,78 +21,99 @@
 #include "../midi/MidiFile.h"
 #include "../midi/MidiTrack.h"
 
-TextEvent::TextEvent(int channel, MidiTrack *track) : MidiEvent(channel, track) {
-	_type = TEXT;
-	_text = "";
+TextEvent::TextEvent(int channel, MidiTrack* track)
+    : MidiEvent(channel, track)
+{
+    _type = TEXT;
+    _text = "";
 }
 
-TextEvent::TextEvent(TextEvent &other) : MidiEvent(other) {
-	_type = other._type;
-	_text = other._text;
+TextEvent::TextEvent(TextEvent& other)
+    : MidiEvent(other)
+{
+    _type = other._type;
+    _text = other._text;
 }
 
-QString TextEvent::text(){
-	return _text;
+QString TextEvent::text()
+{
+    return _text;
 }
 
-void TextEvent::setText(QString text){
-	ProtocolEntry *toCopy = copy();
-	_text = text;
-	protocol(toCopy, this);
+void TextEvent::setText(QString text)
+{
+    ProtocolEntry* toCopy = copy();
+    _text = text;
+    protocol(toCopy, this);
 }
 
-int TextEvent::type(){
-	return _type;
+int TextEvent::type()
+{
+    return _type;
 }
 
-void TextEvent::setType(int type){
-	ProtocolEntry *toCopy = copy();
-	_type = type;
-	protocol(toCopy, this);
+void TextEvent::setType(int type)
+{
+    ProtocolEntry* toCopy = copy();
+    _type = type;
+    protocol(toCopy, this);
 }
 
-int TextEvent::line(){
-	return TEXT_EVENT_LINE;
+int TextEvent::line()
+{
+    return TEXT_EVENT_LINE;
 }
 
-QByteArray TextEvent::save(){
-	QByteArray array = QByteArray();
-	QByteArray utf8text = _text.toUtf8();
+QByteArray TextEvent::save()
+{
+    QByteArray array = QByteArray();
+    QByteArray utf8text = _text.toUtf8();
 
-	array.append(char(0xFF));
-	array.append(_type);
-	array.append(MidiFile::writeVariableLengthValue(utf8text.size()));
-	array.append(utf8text);
-	return array;
+    array.append(char(0xFF));
+    array.append(_type);
+    array.append(MidiFile::writeVariableLengthValue(utf8text.size()));
+    array.append(utf8text);
+    return array;
 }
 
-QString TextEvent::typeString(){
-	return "Text Event";
+QString TextEvent::typeString()
+{
+    return "Text Event";
 }
 
-ProtocolEntry *TextEvent::copy(){
-	return new TextEvent(*this);
+ProtocolEntry* TextEvent::copy()
+{
+    return new TextEvent(*this);
 }
 
-void TextEvent::reloadState(ProtocolEntry *entry){
-	TextEvent *other = dynamic_cast<TextEvent*>(entry);
-	if(!other){
-		return;
-	}
-	MidiEvent::reloadState(entry);
-	_text = other->_text;
-	_type = other->_type;
+void TextEvent::reloadState(ProtocolEntry* entry)
+{
+    TextEvent* other = dynamic_cast<TextEvent*>(entry);
+    if (!other) {
+        return;
+    }
+    MidiEvent::reloadState(entry);
+    _text = other->_text;
+    _type = other->_type;
 }
 
-QString TextEvent::textTypeString(int type){
-	switch(type){
-		case TEXT: return "General text";
-		case COPYRIGHT: return "Copyright";
-		case TRACKNAME: return "Trackname";
-		case INSTRUMENT_NAME: return "Instrument name";
-		case LYRIK: return "Lyric";
-		case MARKER: return "Marker";
-		case COMMENT: return "Comment";
-	}
-	return QString();
+QString TextEvent::textTypeString(int type)
+{
+    switch (type) {
+    case TEXT:
+        return "General text";
+    case COPYRIGHT:
+        return "Copyright";
+    case TRACKNAME:
+        return "Trackname";
+    case INSTRUMENT_NAME:
+        return "Instrument name";
+    case LYRIK:
+        return "Lyric";
+    case MARKER:
+        return "Marker";
+    case COMMENT:
+        return "Comment";
+    }
+    return QString();
 }

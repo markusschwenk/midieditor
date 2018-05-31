@@ -18,70 +18,80 @@
 
 #include "KeyPressureEvent.h"
 
-KeyPressureEvent::KeyPressureEvent(int channel, int value, int note, MidiTrack *track) :
-		MidiEvent(channel, track)
+KeyPressureEvent::KeyPressureEvent(int channel, int value, int note, MidiTrack* track)
+    : MidiEvent(channel, track)
 {
-	_value = value;
-	_note = note;
+    _value = value;
+    _note = note;
 }
 
-KeyPressureEvent::KeyPressureEvent(KeyPressureEvent &other) :
-		MidiEvent(other)
+KeyPressureEvent::KeyPressureEvent(KeyPressureEvent& other)
+    : MidiEvent(other)
 {
-	_value = other._value;
-	_note = other._note;
+    _value = other._value;
+    _note = other._note;
 }
 
-int KeyPressureEvent::line(){
-	return KEY_PRESSURE_LINE;
+int KeyPressureEvent::line()
+{
+    return KEY_PRESSURE_LINE;
 }
 
-QString KeyPressureEvent::toMessage(){
-	return "";
+QString KeyPressureEvent::toMessage()
+{
+    return "";
 }
 
-QByteArray KeyPressureEvent::save(){
-	QByteArray array = QByteArray();
-	array.append(0xA0 | channel());
-	array.append(_note);
-	array.append(_value);
-	return array;
+QByteArray KeyPressureEvent::save()
+{
+    QByteArray array = QByteArray();
+    array.append(0xA0 | channel());
+    array.append(_note);
+    array.append(_value);
+    return array;
 }
 
-ProtocolEntry *KeyPressureEvent::copy(){
-	return new KeyPressureEvent(*this);
+ProtocolEntry* KeyPressureEvent::copy()
+{
+    return new KeyPressureEvent(*this);
 }
 
-void KeyPressureEvent::reloadState(ProtocolEntry *entry){
-	KeyPressureEvent *other = dynamic_cast<KeyPressureEvent*>(entry);
-	if(!other){
-		return;
-	}
-	MidiEvent::reloadState(entry);
-	_value = other->_value;
-	_note = other->_note;
+void KeyPressureEvent::reloadState(ProtocolEntry* entry)
+{
+    KeyPressureEvent* other = dynamic_cast<KeyPressureEvent*>(entry);
+    if (!other) {
+        return;
+    }
+    MidiEvent::reloadState(entry);
+    _value = other->_value;
+    _note = other->_note;
 }
 
-void KeyPressureEvent::setValue(int v){
-	ProtocolEntry *toCopy = copy();
-	_value = v;
-	protocol(toCopy, this);
+void KeyPressureEvent::setValue(int v)
+{
+    ProtocolEntry* toCopy = copy();
+    _value = v;
+    protocol(toCopy, this);
 }
 
-void KeyPressureEvent::setNote(int n){
-	ProtocolEntry *toCopy = copy();
-	_note = n;
-	protocol(toCopy, this);
+void KeyPressureEvent::setNote(int n)
+{
+    ProtocolEntry* toCopy = copy();
+    _note = n;
+    protocol(toCopy, this);
 }
 
-QString KeyPressureEvent::typeString(){
-	return "Key Pressure Event";
+QString KeyPressureEvent::typeString()
+{
+    return "Key Pressure Event";
 }
 
-int KeyPressureEvent::value(){
-	return _value;
+int KeyPressureEvent::value()
+{
+    return _value;
 }
 
-int KeyPressureEvent::note(){
-	return _note;
+int KeyPressureEvent::note()
+{
+    return _note;
 }

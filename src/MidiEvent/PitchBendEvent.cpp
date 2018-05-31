@@ -20,63 +20,71 @@
 
 #include "../midi/MidiFile.h"
 
-PitchBendEvent::PitchBendEvent(int channel, int value, MidiTrack *track) :
-		MidiEvent(channel, track)
+PitchBendEvent::PitchBendEvent(int channel, int value, MidiTrack* track)
+    : MidiEvent(channel, track)
 {
-	_value = value;
+    _value = value;
 }
 
-PitchBendEvent::PitchBendEvent(PitchBendEvent &other) :
-		MidiEvent(other)
+PitchBendEvent::PitchBendEvent(PitchBendEvent& other)
+    : MidiEvent(other)
 {
-	_value = other._value;
+    _value = other._value;
 }
 
-int PitchBendEvent::line(){
-	return PITCH_BEND_LINE;
+int PitchBendEvent::line()
+{
+    return PITCH_BEND_LINE;
 }
 
-QString PitchBendEvent::toMessage(){
-	return "cc "+QString::number(channel())+" "+
-			QString::number(_value);
+QString PitchBendEvent::toMessage()
+{
+    return "cc " + QString::number(channel()) + " " + QString::number(_value);
 }
 
-QByteArray PitchBendEvent::save(){
-	QByteArray array = QByteArray();
-	array.append(0xE0 | channel());
-	array.append(_value & 0x7F);
-	array.append((_value >> 7) & 0x7F);
-	return array;
+QByteArray PitchBendEvent::save()
+{
+    QByteArray array = QByteArray();
+    array.append(0xE0 | channel());
+    array.append(_value & 0x7F);
+    array.append((_value >> 7) & 0x7F);
+    return array;
 }
 
-ProtocolEntry *PitchBendEvent::copy(){
-	return new PitchBendEvent(*this);
+ProtocolEntry* PitchBendEvent::copy()
+{
+    return new PitchBendEvent(*this);
 }
 
-void PitchBendEvent::reloadState(ProtocolEntry *entry){
-	PitchBendEvent *other = dynamic_cast<PitchBendEvent*>(entry);
-	if(!other){
-		return;
-	}
-	MidiEvent::reloadState(entry);
-	_value = other->_value;
+void PitchBendEvent::reloadState(ProtocolEntry* entry)
+{
+    PitchBendEvent* other = dynamic_cast<PitchBendEvent*>(entry);
+    if (!other) {
+        return;
+    }
+    MidiEvent::reloadState(entry);
+    _value = other->_value;
 }
 
-QString PitchBendEvent::typeString(){
-	return "Pitch Bend Event";
+QString PitchBendEvent::typeString()
+{
+    return "Pitch Bend Event";
 }
 
-int PitchBendEvent::value(){
-	return _value;
+int PitchBendEvent::value()
+{
+    return _value;
 }
 
-void PitchBendEvent::setValue(int v){
-	ProtocolEntry *toCopy = copy();
-	_value = v;
-	protocol(toCopy, this);
+void PitchBendEvent::setValue(int v)
+{
+    ProtocolEntry* toCopy = copy();
+    _value = v;
+    protocol(toCopy, this);
 }
 
-bool PitchBendEvent::isOnEvent(){
-//	return (_control < 64 && _control> 69) || _value > 64;
-	return false;
+bool PitchBendEvent::isOnEvent()
+{
+    //	return (_control < 64 && _control> 69) || _value > 64;
+    return false;
 }

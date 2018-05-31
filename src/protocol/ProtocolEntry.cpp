@@ -17,37 +17,41 @@
  */
 
 #include "ProtocolEntry.h"
-#include "ProtocolItem.h"
-#include "Protocol.h"
 #include "../midi/MidiFile.h"
+#include "Protocol.h"
+#include "ProtocolItem.h"
 
-void ProtocolEntry::protocol(ProtocolEntry *oldObj, ProtocolEntry *newObj){
+void ProtocolEntry::protocol(ProtocolEntry* oldObj, ProtocolEntry* newObj)
+{
 
-	if(oldObj->file() && oldObj->file()->protocol()){
-		oldObj->file()->protocol()->enterUndoStep(
-			new ProtocolItem(oldObj, newObj));
-	}
+    if (oldObj->file() && oldObj->file()->protocol()) {
+        oldObj->file()->protocol()->enterUndoStep(
+            new ProtocolItem(oldObj, newObj));
+    }
 }
 
-MidiFile *ProtocolEntry::file(){
-	// This has to be implemented in the Subclasses
-	return 0; 
+MidiFile* ProtocolEntry::file()
+{
+    // This has to be implemented in the Subclasses
+    return 0;
 }
 
-void ProtocolEntry::reloadState(ProtocolEntry *entry) {
+void ProtocolEntry::reloadState(ProtocolEntry* entry)
+{
 
-	Q_UNUSED(entry);
+    Q_UNUSED(entry);
 
-	// This has to be implemented in the Subclasses
-	return;
+    // This has to be implemented in the Subclasses
+    return;
 }
 
-ProtocolEntry *ProtocolEntry::copy(){
+ProtocolEntry* ProtocolEntry::copy()
+{
 
-	// This has to be implemented in the Subclasses
-	return 0;
+    // This has to be implemented in the Subclasses
+    return 0;
 }
 
-ProtocolEntry::~ProtocolEntry(){
-
+ProtocolEntry::~ProtocolEntry()
+{
 }

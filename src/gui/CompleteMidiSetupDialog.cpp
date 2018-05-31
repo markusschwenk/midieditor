@@ -18,58 +18,56 @@
 
 #include "CompleteMidiSetupDialog.h"
 
+#include <QGridLayout>
 #include <QIcon>
 #include <QLabel>
 #include <QPushButton>
-#include <QGridLayout>
 #include <QScrollArea>
 
-CompleteMidiSetupDialog::CompleteMidiSetupDialog(QWidget *parent, bool alertAboutInput, bool alertAboutOutput) : QDialog(parent) {
+CompleteMidiSetupDialog::CompleteMidiSetupDialog(QWidget* parent, bool alertAboutInput, bool alertAboutOutput)
+    : QDialog(parent)
+{
 
     setMinimumWidth(550);
     setMaximumHeight(450);
     setWindowTitle(tr("No Sound?"));
     setWindowIcon(QIcon(":/run_environment/graphics/icon.png"));
-    QGridLayout *layout = new QGridLayout(this);
+    QGridLayout* layout = new QGridLayout(this);
 
-    QLabel *icon = new QLabel();
+    QLabel* icon = new QLabel();
     icon->setPixmap(QPixmap(":/run_environment/graphics/midieditor.png").scaledToWidth(80, Qt::SmoothTransformation));
     icon->setFixedSize(80, 80);
     layout->addWidget(icon, 0, 0, 3, 1);
 
-    QLabel *title = new QLabel("<h1>Complete MIDI Setup</h1>", this);
+    QLabel* title = new QLabel("<h1>Complete MIDI Setup</h1>", this);
     layout->addWidget(title, 0, 1, 1, 2);
     title->setStyleSheet("color: black");
 
-    QLabel *version = new QLabel("It appears that you did not complete your midi setup!", this);
+    QLabel* version = new QLabel("It appears that you did not complete your midi setup!", this);
     layout->addWidget(version, 1, 1, 1, 2);
     version->setStyleSheet("color: black");
 
-    QScrollArea *a = new QScrollArea(this);
+    QScrollArea* a = new QScrollArea(this);
     QString connectOutput = "";
     if (alertAboutOutput) {
-        connectOutput =
-            "<h3>Output is not connected</h3>"
-            "<p>"
-                "In order to play your music, you have to connect MidiEditor to a "
-                "midi device (on your computer or externally) which can play your sounds.</br>"
-            "</p>";
+        connectOutput = "<h3>Output is not connected</h3>"
+                        "<p>"
+                        "In order to play your music, you have to connect MidiEditor to a "
+                        "midi device (on your computer or externally) which can play your sounds.</br>"
+                        "</p>";
     }
     QString connectInput = "";
     if (alertAboutInput) {
-        connectInput =
-            "<h3>Input is not connected</h3>"
-            "<p>"
-                "In order to record music, MidiEditor must be connected to a midi device that you will record music on.</br>"
-            "</p>";
+        connectInput = "<h3>Input is not connected</h3>"
+                       "<p>"
+                       "In order to record music, MidiEditor must be connected to a midi device that you will record music on.</br>"
+                       "</p>";
     }
-    QLabel *content = new QLabel(QString("<html>"
-                                     "<body>")
-                                 + connectInput + connectOutput +
-                                 QString("<p>Please refer the manual for further instructions.<p/>"
-                                     "</body>"
-                                 "</html>")
-                                 );
+    QLabel* content = new QLabel(QString("<html>"
+                                         "<body>")
+        + connectInput + connectOutput + QString("<p>Please refer the manual for further instructions.<p/>"
+                                                 "</body>"
+                                                 "</html>"));
     a->setWidgetResizable(true);
     a->setWidget(content);
     a->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -84,12 +82,11 @@ CompleteMidiSetupDialog::CompleteMidiSetupDialog(QWidget *parent, bool alertAbou
     layout->setRowStretch(3, 1);
     layout->setColumnStretch(1, 1);
 
-    QFrame *f = new QFrame( this );
+    QFrame* f = new QFrame(this);
     f->setFrameStyle(QFrame::HLine | QFrame::Sunken);
     layout->addWidget(f, 4, 0, 1, 3);
 
-    QPushButton *close = new QPushButton("Close");
+    QPushButton* close = new QPushButton("Close");
     layout->addWidget(close, 5, 2, 1, 1);
     connect(close, SIGNAL(clicked()), this, SLOT(hide()));
 }
-

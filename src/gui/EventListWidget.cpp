@@ -18,11 +18,12 @@
 
 #include "EventListWidget.h"
 
-EventListWidget::EventListWidget() {
-	// TODO Auto-generated constructor stub
-
+EventListWidget::EventListWidget()
+{
+    // TODO Auto-generated constructor stub
 }
 
-EventListWidget::~EventListWidget() {
-	// TODO Auto-generated destructor stub
+EventListWidget::~EventListWidget()
+{
+    // TODO Auto-generated destructor stub
 }

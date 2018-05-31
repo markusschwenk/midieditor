@@ -20,32 +20,35 @@
 
 #define SINGLE_NOTE_LENGTH_MS 2000
 
-#include <QTimer>
 #include "../MidiEvent/NoteOnEvent.h"
 #include "MidiOutput.h"
+#include <QTimer>
 
-SingleNotePlayer::SingleNotePlayer() {
-	playing = false;
-	offMessage.clear();
-	timer = new QTimer();
-	timer->setInterval(SINGLE_NOTE_LENGTH_MS);
-	timer->setSingleShot(true);
-	connect(timer, &QTimer::timeout, this, &SingleNotePlayer::timeout);
+SingleNotePlayer::SingleNotePlayer()
+{
+    playing = false;
+    offMessage.clear();
+    timer = new QTimer();
+    timer->setInterval(SINGLE_NOTE_LENGTH_MS);
+    timer->setSingleShot(true);
+    connect(timer, &QTimer::timeout, this, &SingleNotePlayer::timeout);
 }
 
-void SingleNotePlayer::play(NoteOnEvent *event){
-	if(playing){
-		MidiOutput::sendCommand(offMessage);
-		timer->stop();
-	}
-	offMessage = event->saveOffEvent();
-	MidiOutput::sendCommand(event);
-	playing = true;
-	timer->start();
+void SingleNotePlayer::play(NoteOnEvent* event)
+{
+    if (playing) {
+        MidiOutput::sendCommand(offMessage);
+        timer->stop();
+    }
+    offMessage = event->saveOffEvent();
+    MidiOutput::sendCommand(event);
+    playing = true;
+    timer->start();
 }
 
-void SingleNotePlayer::timeout(){
-	MidiOutput::sendCommand(offMessage);
-	timer->stop();
-	playing = false;
+void SingleNotePlayer::timeout()
+{
+    MidiOutput::sendCommand(offMessage);
+    timer->stop();
+    playing = false;
 }

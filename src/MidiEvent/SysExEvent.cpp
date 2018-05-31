@@ -18,49 +18,60 @@
 
 #include "SysExEvent.h"
 
-SysExEvent::SysExEvent(int channel, QByteArray data, MidiTrack *track) : MidiEvent(channel, track){
-	_data = data;
+SysExEvent::SysExEvent(int channel, QByteArray data, MidiTrack* track)
+    : MidiEvent(channel, track)
+{
+    _data = data;
 }
 
-SysExEvent::SysExEvent(SysExEvent &other) : MidiEvent(other) {
-	_data = other._data;
+SysExEvent::SysExEvent(SysExEvent& other)
+    : MidiEvent(other)
+{
+    _data = other._data;
 }
 
-QByteArray SysExEvent::data(){
-	return _data;
+QByteArray SysExEvent::data()
+{
+    return _data;
 }
 
-int SysExEvent::line(){
-	return SYSEX_LINE;
+int SysExEvent::line()
+{
+    return SYSEX_LINE;
 }
 
-QByteArray SysExEvent::save(){
-	QByteArray s;
-	s.append(char(0xF0));
-	s.append(_data);
-	s.append(char(0xF7));
-	return s;
+QByteArray SysExEvent::save()
+{
+    QByteArray s;
+    s.append(char(0xF0));
+    s.append(_data);
+    s.append(char(0xF7));
+    return s;
 }
 
-QString SysExEvent::typeString(){
-	return "System Exclusive Message (SysEx)";
+QString SysExEvent::typeString()
+{
+    return "System Exclusive Message (SysEx)";
 }
 
-ProtocolEntry *SysExEvent::copy(){
-	return new SysExEvent(*this);
+ProtocolEntry* SysExEvent::copy()
+{
+    return new SysExEvent(*this);
 }
 
-void SysExEvent::reloadState(ProtocolEntry *entry){
-	SysExEvent *other = dynamic_cast<SysExEvent*>(entry);
-	if(!other){
-		return;
-	}
-	MidiEvent::reloadState(entry);
-	_data = other->_data;
+void SysExEvent::reloadState(ProtocolEntry* entry)
+{
+    SysExEvent* other = dynamic_cast<SysExEvent*>(entry);
+    if (!other) {
+        return;
+    }
+    MidiEvent::reloadState(entry);
+    _data = other->_data;
 }
 
-void SysExEvent::setData(QByteArray d){
-	ProtocolEntry *toCopy = copy();
-	_data = d;
-	protocol(toCopy, this);
+void SysExEvent::setData(QByteArray d)
+{
+    ProtocolEntry* toCopy = copy();
+    _data = d;
+    protocol(toCopy, this);
 }

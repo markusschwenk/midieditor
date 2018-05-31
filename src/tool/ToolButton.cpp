@@ -19,22 +19,25 @@
 #include "ToolButton.h"
 #include "Tool.h"
 
-ToolButton::ToolButton(Tool *tool, QKeySequence sequence, QWidget *parent) : QAction(parent){
-	button_tool = tool;
-	tool->setButton(this);
-	setText(button_tool->toolTip());
-	QImage image = *(button_tool->image());
-	setIcon(QIcon(QPixmap::fromImage(image)));
-	connect(this, SIGNAL(triggered()), this, SLOT(buttonClick()));
-	setCheckable(true);
-	setShortcut(sequence);
+ToolButton::ToolButton(Tool* tool, QKeySequence sequence, QWidget* parent)
+    : QAction(parent)
+{
+    button_tool = tool;
+    tool->setButton(this);
+    setText(button_tool->toolTip());
+    QImage image = *(button_tool->image());
+    setIcon(QIcon(QPixmap::fromImage(image)));
+    connect(this, SIGNAL(triggered()), this, SLOT(buttonClick()));
+    setCheckable(true);
+    setShortcut(sequence);
 }
 
-void ToolButton::buttonClick(){
-	button_tool->buttonClick();
+void ToolButton::buttonClick()
+{
+    button_tool->buttonClick();
 }
 
-
-void ToolButton::releaseButton(){
-	button_tool->buttonClick();
+void ToolButton::releaseButton()
+{
+    button_tool->buttonClick();
 }

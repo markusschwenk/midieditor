@@ -18,39 +18,43 @@
 
 #include "SettingsWidget.h"
 
-#include <QString>
-#include <QLabel>
 #include <QFrame>
+#include <QLabel>
+#include <QString>
 
-SettingsWidget::SettingsWidget(QString title, QWidget *parent) :
-		QWidget(parent)
+SettingsWidget::SettingsWidget(QString title, QWidget* parent)
+    : QWidget(parent)
 {
-	_title = title;
+    _title = title;
 }
 
-bool SettingsWidget::accept(){
-	return true;
+bool SettingsWidget::accept()
+{
+    return true;
 }
 
-QString SettingsWidget::title(){
-	return _title;
+QString SettingsWidget::title()
+{
+    return _title;
 }
 
-
-QWidget *SettingsWidget::createInfoBox(QString info){
-	QLabel *label = new QLabel(info, this);
-	label->setStyleSheet("color: gray; background-color: white; padding: 5px");
-	label->setWordWrap(true);
-	label->setAlignment(Qt::AlignJustify);
-	return label;
+QWidget* SettingsWidget::createInfoBox(QString info)
+{
+    QLabel* label = new QLabel(info, this);
+    label->setStyleSheet("color: gray; background-color: white; padding: 5px");
+    label->setWordWrap(true);
+    label->setAlignment(Qt::AlignJustify);
+    return label;
 }
 
-QWidget *SettingsWidget::separator(){
-	QFrame *f0 = new QFrame(this);
-	f0->setFrameStyle( QFrame::HLine | QFrame::Sunken );
-	return f0;
+QWidget* SettingsWidget::separator()
+{
+    QFrame* f0 = new QFrame(this);
+    f0->setFrameStyle(QFrame::HLine | QFrame::Sunken);
+    return f0;
 }
 
-QIcon SettingsWidget::icon(){
-	return QIcon();
+QIcon SettingsWidget::icon()
+{
+    return QIcon();
 }

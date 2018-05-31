@@ -37,8 +37,6 @@ script:
    - cd installjammer
    - git tag -l
    - git checkout tags/v1.2.14
-   - ls -la
-   - file installjammer
    - cd ../
    - sh packaging/windows/create_windows_setup.sh
 
@@ -48,5 +46,5 @@ deploy:
   github-token: $GITHUB_TOKEN
   keep-history: true
   on:
-    branch: local
-  master-dir: deb
+    branch: master
+  local-master-dir: deb

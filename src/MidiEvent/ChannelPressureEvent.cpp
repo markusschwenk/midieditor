@@ -18,56 +18,64 @@
 
 #include "ChannelPressureEvent.h"
 
-ChannelPressureEvent::ChannelPressureEvent(int channel, int value, MidiTrack *track) :
-		MidiEvent(channel, track)
+ChannelPressureEvent::ChannelPressureEvent(int channel, int value, MidiTrack* track)
+    : MidiEvent(channel, track)
 {
-	_value = value;
+    _value = value;
 }
 
-ChannelPressureEvent::ChannelPressureEvent(ChannelPressureEvent &other) :
-		MidiEvent(other)
+ChannelPressureEvent::ChannelPressureEvent(ChannelPressureEvent& other)
+    : MidiEvent(other)
 {
-	_value = other._value;
+    _value = other._value;
 }
 
-int ChannelPressureEvent::line(){
-	return CHANNEL_PRESSURE_LINE;
+int ChannelPressureEvent::line()
+{
+    return CHANNEL_PRESSURE_LINE;
 }
 
-QString ChannelPressureEvent::toMessage(){
-	return "";
+QString ChannelPressureEvent::toMessage()
+{
+    return "";
 }
 
-QByteArray ChannelPressureEvent::save(){
-	QByteArray array = QByteArray();
-	array.append(0xD0 | channel());
-	array.append(_value);
-	return array;
+QByteArray ChannelPressureEvent::save()
+{
+    QByteArray array = QByteArray();
+    array.append(0xD0 | channel());
+    array.append(_value);
+    return array;
 }
 
-ProtocolEntry *ChannelPressureEvent::copy(){
-	return new ChannelPressureEvent(*this);
+ProtocolEntry* ChannelPressureEvent::copy()
+{
+    return new ChannelPressureEvent(*this);
 }
 
-void ChannelPressureEvent::reloadState(ProtocolEntry *entry){
-	ChannelPressureEvent *other = dynamic_cast<ChannelPressureEvent*>(entry);
-	if(!other){
-		return;
-	}
-	MidiEvent::reloadState(entry);
-	_value = other->_value;
+void ChannelPressureEvent::reloadState(ProtocolEntry* entry)
+{
+    ChannelPressureEvent* other = dynamic_cast<ChannelPressureEvent*>(entry);
+    if (!other) {
+        return;
+    }
+    MidiEvent::reloadState(entry);
+    _value = other->_value;
 }
 
-QString ChannelPressureEvent::typeString(){
-	return "Channel Pressure Event";
+QString ChannelPressureEvent::typeString()
+{
+    return "Channel Pressure Event";
 }
 
-void ChannelPressureEvent::setValue(int v){
-	ProtocolEntry *toCopy = copy();
-	_value = v;
-	protocol(toCopy, this);
+void ChannelPressureEvent::setValue(int v)
+{
+    ProtocolEntry* toCopy = copy();
+    _value = v;
+    protocol(toCopy, this);
 }
 
-int ChannelPressureEvent::value(){
-	return _value;
+int ChannelPressureEvent::value()
+{
+    return _value;
 }

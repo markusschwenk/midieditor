@@ -20,150 +20,159 @@
 
 #include "../MidiEvent/MidiEvent.h"
 
+#include <QByteArray>
 #include <QFile>
 #include <QTextStream>
-#include <QByteArray>
 
 #include <vector>
 
 #include "rtmidi/RtMidi.h"
 
-#include "SenderThread.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
+#include "SenderThread.h"
 
-RtMidiOut *MidiOutput::_midiOut = 0;
+RtMidiOut* MidiOutput::_midiOut = 0;
 QString MidiOutput::_outPort = "";
-SenderThread *MidiOutput::_sender = new SenderThread();
+SenderThread* MidiOutput::_sender = new SenderThread();
 QMap<int, QList<int> > MidiOutput::playedNotes = QMap<int, QList<int> >();
 bool MidiOutput::isAlternativePlayer = false;
 
 int MidiOutput::_stdChannel = 0;
 
-void MidiOutput::init(){
+void MidiOutput::init()
+{
 
-	// RtMidiOut constructor
-	try {
-		_midiOut = new RtMidiOut(RtMidi::UNSPECIFIED, QString("MidiEditor output").toStdString());
-	}
-	catch ( RtMidiError &error ) {
-		error.printMessage();
-	}
-	_sender->start(QThread::TimeCriticalPriority);
+    // RtMidiOut constructor
+    try {
+        _midiOut = new RtMidiOut(RtMidi::UNSPECIFIED, QString("MidiEditor output").toStdString());
+    } catch (RtMidiError& error) {
+        error.printMessage();
+    }
+    _sender->start(QThread::TimeCriticalPriority);
 }
 
-void MidiOutput::sendCommand(QByteArray array){
+void MidiOutput::sendCommand(QByteArray array)
+{
 
-	sendEnqueuedCommand(array);
+    sendEnqueuedCommand(array);
 }
 
-void MidiOutput::sendCommand(MidiEvent *e){
+void MidiOutput::sendCommand(MidiEvent* e)
+{
 
-	if(e->channel() >= 0 && e->channel() < 16){
-		_sender->enqueue(e);
+    if (e->channel() >= 0 && e->channel() < 16) {
+        _sender->enqueue(e);
 
-		if(isAlternativePlayer){
-			NoteOnEvent *n = dynamic_cast<NoteOnEvent*>(e);
-			if(n && n->velocity() > 0){
-				playedNotes[n->channel()].append(n->note());
-			} else if(n && n->velocity() == 0){
-				playedNotes[n->channel()].removeOne(n->note());
-			} else {
-				OffEvent *o = dynamic_cast<OffEvent*>(e);
-				if(o){
-					n = dynamic_cast<NoteOnEvent*>(o->onEvent());
-					if(n){
-						playedNotes[n->channel()].removeOne(n->note());
-					}
-				}
-			}
-		}
-	}
+        if (isAlternativePlayer) {
+            NoteOnEvent* n = dynamic_cast<NoteOnEvent*>(e);
+            if (n && n->velocity() > 0) {
+                playedNotes[n->channel()].append(n->note());
+            } else if (n && n->velocity() == 0) {
+                playedNotes[n->channel()].removeOne(n->note());
+            } else {
+                OffEvent* o = dynamic_cast<OffEvent*>(e);
+                if (o) {
+                    n = dynamic_cast<NoteOnEvent*>(o->onEvent());
+                    if (n) {
+                        playedNotes[n->channel()].removeOne(n->note());
+                    }
+                }
+            }
+        }
+    }
 }
 
-QStringList MidiOutput::outputPorts(){
+QStringList MidiOutput::outputPorts()
+{
 
-	QStringList ports;
+    QStringList ports;
 
-	// Check outputs.
-	unsigned int nPorts = _midiOut->getPortCount();
+    // Check outputs.
+    unsigned int nPorts = _midiOut->getPortCount();
 
-	for(unsigned int i = 0; i < nPorts; i++){
+    for (unsigned int i = 0; i < nPorts; i++) {
 
-		try {
-			ports.append(QString::fromStdString(_midiOut->getPortName(i)));
-		}
-		catch (RtMidiError &) {}
-	}
+        try {
+            ports.append(QString::fromStdString(_midiOut->getPortName(i)));
+        } catch (RtMidiError&) {
+        }
+    }
 
-	return ports;
+    return ports;
 }
 
-bool MidiOutput::setOutputPort(QString name){
+bool MidiOutput::setOutputPort(QString name)
+{
 
-	// try to find the port
-	unsigned int nPorts = _midiOut->getPortCount();
+    // try to find the port
+    unsigned int nPorts = _midiOut->getPortCount();
 
-	for(unsigned int i = 0; i < nPorts; i++){
+    for (unsigned int i = 0; i < nPorts; i++) {
 
-		try {
+        try {
 
-			// if the current port has the given name, select it and close
-			// current port
-			if(_midiOut->getPortName(i) == name.toStdString()){
+            // if the current port has the given name, select it and close
+            // current port
+            if (_midiOut->getPortName(i) == name.toStdString()) {
 
-				_midiOut->closePort();
-				_midiOut->openPort(i);
-				_outPort = name;
-				return true;
-			}
+                _midiOut->closePort();
+                _midiOut->openPort(i);
+                _outPort = name;
+                return true;
+            }
 
-		}
-		catch (RtMidiError &) {}
+        } catch (RtMidiError&) {
+        }
+    }
 
-	}
-
-	// port not found
-	return false;
+    // port not found
+    return false;
 }
 
-QString MidiOutput::outputPort(){
-	return _outPort;
+QString MidiOutput::outputPort()
+{
+    return _outPort;
 }
 
-void MidiOutput::sendEnqueuedCommand(QByteArray array) {
+void MidiOutput::sendEnqueuedCommand(QByteArray array)
+{
 
-	if(_outPort != ""){
+    if (_outPort != "") {
 
-		// convert data to std::vector
-		std::vector<unsigned char> message;
+        // convert data to std::vector
+        std::vector<unsigned char> message;
 
-		foreach(char byte, array){
-			message.push_back(byte);
-		}
-		try {
-			_midiOut->sendMessage(&message);
-		} catch (RtMidiError &error) {
-			error.printMessage();
-		}
-	}
+        foreach (char byte, array) {
+            message.push_back(byte);
+        }
+        try {
+            _midiOut->sendMessage(&message);
+        } catch (RtMidiError& error) {
+            error.printMessage();
+        }
+    }
 }
 
-void MidiOutput::setStandardChannel(int channel){
-	_stdChannel = channel;
+void MidiOutput::setStandardChannel(int channel)
+{
+    _stdChannel = channel;
 }
 
-int MidiOutput::standardChannel(){
-	return _stdChannel;
+int MidiOutput::standardChannel()
+{
+    return _stdChannel;
 }
 
- void MidiOutput::sendProgram(int channel, int prog){
-	 QByteArray array = QByteArray();
-	 array.append(0xC0 | channel);
-	 array.append(prog);
-	 sendCommand(array);
- }
+void MidiOutput::sendProgram(int channel, int prog)
+{
+    QByteArray array = QByteArray();
+    array.append(0xC0 | channel);
+    array.append(prog);
+    sendCommand(array);
+}
 
- bool MidiOutput::isConnected() {
-     return _outPort != "";
- }
+bool MidiOutput::isConnected()
+{
+    return _outPort != "";
+}

@@ -17,25 +17,27 @@
  */
 
 #include "ProtocolItem.h"
-#include "ProtocolEntry.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiTrack.h"
+#include "ProtocolEntry.h"
 
-ProtocolItem::ProtocolItem(ProtocolEntry *oldObj, ProtocolEntry *newObj){
-	_oldObject = oldObj;
-	_newObject = newObj;
+ProtocolItem::ProtocolItem(ProtocolEntry* oldObj, ProtocolEntry* newObj)
+{
+    _oldObject = oldObj;
+    _newObject = newObj;
 }
 
-ProtocolItem *ProtocolItem::release(){
+ProtocolItem* ProtocolItem::release()
+{
 
-	ProtocolEntry *entry = _newObject->copy();
-	_newObject->reloadState(_oldObject);
+    ProtocolEntry* entry = _newObject->copy();
+    _newObject->reloadState(_oldObject);
 
-	//files can be protocolled too but they must not be deleted
-	if(!dynamic_cast<MidiTrack*>(entry)){
-		if(_oldObject->file()!=_oldObject){
-			delete _oldObject;
-		}
-	}
-	return new ProtocolItem(entry, _newObject);
+    //files can be protocolled too but they must not be deleted
+    if (!dynamic_cast<MidiTrack*>(entry)) {
+        if (_oldObject->file() != _oldObject) {
+            delete _oldObject;
+        }
+    }
+    return new ProtocolItem(entry, _newObject);
 }

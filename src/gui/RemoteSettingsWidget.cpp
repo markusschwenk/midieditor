@@ -21,55 +21,58 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPushButton>
 #include <QMessageBox>
+#include <QPushButton>
 
 #include "../remote/RemoteServer.h"
 
-RemoteSettingsWidget::RemoteSettingsWidget(RemoteServer *server, QWidget *parent) : SettingsWidget("Android Remote", parent){
-	_server = server;
+RemoteSettingsWidget::RemoteSettingsWidget(RemoteServer* server, QWidget* parent)
+    : SettingsWidget("Android Remote", parent)
+{
+    _server = server;
 
-	QGridLayout *layout = new QGridLayout(this);
-	setLayout(layout);
-	setWindowTitle("Enter IP and Port for the connection");
-	setMinimumWidth(400);
-	setMinimumHeight(170);
+    QGridLayout* layout = new QGridLayout(this);
+    setLayout(layout);
+    setWindowTitle("Enter IP and Port for the connection");
+    setMinimumWidth(400);
+    setMinimumHeight(170);
 
-	QLabel *title = new QLabel("Enter IP and Port for the connection.", this);
-	layout->addWidget(title, 0,0,1,3);
+    QLabel* title = new QLabel("Enter IP and Port for the connection.", this);
+    layout->addWidget(title, 0, 0, 1, 3);
 
-	QLabel *ipLabel = new QLabel("IP:", this);
-	layout->addWidget(ipLabel, 1, 0, 1, 1);
+    QLabel* ipLabel = new QLabel("IP:", this);
+    layout->addWidget(ipLabel, 1, 0, 1, 1);
 
-	_ipField = new QLineEdit(_server->clientIp(), this);
-	layout->addWidget(_ipField, 1, 1, 1, 2);
+    _ipField = new QLineEdit(_server->clientIp(), this);
+    layout->addWidget(_ipField, 1, 1, 1, 2);
 
-	QLabel *portL = new QLabel("Port:", this);
-	layout->addWidget(portL, 2, 0, 1, 1);
+    QLabel* portL = new QLabel("Port:", this);
+    layout->addWidget(portL, 2, 0, 1, 1);
 
-	QString port = QString::number(_server->clientPort());
-	if(_server->clientPort() < 0){
-		port = "";
-	}
-	_portField = new QLineEdit(port, this);
-	layout->addWidget(_portField, 2, 1, 1, 2);
+    QString port = QString::number(_server->clientPort());
+    if (_server->clientPort() < 0) {
+        port = "";
+    }
+    _portField = new QLineEdit(port, this);
+    layout->addWidget(_portField, 2, 1, 1, 2);
 
-	layout->setRowStretch(6, 1);
+    layout->setRowStretch(6, 1);
 }
 
-bool RemoteSettingsWidget::accept(){
-	bool ok;
+bool RemoteSettingsWidget::accept()
+{
+    bool ok;
 
-	int port = _portField->text().toInt(&ok);
-	if(!ok){
-		QMessageBox::information(this, "Enter number", QString("Port is no number!"));
-		return true;
-	}
-	QString ip = _ipField->text();
+    int port = _portField->text().toInt(&ok);
+    if (!ok) {
+        QMessageBox::information(this, "Enter number", QString("Port is no number!"));
+        return true;
+    }
+    QString ip = _ipField->text();
 
-	_server->setIp(ip);
-	_server->setPort(port);
-	//_server->tryConnect();
-	QMessageBox::information(this, "Restart", QString("You have to restart MidiEditor to connect!"));
-	return true;
+    _server->setIp(ip);
+    _server->setPort(port);
+    //_server->tryConnect();
+    QMessageBox::information(this, "Restart", QString("You have to restart MidiEditor to connect!"));
+    return true;
 }

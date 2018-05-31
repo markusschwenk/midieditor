@@ -17,104 +17,123 @@
  */
 
 #include "Tool.h"
-#include "../protocol/Protocol.h"
 #include "../midi/MidiFile.h"
-#include "ToolButton.h"
+#include "../protocol/Protocol.h"
 #include "EditorTool.h"
+#include "ToolButton.h"
 
-EditorTool *Tool::_currentTool = 0;
-MidiFile *Tool::_currentFile = 0;
+EditorTool* Tool::_currentTool = 0;
+MidiFile* Tool::_currentFile = 0;
 
-Tool::Tool(){
-	_image = 0;
-	_button = 0;
-	_toolTip = "";
-	_standardTool = 0;
+Tool::Tool()
+{
+    _image = 0;
+    _button = 0;
+    _toolTip = "";
+    _standardTool = 0;
 }
 
-Tool::Tool(Tool &other) {
-	_image = other._image;
-	_button = other._button;
-	_toolTip = other._toolTip;
-	_standardTool = other._standardTool;
+Tool::Tool(Tool& other)
+{
+    _image = other._image;
+    _button = other._button;
+    _toolTip = other._toolTip;
+    _standardTool = other._standardTool;
 }
 
-void Tool::buttonClick(){
-	return;
+void Tool::buttonClick()
+{
+    return;
 }
 
-void Tool::setImage(QString name){
-	_image = new QImage(name);
+void Tool::setImage(QString name)
+{
+    _image = new QImage(name);
 }
 
-QImage *Tool::image(){
-	return _image;
+QImage* Tool::image()
+{
+    return _image;
 }
 
-void Tool::setToolTipText(QString text){
-	_toolTip = text;
+void Tool::setToolTipText(QString text)
+{
+    _toolTip = text;
 }
 
-bool Tool::selected(){
-	return false;
+bool Tool::selected()
+{
+    return false;
 }
 
-QString Tool::toolTip(){
-	return _toolTip;
+QString Tool::toolTip()
+{
+    return _toolTip;
 }
 
-ProtocolEntry *Tool::copy(){
-	Tool *t = new Tool(*this);
-	return t;
+ProtocolEntry* Tool::copy()
+{
+    Tool* t = new Tool(*this);
+    return t;
 }
 
-void Tool::reloadState(ProtocolEntry *entry) { 
-	Tool *other = (Tool*)entry;
-	if(!other){
-		return;
-	}
-	_image = other->_image;
-	_button = other->_button;
-	_toolTip = other->_toolTip;
-	_standardTool = other->_standardTool;
+void Tool::reloadState(ProtocolEntry* entry)
+{
+    Tool* other = (Tool*)entry;
+    if (!other) {
+        return;
+    }
+    _image = other->_image;
+    _button = other->_button;
+    _toolTip = other->_toolTip;
+    _standardTool = other->_standardTool;
 }
 
-MidiFile *Tool::currentFile(){
-	return _currentFile;
+MidiFile* Tool::currentFile()
+{
+    return _currentFile;
 }
 
-MidiFile *Tool::file(){
-	return currentFile();
+MidiFile* Tool::file()
+{
+    return currentFile();
 }
 
-void Tool::setCurrentTool(EditorTool *tool){
-	_currentTool = tool;
-	_currentTool->select();
+void Tool::setCurrentTool(EditorTool* tool)
+{
+    _currentTool = tool;
+    _currentTool->select();
 }
 
-Protocol *Tool::currentProtocol(){
-	if(currentFile()){
-		return currentFile()->protocol();
-	}
-	return 0;
+Protocol* Tool::currentProtocol()
+{
+    if (currentFile()) {
+        return currentFile()->protocol();
+    }
+    return 0;
 }
 
-void Tool::setButton(ToolButton *b){
-	_button = b;
+void Tool::setButton(ToolButton* b)
+{
+    _button = b;
 }
 
-ToolButton *Tool::button(){
-	return _button;
+ToolButton* Tool::button()
+{
+    return _button;
 }
 
-EditorTool *Tool::currentTool() {
-	return _currentTool;
+EditorTool* Tool::currentTool()
+{
+    return _currentTool;
 }
 
-void Tool::setStandardTool(StandardTool *stdTool){
-	_standardTool = stdTool;
+void Tool::setStandardTool(StandardTool* stdTool)
+{
+    _standardTool = stdTool;
 }
 
-void Tool::setFile(MidiFile *file){
-	_currentFile = file;
+void Tool::setFile(MidiFile* file)
+{
+    _currentFile = file;
 }

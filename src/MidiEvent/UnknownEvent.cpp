@@ -20,59 +20,71 @@
 
 #include "../midi/MidiFile.h"
 
-UnknownEvent::UnknownEvent(int channel, int type, QByteArray data, MidiTrack *track) : MidiEvent(channel, track){
-	_data = data;
-	_type = type;
+UnknownEvent::UnknownEvent(int channel, int type, QByteArray data, MidiTrack* track)
+    : MidiEvent(channel, track)
+{
+    _data = data;
+    _type = type;
 }
 
-UnknownEvent::UnknownEvent(UnknownEvent &other) : MidiEvent(other) {
-	_data = other._data;
-	_type = other._type;
+UnknownEvent::UnknownEvent(UnknownEvent& other)
+    : MidiEvent(other)
+{
+    _data = other._data;
+    _type = other._type;
 }
 
-QByteArray UnknownEvent::data(){
-	return _data;
+QByteArray UnknownEvent::data()
+{
+    return _data;
 }
 
-int UnknownEvent::line(){
-	return UNKNOWN_LINE;
+int UnknownEvent::line()
+{
+    return UNKNOWN_LINE;
 }
 
-QByteArray UnknownEvent::save(){
-	QByteArray s;
-	s.append(char(0xFF));
-	s.append(_type);
-	s.append(MidiFile::writeVariableLengthValue(_data.length()));
-	s.append(_data);
-	return s;
+QByteArray UnknownEvent::save()
+{
+    QByteArray s;
+    s.append(char(0xFF));
+    s.append(_type);
+    s.append(MidiFile::writeVariableLengthValue(_data.length()));
+    s.append(_data);
+    return s;
 }
 
-void UnknownEvent::reloadState(ProtocolEntry *entry){
-	UnknownEvent *other = dynamic_cast<UnknownEvent*>(entry);
-	if(!other){
-		return;
-	}
-	MidiEvent::reloadState(entry);
-	_type = other->_type;
-	_data = other->_data;
+void UnknownEvent::reloadState(ProtocolEntry* entry)
+{
+    UnknownEvent* other = dynamic_cast<UnknownEvent*>(entry);
+    if (!other) {
+        return;
+    }
+    MidiEvent::reloadState(entry);
+    _type = other->_type;
+    _data = other->_data;
 }
 
-ProtocolEntry *UnknownEvent::copy(){
-	return new UnknownEvent(*this);
+ProtocolEntry* UnknownEvent::copy()
+{
+    return new UnknownEvent(*this);
 }
 
-int UnknownEvent::type(){
-	return _type;
+int UnknownEvent::type()
+{
+    return _type;
 }
 
-void UnknownEvent::setType(int type){
-	ProtocolEntry *toCopy = copy();
-	_type = type;
-	protocol(toCopy, this);
+void UnknownEvent::setType(int type)
+{
+    ProtocolEntry* toCopy = copy();
+    _type = type;
+    protocol(toCopy, this);
 }
 
-void UnknownEvent::setData(QByteArray d){
-	ProtocolEntry *toCopy = copy();
-	_data = d;
-	protocol(toCopy, this);
+void UnknownEvent::setData(QByteArray d)
+{
+    ProtocolEntry* toCopy = copy();
+    _data = d;
+    protocol(toCopy, this);
 }

@@ -19,63 +19,74 @@
 #include "TempoChangeEvent.h"
 #include "../midi/MidiFile.h"
 
-TempoChangeEvent::TempoChangeEvent(int channel, int value, MidiTrack *track) : MidiEvent(channel, track){
-	_beats = 60000000/value;
+TempoChangeEvent::TempoChangeEvent(int channel, int value, MidiTrack* track)
+    : MidiEvent(channel, track)
+{
+    _beats = 60000000 / value;
 }
 
-TempoChangeEvent::TempoChangeEvent(TempoChangeEvent &other) : MidiEvent(other){
-	_beats = other._beats;
+TempoChangeEvent::TempoChangeEvent(TempoChangeEvent& other)
+    : MidiEvent(other)
+{
+    _beats = other._beats;
 }
 
-int TempoChangeEvent::beatsPerQuarter(){
-	return _beats;
+int TempoChangeEvent::beatsPerQuarter()
+{
+    return _beats;
 }
 
-double TempoChangeEvent::msPerTick(){
-	double quarters_per_second = (double)_beats/60;
-	double ticks_per_second = (double)(file()->ticksPerQuarter()) *
-			quarters_per_second;
-	return 1000/(ticks_per_second);
+double TempoChangeEvent::msPerTick()
+{
+    double quarters_per_second = (double)_beats / 60;
+    double ticks_per_second = (double)(file()->ticksPerQuarter()) * quarters_per_second;
+    return 1000 / (ticks_per_second);
 }
 
-ProtocolEntry *TempoChangeEvent::copy(){
-	return new TempoChangeEvent(*this);
+ProtocolEntry* TempoChangeEvent::copy()
+{
+    return new TempoChangeEvent(*this);
 }
 
-void TempoChangeEvent::reloadState(ProtocolEntry *entry){
-	TempoChangeEvent *other = dynamic_cast<TempoChangeEvent*>(entry);
-	if(!other){
-		return;
-	}
-	MidiEvent::reloadState(entry);
-	_beats = other->_beats;
+void TempoChangeEvent::reloadState(ProtocolEntry* entry)
+{
+    TempoChangeEvent* other = dynamic_cast<TempoChangeEvent*>(entry);
+    if (!other) {
+        return;
+    }
+    MidiEvent::reloadState(entry);
+    _beats = other->_beats;
 }
 
-int TempoChangeEvent::line(){
-	return MidiEvent::TEMPO_CHANGE_EVENT_LINE;
+int TempoChangeEvent::line()
+{
+    return MidiEvent::TEMPO_CHANGE_EVENT_LINE;
 }
 
-QByteArray TempoChangeEvent::save(){
-	QByteArray array = QByteArray();
+QByteArray TempoChangeEvent::save()
+{
+    QByteArray array = QByteArray();
 
-	array.append(char(0xFF));
-	array.append(char(0x51));
-	array.append(char(0x03));
-	int value = 60000000/_beats;
-	for(int i = 2; i >=0; i--){
-		array.append((value & (0xFF << 8*i)) >>8*i);
-	}
+    array.append(char(0xFF));
+    array.append(char(0x51));
+    array.append(char(0x03));
+    int value = 60000000 / _beats;
+    for (int i = 2; i >= 0; i--) {
+        array.append((value & (0xFF << 8 * i)) >> 8 * i);
+    }
 
-	return array;
+    return array;
 }
 
-void TempoChangeEvent::setBeats(int beats){
-	ProtocolEntry *toCopy = copy();
-	_beats = beats;
-	file()->calcMaxTime();
-	protocol(toCopy, this);
+void TempoChangeEvent::setBeats(int beats)
+{
+    ProtocolEntry* toCopy = copy();
+    _beats = beats;
+    file()->calcMaxTime();
+    protocol(toCopy, this);
 }
 
-QString TempoChangeEvent::typeString(){
-	return "Tempo Change Event";
+QString TempoChangeEvent::typeString()
+{
+    return "Tempo Change Event";
 }
