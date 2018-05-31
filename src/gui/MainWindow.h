@@ -171,6 +171,7 @@ public slots:
     void copiedEventsChanged();
 
     void updateDetected(Update* update);
+    void promtUpdatesDeactivatedDialog();
 
 protected:
     void closeEvent(QCloseEvent* event);

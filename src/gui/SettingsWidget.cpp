@@ -44,6 +44,7 @@ QWidget* SettingsWidget::createInfoBox(QString info)
     label->setStyleSheet("color: gray; background-color: white; padding: 5px");
     label->setWordWrap(true);
     label->setAlignment(Qt::AlignJustify);
+    label->setOpenExternalLinks(true);
     return label;
 }
 

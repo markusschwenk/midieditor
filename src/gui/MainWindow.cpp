@@ -94,14 +94,13 @@
 #include "../UpdateManager.h"
 #include "CompleteMidiSetupDialog.h"
 #include "UpdateDialog.h"
-
+#include "DeactivatedAutomaticUpdateCheckDialog.h"
 #include <QtCore/qmath.h>
 
 MainWindow::MainWindow(QString initFile)
     : QMainWindow()
     , _initFile(initFile)
 {
-
     file = 0;
     _settings = new QSettings(QString("MidiEditor"), QString("NONE"));
 
@@ -148,7 +147,13 @@ MainWindow::MainWindow(QString initFile)
 
 #endif
 
-    UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update", true).toBool());
+    bool promtBecauseOfDeactivatedUpdates = false;
+
+    if (_settings->value("auto_update", false).toBool()) {
+        promtBecauseOfDeactivatedUpdates = true;
+    }
+
+    UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update_2", false).toBool());
     connect(UpdateManager::instance(), SIGNAL(updateDetected(Update*)), this, SLOT(updateDetected(Update*)));
     _quantizationGrid = _settings->value("quantization", 3).toInt();
 
@@ -494,6 +499,10 @@ MainWindow::MainWindow(QString initFile)
     QTimer::singleShot(200, this, SLOT(loadInitFile()));
     if (UpdateManager::autoCheckForUpdates()) {
         QTimer::singleShot(500, UpdateManager::instance(), SLOT(checkForUpdates()));
+    }
+
+    if (promtBecauseOfDeactivatedUpdates) {
+        QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
 }
 
@@ -1129,7 +1138,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
     _settings->setValue("thru", MidiInput::thru());
     _settings->setValue("quantization", _quantizationGrid);
 
-    _settings->setValue("auto_update", UpdateManager::autoCheckForUpdates());
+    _settings->setValue("auto_update_2", UpdateManager::autoCheckForUpdates());
+    _settings->setValue("auto_update", false);
 }
 
 void MainWindow::donate()
@@ -3029,6 +3039,12 @@ void MainWindow::copiedEventsChanged()
 void MainWindow::updateDetected(Update* update)
 {
     UpdateDialog* d = new UpdateDialog(update, this);
+    d->setModal(true);
+    d->exec();
+}
+
+void MainWindow::promtUpdatesDeactivatedDialog() {
+    DeactivatedAutomaticUpdateCheckDialog* d = new DeactivatedAutomaticUpdateCheckDialog(this);
     d->setModal(true);
     d->exec();
 }
