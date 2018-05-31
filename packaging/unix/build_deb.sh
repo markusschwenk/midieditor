@@ -47,6 +47,9 @@ cp $BASEDIR/midieditor/logo48.png $PACKAGE_DIR/usr/share/pixmaps/midieditor.png
 # copy version_info.xml to usr/share/midieditor
 cp $BASEDIR/midieditor/version_info.xml $PACKAGE_DIR/usr/share/midieditor/version_info.xml
 
+# Copy metronome
+cp -R packaging/metronome $PACKAGE_DIR/usr/share/midieditor/metronome
+
 # copyright goes to /usr/share/doc/midieditor (fields will be replaced below)
 cp $BASEDIR/midieditor/copyright $PACKAGE_DIR/usr/share/doc/midieditor/copyright
 

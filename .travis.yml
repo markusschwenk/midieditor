@@ -31,14 +31,14 @@ script:
    - sh packaging/unix/build_deb.sh
    - git clone https://github.com/mxe/mxe.git mxe
    - cd mxe 
-   - travis_wait 60 make qtbase 
+   - travis_wait 90 make qtbase 
    - cd ..
-   - sh building/build-windows.sh
    - git clone https://github.com/damoncourtney/installjammer.git installjammer
    - cd installjammer
    - git tag -l
    - git checkout tags/v1.2.14
-   - cd ..
+   - sh building/build-windows.sh
+   - sh packaging/windows/create_windows_setup.sh
 
 deploy:
   provider: pages
