@@ -8,7 +8,7 @@ os:
   - linux
 
 env:
-  - CONFIG=Release MIDIEDITOR_RELEASE_VERSION_ID=2 MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0 MIDIEDITOR_PACKAGE_VERSION=1 MIDIEDITOR_BINARY=MidiEditor MXE=/usr/lib/mxe/ INSTALLJAMMER=installjammer/installjammer MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
+  - CONFIG=Release MIDIEDITOR_RELEASE_VERSION_ID=2 MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0 MIDIEDITOR_PACKAGE_VERSION=1 MIDIEDITOR_BINARY=MidiEditor MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH INSTALLJAMMER=installjammer/installjammer MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
 
 before_install:
     - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
@@ -30,13 +30,9 @@ before_install:
 before_script:
 
 script:
+   - sh building/build-windows.sh
    - sh building/build-linux.sh
    - sh packaging/unix/build_deb.sh
-   #- git clone https://github.com/mxe/mxe.git mxe
-   #- cd mxe 
-   #- travis_wait 90 make qtbase 
-   #- cd ..
-   - sh building/build-windows.sh
    - git clone https://github.com/damoncourtney/installjammer.git installjammer
    - cd installjammer
    - git tag -l
