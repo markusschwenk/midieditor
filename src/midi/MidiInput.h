@@ -57,6 +57,8 @@ class MidiInput : public QObject {
 		static void setThruEnabled(bool b);
 		static bool thru();
 
+        static bool isConnected();
+
 	private:
 		static QString _inPort;
 		static RtMidiIn *_midiIn;

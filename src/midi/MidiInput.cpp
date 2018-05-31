@@ -358,3 +358,7 @@ void MidiInput::setThruEnabled(bool b){
 bool MidiInput::thru(){
 	return _thru;
 }
+
+bool MidiInput::isConnected() {
+    return _inPort != "";
+}

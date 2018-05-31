@@ -416,9 +416,9 @@ MainWindow::MainWindow(QString initFile) : QMainWindow(), _initFile(initFile) {
 
 
 	// terminal
-	Terminal::initTerminal(_settings->value("start_cmd", "").toString(),
-			_settings->value("in_port", "").toString(),
-			_settings->value("out_port", "").toString());
+    Terminal::initTerminal(_settings->value("start_cmd", "").toString(),
+            _settings->value("in_port", "").toString(),
+            _settings->value("out_port", "").toString());
 	//upperTabWidget->addTab(Terminal::terminal()->console(), "Terminal");
 
 	// Protocollist
@@ -578,7 +578,7 @@ void MainWindow::playStop() {
 
 void MainWindow::play(){
     if (!MidiOutput::isConnected()) {
-        CompleteMidiSetupDialog *d = new CompleteMidiSetupDialog(this);
+        CompleteMidiSetupDialog *d = new CompleteMidiSetupDialog(this, true, false);
         d->setModal(true);
         d->exec();
         return;
@@ -609,6 +609,13 @@ void MainWindow::play(){
 
 
 void MainWindow::record(){
+
+    if (!MidiOutput::isConnected() || !MidiInput::isConnected()) {
+        CompleteMidiSetupDialog *d = new CompleteMidiSetupDialog(this, !MidiOutput::isConnected(), !MidiInput::isConnected());
+        d->setModal(true);
+        d->exec();
+        return;
+    }
 
 	if(!file){
 		newFile();
@@ -1973,7 +1980,7 @@ void MainWindow::spreadSelection(){
 void MainWindow::manual(){
 
 	QProcess *process = new QProcess;
-	process->setWorkingDirectory("assistant");
+    process->setWorkingDirectory("assistant");
 	QStringList args;
 	args << QLatin1String("-collectionFile")
 	<< QLatin1String("midieditor-collection.qhc");
