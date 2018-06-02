@@ -94,7 +94,7 @@
 #include "../UpdateManager.h"
 #include "CompleteMidiSetupDialog.h"
 #include "UpdateDialog.h"
-#include "DeactivatedAutomaticUpdateCheckDialog.h"
+#include "AutomaticUpdateDialog.h"
 #include <QtCore/qmath.h>
 
 MainWindow::MainWindow(QString initFile)
@@ -147,13 +147,9 @@ MainWindow::MainWindow(QString initFile)
 
 #endif
 
-    bool promtBecauseOfDeactivatedUpdates = false;
+    bool !_settings->value("has_prompted_for_updates", false).toBool();
 
-    if (_settings->value("auto_update", false).toBool()) {
-        promtBecauseOfDeactivatedUpdates = true;
-    }
-
-    UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update_2", false).toBool());
+    UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update_after_prompt", false).toBool());
     connect(UpdateManager::instance(), SIGNAL(updateDetected(Update*)), this, SLOT(updateDetected(Update*)));
     _quantizationGrid = _settings->value("quantization", 3).toInt();
 
@@ -501,7 +497,7 @@ MainWindow::MainWindow(QString initFile)
         QTimer::singleShot(500, UpdateManager::instance(), SLOT(checkForUpdates()));
     }
 
-    if (promtBecauseOfDeactivatedUpdates) {
+    if (promtAboutAutoUpdates) {
         QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
 }
@@ -1138,8 +1134,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
     _settings->setValue("thru", MidiInput::thru());
     _settings->setValue("quantization", _quantizationGrid);
 
-    _settings->setValue("auto_update_2", UpdateManager::autoCheckForUpdates());
-    _settings->setValue("auto_update", false);
+    _settings->setValue("auto_update_after_prompt", UpdateManager::autoCheckForUpdates());
+    _settings->setValue("has_prompted_for_updates", true); // Happens on first start
 }
 
 void MainWindow::donate()

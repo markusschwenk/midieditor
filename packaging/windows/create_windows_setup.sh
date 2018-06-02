@@ -3,7 +3,7 @@
 # -------------- This script is used to create the windows installer. ---------- #
 #
 # Required environment variables:
-# 
+#
 # MIDIEDITOR_RELEASE_VERSION_ID=2
 # MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0
 # MIDIEDITOR_PACKAGE_VERSION=1

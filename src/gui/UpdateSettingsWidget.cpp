@@ -22,7 +22,6 @@ UpdateSettingsWidget::UpdateSettingsWidget(QSettings *settings, QWidget *parent)
       "href=\"http://www.midieditor.org/"
       "index.php?category=update_privacy\">www.midieditor.org</a>."
       "</p>"
-      "<p>"
       "By enabling the option below, you confirm that you have read and "
       "understood the terms under which MidiEditor provides this service and "
       "that you agree to them."

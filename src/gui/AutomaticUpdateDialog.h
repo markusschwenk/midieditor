@@ -25,12 +25,20 @@
 #include <QString>
 #include <QWidget>
 
+class QCheckBox;
+
 class DeactivatedAutomaticUpdateCheckDialog : public QDialog {
 
   Q_OBJECT
 
 public:
   DeactivatedAutomaticUpdateCheckDialog(QWidget *parent = 0);
+
+public slots:
+    void enableAutoUpdates(bool enable);
+
+private:
+    QCheckBox* _auto;
 };
 
 #endif
