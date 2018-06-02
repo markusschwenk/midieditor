@@ -36,11 +36,11 @@ AboutDialog::AboutDialog(QWidget* parent)
     setMinimumWidth(550);
     setMaximumHeight(450);
     setWindowTitle(tr("About"));
-    setWindowIcon(QIcon("graphics/icon.png"));
+    setWindowIcon(QIcon(":/run_environment/graphics/icon.png"));
     QGridLayout* layout = new QGridLayout(this);
 
     QLabel* icon = new QLabel();
-    icon->setPixmap(QPixmap("graphics/midieditor.png").scaledToWidth(80, Qt::SmoothTransformation));
+    icon->setPixmap(QPixmap(":/run_environment/graphics/midieditor.png").scaledToWidth(80, Qt::SmoothTransformation));
     icon->setFixedSize(80, 80);
     layout->addWidget(icon, 0, 0, 3, 1);
 

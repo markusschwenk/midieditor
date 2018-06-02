@@ -147,7 +147,7 @@ MainWindow::MainWindow(QString initFile)
 
 #endif
 
-    bool !_settings->value("has_prompted_for_updates", false).toBool();
+    bool promtAboutAutoUpdates = !_settings->value("has_prompted_for_updates", false).toBool();
 
     UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update_after_prompt", false).toBool());
     connect(UpdateManager::instance(), SIGNAL(updateDetected(Update*)), this, SLOT(updateDetected(Update*)));
