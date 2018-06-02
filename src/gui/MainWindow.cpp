@@ -147,8 +147,6 @@ MainWindow::MainWindow(QString initFile)
 
 #endif
 
-    bool promtAboutAutoUpdates = !_settings->value("has_prompted_for_updates", false).toBool();
-
     UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update_after_prompt", false).toBool());
     connect(UpdateManager::instance(), SIGNAL(updateDetected(Update*)), this, SLOT(updateDetected(Update*)));
     _quantizationGrid = _settings->value("quantization", 3).toInt();
@@ -497,7 +495,13 @@ MainWindow::MainWindow(QString initFile)
         QTimer::singleShot(500, UpdateManager::instance(), SLOT(checkForUpdates()));
     }
 
-    if (promtAboutAutoUpdates) {
+    // display dialogs, depending on number of starts of the software
+    bool ok;
+    int numStart = _settings->value("numStart_v3.5", -1).toInt(&ok);
+    if (numStart == 15) {
+        QTimer::singleShot(300, this, SLOT(donate()));
+    }
+    if (numStart == 10 && !UpdateManager::autoCheckForUpdates()) {
         QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
 }
@@ -1117,8 +1121,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
 #endif
 
     bool ok;
-    int numStart = _settings->value("numStart", -1).toInt(&ok);
-    _settings->setValue("numStart", numStart + 1);
+    int numStart = _settings->value("numStart_v3.5", -1).toInt(&ok);
+    _settings->setValue("numStart_v3.5", numStart + 1);
 
     // save the current Path
     _settings->setValue("open_path", startDirectory);
@@ -1200,12 +1204,6 @@ void MainWindow::newFile()
 
     editTrack(1);
     setWindowTitle(QApplication::applicationName() + " - Untitled Document[*]");
-
-    bool ok;
-    int numStart = _settings->value("numStart", -1).toInt(&ok);
-    if (numStart == 15) {
-        donate();
-    }
 }
 
 void MainWindow::panic()
@@ -3040,7 +3038,7 @@ void MainWindow::updateDetected(Update* update)
 }
 
 void MainWindow::promtUpdatesDeactivatedDialog() {
-    DeactivatedAutomaticUpdateCheckDialog* d = new DeactivatedAutomaticUpdateCheckDialog(this);
+    AutomaticUpdateDialog* d = new AutomaticUpdateDialog(this);
     d->setModal(true);
     d->exec();
 }

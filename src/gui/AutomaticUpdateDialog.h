@@ -27,18 +27,15 @@
 
 class QCheckBox;
 
-class DeactivatedAutomaticUpdateCheckDialog : public QDialog {
+class AutomaticUpdateDialog : public QDialog {
 
   Q_OBJECT
 
 public:
-  DeactivatedAutomaticUpdateCheckDialog(QWidget *parent = 0);
+  AutomaticUpdateDialog(QWidget *parent = 0);
 
 public slots:
-    void enableAutoUpdates(bool enable);
-
-private:
-    QCheckBox* _auto;
+    void enableAutoUpdates();
 };
 
 #endif

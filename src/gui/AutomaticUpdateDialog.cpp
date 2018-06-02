@@ -33,7 +33,7 @@
 #include "../UpdateManager.h"
 
 
-DeactivatedAutomaticUpdateCheckDialog::DeactivatedAutomaticUpdateCheckDialog(
+AutomaticUpdateDialog::AutomaticUpdateDialog(
     QWidget *parent)
     : QDialog(parent) {
 
@@ -47,29 +47,32 @@ DeactivatedAutomaticUpdateCheckDialog::DeactivatedAutomaticUpdateCheckDialog(
   icon->setPixmap(QPixmap(":/run_environment/graphics/midieditor.png")
                       .scaledToWidth(80, Qt::SmoothTransformation));
   icon->setFixedSize(80, 80);
-  layout->addWidget(icon, 0, 0, 3, 1);
+  layout->addWidget(icon, 0, 0, 1, 1);
 
   QScrollArea *a = new QScrollArea(this);
   QLabel *content = new QLabel("<html>"
                                "<body>"
-                               "<h3>Deactivated Automatic Updates</h3>"
+                               "<h3>Enable Automatic Checking for Updates?</h3>"
                                "<p>"
-                               "Due to the new General Data Protection Regulation (GDPR), "
-                               "automatic updates have to be deactivated by default. "
+                               "Click below to enable or disable automatic checking for updates. "
                                "</p>"
                                "<p>"
-                               "You can enable them now, or later by navigating to Edit - Settings - Updates in the menu bar. "
+                               "You can enable this option now, or later by navigating to Edit - Settings - Updates in the menu bar. "
                                "You can always update your preference in that very same Settings page."
                                "</p>"
                                "<p>"
                                "<p><b>Privacy Note</b></p>"
                                "<p>"
-                               "Please read the privacy note on <a "
-                               "href=\"http://www.midieditor.org/"
-                               "index.php?category=update_privacy\">www.midieditor.org</a>."
+                               "When checking for updates, MidiEditor transmits your IP address as well as the currently "
+                               "installed version of MidiEditor and you operating system to a server which is located within the European Union."
                                "</p>"
                                "<p>"
-                               "By enabling the option below, you confirm that you have read and "
+                               "Please read our privacy policy at <a "
+                               "href=\"https://www.midieditor.org/"
+                               "updates-privacy\">www.midieditor.org/updates-privacy</a> for further information."
+                               "</p>"
+                               "<p>"
+                               "By enabling the option, you confirm that you have read and "
                                "understood the terms under which MidiEditor provides this service and "
                                "that you agree to them."
                                "</p>"
@@ -86,26 +89,25 @@ DeactivatedAutomaticUpdateCheckDialog::DeactivatedAutomaticUpdateCheckDialog(
   content->setOpenExternalLinks(true);
   content->setWordWrap(true);
 
-  _auto = new QCheckBox("Automatically check for Updates", this);
-  _auto->setChecked(false);
-
-  connect(_auto, SIGNAL(toggled(bool)), this, SLOT(enableAutoUpdates(bool)));
-  layout->addWidget(_auto, 5, 1, 1, 6);
-
-  layout->setRowStretch(5, 1);
-  layout->setColumnStretch(1, 1);
+  layout->setRowStretch(1, 1);
+ // layout->setColumnStretch(1, 1);
 
   QFrame *f = new QFrame(this);
   f->setFrameStyle(QFrame::HLine | QFrame::Sunken);
   layout->addWidget(f, 6, 0, 1, 3);
 
-  QPushButton *close = new QPushButton("Close");
-  layout->addWidget(close, 7, 2, 1, 1);
+  QPushButton *close = new QPushButton("No, thanks!");
+  layout->addWidget(close, 7, 1, 1, 1);
   connect(close, SIGNAL(clicked()), this, SLOT(hide()));
+
+  QPushButton *accept = new QPushButton("Yes, enable checks");
+  layout->addWidget(accept, 7, 2, 1, 1);
+  connect(accept, SIGNAL(clicked()), this, SLOT(enableAutoUpdates()));
 }
 
-void DeactivatedAutomaticUpdateCheckDialog::enableAutoUpdates(bool enable) {
-  UpdateManager::setAutoCheckUpdatesEnabled(enable);
+void AutomaticUpdateDialog::enableAutoUpdates() {
+  UpdateManager::setAutoCheckUpdatesEnabled(true);
+  this->hide();
 }
 
 
