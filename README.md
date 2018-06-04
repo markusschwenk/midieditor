@@ -5,10 +5,9 @@
 MidiEditor
 ===========
 
-[![Build Status](https://api.travis-ci.org/schwenk/MidiEditor.svg?branch=master)](https://travis-ci.org/abreheret/MidiEditor)
+[![Build Status](https://api.travis-ci.org/markusschwenk/midieditor.svg?branch=master)](https://travis-ci.org/markusschwenk/midieditor)
 
-
-Download : Windows [last release](https://github.com/abreheret/MidiEditor/releases/)
+Downloads : [last release](https://github.com/markusschwenk/midieditor/releases/)
 
 ### Building Dependencies
 * [Qt >= 5.7](https://www.qt.io/download-open-source/)

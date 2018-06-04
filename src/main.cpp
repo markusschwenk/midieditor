@@ -86,7 +86,6 @@ int main(int argc, char* argv[])
         w = new MainWindow(argv[1]);
     else
         w = new MainWindow();
-    w->resize(QSize(1280, 800));
-    w->show();
+    w->showMaximized();
     return a.exec();
 }
