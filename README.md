@@ -2,26 +2,20 @@
 
 <img align="left" width="70px" src="run_environment/midieditor.ico">
 
-MidiEditor 
+MidiEditor
 ===========
 
------------------
-| **`  Linux  `** | **` Windows `** |  
-|-----------------|---------------------|
-| [![Build Status](https://api.travis-ci.org/abreheret/MidiEditor.svg?branch=master)](https://travis-ci.org/abreheret/MidiEditor) | [![Appveyor Build Status](https://img.shields.io/appveyor/ci/abreheret/midieditor.svg)](https://ci.appveyor.com/project/abreheret/MidiEditor) |
+[![Build Status](https://api.travis-ci.org/schwenk/MidiEditor.svg?branch=master)](https://travis-ci.org/abreheret/MidiEditor)
 
 
 Download : Windows [last release](https://github.com/abreheret/MidiEditor/releases/)
 
 ### Building Dependencies
 * [Qt >= 5.7](https://www.qt.io/download-open-source/)
-* [CMake](https://cmake.org/download/) >= 2.8.11 
-* Linux : 
+* Linux :
      * [sfml](http://www.sfml-dev.org/download-fr.php) `sudo apt-get install libsfml-dev`
      * asound `sudo apt-get install libasound2-dev`
-* Windows Compiler : Works under Visual Studio >= 2013
-* Windows deployment : [nsis](http://nsis.sourceforge.net/Download)
- 
+
 ### Introduction
 
 MidiEditor is a free software providing an interface to edit, record, and play Midi data.
@@ -49,14 +43,14 @@ MidiEditor was developed by Markus Schwenk. It is entirely written in C++ (Qt) a
 
 Please feel free to contact the developer if you have any suggestions! Please also reach out to the developer if you found a bug.
 
-### Origin Project Page
+### Project Page
 
-[Here](https://sourceforge.net/projects/midieditor/) you can find the original project page on sourceforge.net. You will find the code and a way to provide feedback.
+[https://midieditor.org](https://midieditor.org)
 
 
-### Manual 
+### Manual
 
-[Here](http://midieditor.sourceforge.net/index.php?category=manual)
+[https://midieditor.org/index.php?category=manual](https://midieditor.org/index.php?category=manual)
 
 
 

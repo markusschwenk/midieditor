@@ -46,5 +46,5 @@ sh ../$INSTALLJAMMER -DVersion $MIDIEDITOR_RELEASE_VERSION_STRING --build-for-re
 
 cd ..
 
-mkdir deb
-cp -a MidiEditor-win32/output/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-Setup.exe deb/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-Setup.exe
+mkdir releases
+cp -a MidiEditor-win32/output/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-Setup.exe releases/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-Setup.exe

@@ -31,8 +31,7 @@ UpdateManager::UpdateManager()
 
 void UpdateManager::init()
 {
-    _mirrors.append("https://greric.de/midieditor");
-    _mirrors.append("http://midieditor.sourceforge.net/update");
+    _mirrors.append("https://midieditor.org/update");
 
     // read own configuration
     QDomDocument doc("version_info");
@@ -146,6 +145,8 @@ void UpdateManager::fileDownloaded(QNetworkReply* reply)
                 return;
             }
             int newUpdate = element.attribute("latest_version").toInt();
+
+            qWarning("Latest version code: %d", newUpdate);
 
             if (newUpdate > _updateID) {
                 QString path = element.attribute("download_path");

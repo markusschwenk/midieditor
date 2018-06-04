@@ -47,4 +47,4 @@ deploy:
   keep-history: true
   on:
     branch: master
-  local-master-dir: deb
+  local-dir: releases

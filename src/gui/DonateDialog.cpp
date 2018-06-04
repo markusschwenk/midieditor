@@ -27,27 +27,6 @@
 DonateDialog::DonateDialog(QWidget* parent)
     : QDialog(parent)
 {
-    /*
-	setWindowIcon(QIcon("graphics/icon.png"));
-
-	QGridLayout *layout = new QGridLayout;
-
-	//Label starttext
-	QLabel *title = new QLabel("<h2><u>Donate</u></h2><font" \
-		" color='#666666'>Please donate if this software is useful for you. " \
-		 "<br>To donate visit my Donate Page on <a href=\"http://sourceforge.net/project/project_donations.php?group_id=370293\">SourceForge.net</a></font>");
-	title->setTextInteractionFlags(Qt::LinksAccessibleByMouse);
-	title->setOpenExternalLinks(true);
-	layout->addWidget(title, 0,0,1,4);
-
-	// button close
-	QPushButton *close = new QPushButton("Close");
-	layout->addWidget(close, 1, 3, 1, 1);
-	connect(close, SIGNAL(clicked()), this, SLOT(hide()));
-
-	setLayout(layout);
-	setWindowTitle(tr("Donate")); */
-
     setMinimumWidth(550);
     setMaximumHeight(450);
     setWindowTitle(tr("Donate"));
@@ -77,8 +56,8 @@ DonateDialog::DonateDialog(QWidget* parent)
                                  "</p>"
                                  "<h3>How to donate</h3>"
                                  "<p>"
-                                 "Donating is very simple - and secure. Please visit the \"Donate\" section at the editor's project page at sourceforge in order to make a donation.<br>"
-                                 "<a href=\"http://sourceforge.net/project/project_donations.php?group_id=370293\">sourceforge.net/project/project_donations</a>"
+                                 "Donating is very simple - and secure. Please visit the \"Donate\" section at the editor's project page in order to make a donation.<br>"
+                                 "<a href=\"https://midieditor.org/donate\">https://midieditor.org/donate</a>"
                                  "</p>"
                                  "<h3>Thank you!</h3>"
                                  "<p>"
@@ -86,7 +65,7 @@ DonateDialog::DonateDialog(QWidget* parent)
                                  "</p>"
                                  "<h3>Other ways to Contribute</h3>"
                                  "<p>"
-                                 "<a href=\"http://sourceforge.net/projects/midieditor/\">Rate MidiEditor and provide feedback</a> to let me and other users know about how you liked the software!"
+                                 "<a href=\"https://github.com/markusschwenk/midieditor\">Rate MidiEditor and provide feedback</a> to let me and other users know about how you liked the software!"
                                  "</p>"
                                  "</body>"
                                  "</html>");

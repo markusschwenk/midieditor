@@ -3,7 +3,7 @@
 # -------------- This script is used to create a debian package. ---------- #
 #
 # Required environment variables:
-# 
+#
 # MIDIEDITOR_RELEASE_VERSION_ID=2
 # MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0
 # MIDIEDITOR_PACKAGE_VERSION=1
@@ -15,7 +15,7 @@ PACKAGE_DIR=midieditor_$MIDIEDITOR_RELEASE_VERSION_STRING-$MIDIEDITOR_PACKAGE_VE
 BASEDIR=$(dirname "$0")
 DATE='date %Y'
 DATE='$DATE'
-DEPENDS="libc6(>=2.19), libqtcore4(>=4\.8\.5), libqtgui4(>=4\.8\.5), libqt4-network(>=4\.8\.5), libqt4-xml(>=4\.8\.5), libasound2, qt4-dev-tools, libsfml-dev(>=2\.1)"
+DEPENDS="libc6(>=2.19), qtbase5-dev, qtdeclarative5-dev, libqt5webkit5-dev, libsqlite3-dev, qt5-default, qttools5-dev-tools, libasound2, libsfml-dev(>=2\.1)"
 
 # Setup dir structure
 mkdir $PACKAGE_DIR
@@ -87,5 +87,5 @@ chmod +x $PACKAGE_DIR/usr/lib/midieditor/MidiEditor
 
 fakeroot dpkg-deb --build $PACKAGE_DIR
 
-mkdir deb
-mv $PACKAGE_DIR.deb deb/$PACKAGE_DIR.deb
+mkdir releases
+mv $PACKAGE_DIR.deb releases/$PACKAGE_DIR.deb

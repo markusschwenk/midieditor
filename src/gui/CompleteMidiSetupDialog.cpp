@@ -65,7 +65,7 @@ CompleteMidiSetupDialog::CompleteMidiSetupDialog(QWidget* parent, bool alertAbou
     }
     QLabel* content = new QLabel(QString("<html>"
                                          "<body>")
-        + connectInput + connectOutput + QString("<p>Please refer the manual for further instructions.<p/>"
+        + connectInput + connectOutput + QString("<p>Please refer to the manual for further instructions.<p/>"
                                                  "</body>"
                                                  "</html>"));
     a->setWidgetResizable(true);
