@@ -593,7 +593,7 @@ void MainWindow::playStop()
 void MainWindow::play()
 {
     if (!MidiOutput::isConnected()) {
-        CompleteMidiSetupDialog* d = new CompleteMidiSetupDialog(this, true, false);
+        CompleteMidiSetupDialog* d = new CompleteMidiSetupDialog(this, false, true);
         d->setModal(true);
         d->exec();
         return;
@@ -626,7 +626,7 @@ void MainWindow::record()
 {
 
     if (!MidiOutput::isConnected() || !MidiInput::isConnected()) {
-        CompleteMidiSetupDialog* d = new CompleteMidiSetupDialog(this, !MidiOutput::isConnected(), !MidiInput::isConnected());
+        CompleteMidiSetupDialog* d = new CompleteMidiSetupDialog(this, !MidiInput::isConnected(), !MidiOutput::isConnected());
         d->setModal(true);
         d->exec();
         return;
