@@ -1913,7 +1913,7 @@ Windows,UseUncompressedBinaries
 {No}
 
 Windows,WindowsIcon
-{<%InstallerIcon%>}
+{CD Package.ico}
 
 ZipArchive,Active
 {No}
