@@ -17,7 +17,6 @@ before_install:
     - sudo apt-get install qt5-default qttools5-dev-tools qtmultimedia5-dev libqt5multimedia5 libqt5multimedia5-plugins
     - QT_VERSION_MM=59
     - QT_VERSION_FULL=591-trusty
-    - sudo apt-get install libsfml-dev
     - sudo apt-get install libasound2-dev
     - sudo apt-get install curl
     - sudo apt-get install fakeroot
