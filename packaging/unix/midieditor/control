@@ -6,7 +6,7 @@ Architecture: {ARCHITECURE}
 Depends: {DEPENDS}
 Installed-Size: {SIZE}
 Maintainer: Markus Schwenk <kontakt@markus-schwenk.de>
-Homepage: http://sourceforge.net/projects/midieditor/
+Homepage: https://midieditor.org/
 Description: Graphical interface to edit, play, and record Midi data.
  MidiEditor is a free software providing an interface to edit,
  record, and play Midi data.
