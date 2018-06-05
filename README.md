@@ -12,7 +12,6 @@ Downloads : [last release](https://github.com/markusschwenk/midieditor/releases/
 ### Building Dependencies
 * [Qt >= 5.7](https://www.qt.io/download-open-source/)
 * Linux :
-     * [sfml](http://www.sfml-dev.org/download-fr.php) `sudo apt-get install libsfml-dev`
      * asound `sudo apt-get install libasound2-dev`
 
 ### Introduction

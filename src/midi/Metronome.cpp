@@ -6,13 +6,7 @@
 #include <QFile>
 #include <QFileInfo>
 
-#ifndef __WINDOWS_MM__
-    #include <SFML/Audio.hpp>
-#else
-#include <windows.h>
-#include <mmsystem.h>
-#include <iostream>
-#endif
+#include <QMediaPlayer>
 
 Metronome *Metronome::_instance = new Metronome();
 bool Metronome::_enable = false;
@@ -21,6 +15,9 @@ Metronome::Metronome(QObject *parent) :	QObject(parent) {
     _file = 0;
     num = 4;
     denom = 2;
+    _player = new QMediaPlayer(this, QMediaPlayer::LowLatency);
+    _player->setVolume(100);
+    _player->setMedia(QUrl::fromLocalFile(QFileInfo("metronome/metronome-01.wav").absoluteFilePath()));
 }
 
 void Metronome::setFile(MidiFile *file){
@@ -78,15 +75,7 @@ void Metronome::click(){
     if(!enabled()){
         return;
     }
-
-    #ifndef __WINDOWS_MM__
-        if((buffer.getSampleCount() == 0) && buffer.loadFromFile("metronome/metronome-01.wav")){
-            sound.setBuffer(buffer);
-        }
-        sound.play();
-    #else
-        PlaySound(L"metronome/metronome-01.wav", NULL, SND_FILENAME | SND_ASYNC);
-    #endif
+    _player->play();
 }
 
 bool Metronome::enabled(){
@@ -95,4 +84,12 @@ bool Metronome::enabled(){
 
 void Metronome::setEnabled(bool b){
     _enable = b;
+}
+
+void Metronome::setLoudness(int value){
+    _instance->_player->setVolume(value);
+}
+
+int Metronome::loudness(){
+    return _instance->_player->volume();
 }

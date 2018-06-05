@@ -3,9 +3,7 @@
 
 #include <QObject>
 
-#ifndef __WINDOWS_MM__
-#include <SFML/Audio.hpp>
-#endif
+#include <QMediaPlayer>
 
 class MidiFile;
 
@@ -20,6 +18,8 @@ public:
 
     static bool enabled();
     static void setEnabled(bool b);
+    static void setLoudness(int value);
+    static int loudness();
 
 public slots:
     void measureUpdate(int measure, int tickInMeasure);
@@ -35,10 +35,7 @@ private:
     void click();
     static bool _enable;
 
-#ifndef __WINDOWS_MM__
-    sf::SoundBuffer buffer;
-    sf::Sound sound;
-#endif
+    QMediaPlayer* _player;
 };
 
 #endif

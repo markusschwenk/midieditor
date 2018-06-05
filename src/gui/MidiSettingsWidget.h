@@ -40,12 +40,14 @@ public:
 public slots:
     void manualModeToggled(bool enable);
     void setDefaultTimePerQuarter(int value);
+    void setMetronomeLoudness(int value);
 
 private:
     QCheckBox* _alternativePlayerModeBox;
     QSettings* _settings;
     QLineEdit* startCmd;
     QSpinBox* _tpqBox;
+    QSpinBox* _metronomeLoudnessBox;
 };
 
 class MidiSettingsWidget : public SettingsWidget {

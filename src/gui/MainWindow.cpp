@@ -122,6 +122,8 @@ MainWindow::MainWindow(QString initFile)
 
     MidiInput::setThruEnabled(_settings->value("thru", false).toBool());
     Metronome::setEnabled(_settings->value("metronome", false).toBool());
+    bool loudnessOk;
+    Metronome::setLoudness(_settings->value("metronome_loudness", 100).toInt(&loudnessOk));
 
 #ifdef ENABLE_REMOTE
     _remoteServer = new RemoteServer();
@@ -1135,6 +1137,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
     _settings->setValue("colors_from_channel", mw_matrixWidget->colorsByChannel());
 
     _settings->setValue("metronome", Metronome::enabled());
+    _settings->setValue("metronome_loudness", Metronome::loudness());
     _settings->setValue("thru", MidiInput::thru());
     _settings->setValue("quantization", _quantizationGrid);
 

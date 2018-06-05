@@ -84,7 +84,6 @@ AboutDialog::AboutDialog(QWidget* parent)
         "</p>"
         "<h3>Third party Libraries</h3>"
         "<p>"
-        "SFML: http://www.sfml-dev.org/<br>"
         "RtMidi (Copyright (c) 2003-2014 Gary P. Scavone)"
         "</p>"
         "</body>"

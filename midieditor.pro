@@ -4,7 +4,8 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 QT += core \
     gui \
     network \
-    xml
+    xml \
+    multimedia
 #DEFINES += ENABLE_REMOTE
 HEADERS += $$files(**.h, true)
 SOURCES += $$files(**.cpp, true)
@@ -25,14 +26,14 @@ contains(ARCH_FORCE, 64){
 	    message(arch recognized as 64 bit)
 	} else {
 	    message(arch recognized as 32 bit)
-	}
+        }
     }
 }
 
 unix: {
     DEFINES += __LINUX_ALSASEQ__
     DEFINES += __LINUX_ALSA__
-    LIBS += -lasound -lsfml-system -lsfml-audio
+    LIBS += -lasound
     CONFIG += release
     OBJECTS_DIR = .tmp
     MOC_DIR = .tmp
