@@ -8,36 +8,44 @@ os:
   - linux
 
 env:
-  - CONFIG=Release MIDIEDITOR_RELEASE_VERSION_ID=2 MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0 MIDIEDITOR_PACKAGE_VERSION=1 MIDIEDITOR_BINARY=MidiEditor MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH INSTALLJAMMER=installjammer/installjammer MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
+  global:
+    - CONFIG=Release
+    - MIDIEDITOR_RELEASE_VERSION_ID=2
+    - MIDIEDITOR_RELEASE_VERSION_STRING=3.1.0
+    - MIDIEDITOR_PACKAGE_VERSION=1
+    - INSTALLJAMMER=installjammer/installjammer
+  matrix:
+    - BUILD_OS=LINUX MIDIEDITOR_BINARY=MidiEditor
+    - BUILD_OS=WINDOWS MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
 
 before_install:
-    - sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa
-    - sudo apt-get update -qq
-    - sudo apt-get install qtbase5-dev qtdeclarative5-dev libqt5webkit5-dev libsqlite3-dev
-    - sudo apt-get install qt5-default qttools5-dev-tools qtmultimedia5-dev libqt5multimedia5 libqt5multimedia5-plugins
+    - if [ "$BUILD_OS" = "LINUX" ]; then sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa; fi
+    - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get update -qq; fi
+    - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get install qtbase5-dev qtdeclarative5-dev libqt5webkit5-dev libsqlite3-dev; fi
+    - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get install qt5-default qttools5-dev-tools qtmultimedia5-dev libqt5multimedia5 libqt5multimedia5-plugins; fi
+    - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get install libasound2-dev; fi
+    - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get install fakeroot; fi
     - QT_VERSION_MM=59
     - QT_VERSION_FULL=591-trusty
-    - sudo apt-get install libasound2-dev
-    - sudo apt-get install curl
-    - sudo apt-get install fakeroot
     # For mxe.cc (see http://mxe.cc/#requirements)
-    - echo 'deb http://pkg.mxe.cc/repos/apt/debian wheezy main' | sudo tee -a /etc/apt/sources.list.d/mxeapt.list
-    - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB
-    - sudo apt-get update
-    - sudo apt-get install mxe-i686-w64-mingw32.static-qtbase mxe-i686-w64-mingw32.static-qtmultimedia
+    - if [ "$BUILD_OS" = "WINDOWS" ]; then echo 'deb http://pkg.mxe.cc/repos/apt/debian wheezy main' | sudo tee -a /etc/apt/sources.list.d/mxeapt.list; fi
+    - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D43A795B73B16ABE9643FE1AFD8FFF16DB45C6AB; fi
+    - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-get update; fi
+    - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-get install mxe-i686-w64-mingw32.static-qtbase mxe-i686-w64-mingw32.static-qtmultimedia; fi
     
 before_script:
 
 script:
-   - sh building/build-windows.sh
-   - sh building/build-linux.sh
-   - sh packaging/unix/build_deb.sh
-   - git clone https://github.com/damoncourtney/installjammer.git installjammer
-   - cd installjammer
-   - git tag -l
-   - git checkout tags/v1.2.14
-   - cd ../
-   - sh packaging/windows/create_windows_setup.sh
+   - if [ "$BUILD_OS" = "WINDOWS" ]; then sh building/build-windows.sh; fi
+   - if [ "$BUILD_OS" = "WINDOWS" ]; then git clone https://github.com/damoncourtney/installjammer.git installjammer; fi
+   - if [ "$BUILD_OS" = "WINDOWS" ]; then cd installjammer; fi
+   - if [ "$BUILD_OS" = "WINDOWS" ]; then git tag -l; fi
+   - if [ "$BUILD_OS" = "WINDOWS" ]; then git checkout tags/v1.2.14; fi
+   - if [ "$BUILD_OS" = "WINDOWS" ]; then cd ../; fi
+   - if [ "$BUILD_OS" = "WINDOWS" ]; then sh packaging/windows/create_windows_setup.sh; fi
+   
+   - if [ "$BUILD_OS" = "LINUX" ]; then sh building/build-linux.sh; fi
+   - if [ "$BUILD_OS" = "LINUX" ]; then sh packaging/unix/build_deb.sh; fi
 
 deploy:
   provider: pages
