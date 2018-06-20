@@ -8,14 +8,19 @@
 #include <QtXml/QDomDocument>
 #include <QtXml/QDomElement>
 
+// Directives to obtain the definitions passed on compile time as strings.
+#define STRINGIZER(arg) #arg
+#define STR_VALUE(arg) STRINGIZER(arg)
+#define MIDIEDITOR_RELEASE_VERSION_STRING_EVAL STR_VALUE(MIDIEDITOR_RELEASE_VERSION_STRING_DEF)
+#define MIDIEDITOR_RELEASE_DATE_EVAL STR_VALUE(MIDIEDITOR_RELEASE_DATE_DEF)
+
 UpdateManager* UpdateManager::_instance = NULL;
 bool UpdateManager::_autoMode = false;
 
 UpdateManager::UpdateManager()
     : QObject()
 {
-    _versionString = "Failed to determine Version";
-    _updateID = -1;
+    _updateID = MIDIEDITOR_RELEASE_VERSION_ID_DEF;
 #ifdef __WINDOWS_MM__
     _system = "win32";
 #else
@@ -25,6 +30,9 @@ UpdateManager::UpdateManager()
     _system = "linux32";
 #endif
 #endif
+
+  _versionString = MIDIEDITOR_RELEASE_VERSION_STRING_EVAL;
+  _date = MIDIEDITOR_RELEASE_DATE_EVAL;
     connect(&_webCtrl, SIGNAL(finished(QNetworkReply*)), this,
         SLOT(fileDownloaded(QNetworkReply*)));
 }
@@ -32,34 +40,6 @@ UpdateManager::UpdateManager()
 void UpdateManager::init()
 {
     _mirrors.append("https://midieditor.org/update");
-
-    // read own configuration
-    QDomDocument doc("version_info");
-    QFile file("version_info.xml");
-    if (file.open(QIODevice::ReadOnly)) {
-        QString error;
-        if (doc.setContent(&file, &error)) {
-            QDomElement element = doc.documentElement();
-            if (element.tagName() != "version_info") {
-                _inited = false;
-                qWarning("Error: UpdateManager failed to parse version_info.xml "
-                         "(unexpected root element)");
-            } else {
-                QDomElement version = element.firstChildElement("version");
-                _versionString = version.attribute("string");
-                _updateID = version.attribute("id").toInt();
-                _date = version.attribute("date_published");
-                _inited = true;
-            }
-        } else {
-            _inited = false;
-            qWarning("Error: UpdateManager failed to parse version_info.xml");
-            qWarning("%s", error.toUtf8().constData());
-        }
-        file.close();
-    } else {
-        qWarning("Error: UpdateManager failed to open version_info.xml");
-    }
 }
 
 QString UpdateManager::versionString() { return _versionString; }
@@ -75,11 +55,6 @@ UpdateManager* UpdateManager::instance()
 
 void UpdateManager::checkForUpdates()
 {
-
-    if (!_inited) {
-        return;
-    }
-
     listIndex = 0;
     tryNextMirror();
 }
@@ -131,7 +106,6 @@ void UpdateManager::fileDownloaded(QNetworkReply* reply)
     } else {
         QDomElement element = doc.documentElement();
         if (element.tagName() != "update") {
-            _inited = false;
             qWarning("Error: UpdateManager failed to parse downloaded xml "
                      "(unexpected root element)");
             tryNextMirror();
@@ -148,7 +122,7 @@ void UpdateManager::fileDownloaded(QNetworkReply* reply)
 
             qWarning("Latest version code: %d", newUpdate);
 
-            if (newUpdate > _updateID) {
+            if (newUpdate > _updateID && _updateID >= 0) {
                 QString path = element.attribute("download_path");
                 QString changelog = element.firstChildElement("changelog").text();
                 QString newVersionString = element.attribute("latest_version_string");

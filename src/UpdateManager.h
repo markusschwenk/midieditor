@@ -11,23 +11,23 @@
 
 class Update {
 
-	public:
-		Update() {}
-		void setVersionID(int newUpdate) { _versionID = newUpdate; }
-		void setChangelog(QString changelog) {_changelog = changelog; }
-		void setDownloadPath(QString path) {_path = path; }
-		void setVersionString(QString newVersionString) { _versionString = newVersionString; }
+    public:
+        Update() {}
+        void setVersionID(int newUpdate) { _versionID = newUpdate; }
+        void setChangelog(QString changelog) {_changelog = changelog; }
+        void setDownloadPath(QString path) {_path = path; }
+        void setVersionString(QString newVersionString) { _versionString = newVersionString; }
 
-		int versionID() {return _versionID; }
-		QString path() {return _path; }
-		QString changelog() { return _changelog; }
-		QString versionString() { return _versionString; }
+        int versionID() {return _versionID; }
+        QString path() {return _path; }
+        QString changelog() { return _changelog; }
+        QString versionString() { return _versionString; }
 
-	private:
-		int _versionID;
-		QString _path;
-		QString _changelog;
-		QString _versionString;
+    private:
+        int _versionID;
+        QString _path;
+        QString _changelog;
+        QString _versionString;
 };
 
 class UpdateManager : public QObject {
@@ -53,10 +53,9 @@ class UpdateManager : public QObject {
 	private:
 		static UpdateManager *_instance;
 		QStringList _mirrors;
-		static bool _autoMode;
-		bool _inited;
+        static bool _autoMode;
 		QString _versionString, _date, _system;
-		int _updateID;
+        int _updateID;
 
 		int listIndex;
 		void tryNextMirror();

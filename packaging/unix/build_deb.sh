@@ -44,9 +44,6 @@ cp $BASEDIR/midieditor/MidiEditor.desktop $PACKAGE_DIR/usr/share/applications
 # /usr/share/pixmaps gets the png file
 cp $BASEDIR/midieditor/logo48.png $PACKAGE_DIR/usr/share/pixmaps/midieditor.png
 
-# copy version_info.xml to usr/share/midieditor
-cp $BASEDIR/midieditor/version_info.xml $PACKAGE_DIR/usr/share/midieditor/version_info.xml
-
 # Copy metronome
 cp -R packaging/metronome $PACKAGE_DIR/usr/share/midieditor/metronome
 
@@ -65,11 +62,6 @@ sed -i 's/{DEPENDS}/'"$DEPENDS"'/g' $PACKAGE_DIR/DEBIAN/control
 SIZE=$(du -sb $DIR | cut -f1)
 SIZE=$(($SIZE / 1024))
 sed -i 's/{SIZE}/'"$SIZE"'/g' $PACKAGE_DIR/DEBIAN/control
-
-# Update fields in version_info.xml
-sed -i 's/{VERSION_ID}/'$MIDIEDITOR_RELEASE_VERSION_ID'/g' $PACKAGE_DIR/usr/share/midieditor/version_info.xml
-sed -i 's/{VERSION_STRING}/'$MIDIEDITOR_RELEASE_VERSION_STRING'/g' $PACKAGE_DIR/usr/share/midieditor/version_info.xml
-sed -i 's/{VERSION_DATE}/'$(date +%Y-%m-%d)'/g' $PACKAGE_DIR/usr/share/midieditor/version_info.xml
 
 # Create manual
 cp -R midieditor-manual/. $PACKAGE_DIR/usr/share/midieditor/assistant

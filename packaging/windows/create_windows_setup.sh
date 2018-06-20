@@ -24,12 +24,6 @@ cp -R packaging/windows/assistant MidiEditor-win32/win_root/assistant
 # Copy metronome
 cp -R packaging/metronome MidiEditor-win32/win_root/metronome
 
-# Copy and update fields in version_info.xml
-cp packaging/windows/version_info.xml MidiEditor-win32/win_root/version_info.xml
-sed -i 's/{VERSION_ID}/'$MIDIEDITOR_RELEASE_VERSION_ID'/g' MidiEditor-win32/win_root/version_info.xml
-sed -i 's/{VERSION_STRING}/'$MIDIEDITOR_RELEASE_VERSION_STRING'/g' MidiEditor-win32/win_root/version_info.xml
-sed -i 's/{VERSION_DATE}/'$(date +%Y-%m-%d)'/g' MidiEditor-win32/win_root/version_info.xml
-
 # Create manual
 cp -R midieditor-manual/. MidiEditor-win32/win_root/assistant
 cp -a packaging/manual/. MidiEditor-win32/win_root/assistant
