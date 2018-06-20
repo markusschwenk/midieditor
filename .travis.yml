@@ -15,8 +15,8 @@ env:
     - MIDIEDITOR_PACKAGE_VERSION=1
     - INSTALLJAMMER=installjammer/installjammer
   matrix:
-    - BUILD_OS=LINUX MIDIEDITOR_BINARY=MidiEditor DEPLOY_BINARIY=releases/midieditor_$MIDIEDITOR_RELEASE_VERSION_STRING-$MIDIEDITOR_PACKAGE_VERSION-amd64.deb
-    - BUILD_OS=WINDOWS MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe DEPLOY_BINARIY=releases/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-Setup.exe
+    - BUILD_OS=LINUX MIDIEDITOR_BINARY=MidiEditor
+    - BUILD_OS=WINDOWS MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
 
 before_install:
     - if [ "$BUILD_OS" = "LINUX" ]; then sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa; fi
@@ -46,6 +46,7 @@ script:
    
    - if [ "$BUILD_OS" = "LINUX" ]; then sh building/build-linux.sh; fi
    - if [ "$BUILD_OS" = "LINUX" ]; then sh packaging/unix/build_deb.sh; fi
+   - if [ "$BUILD_OS" = "LINUX" ]; then export DEPLOY_BINARIY=releases/midieditor_$MIDIEDITOR_RELEASE_VERSION_STRING-$MIDIEDITOR_PACKAGE_VERSION-amd64.deb; else DEPLOY_BINARIY=releases/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-Setup.exe; fi
 
 deploy:
   provider: releases
