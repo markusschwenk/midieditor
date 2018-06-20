@@ -3,7 +3,7 @@ sudo: required
 dist: trusty
 branches:
   only:
-    - master
+    - master, release
 os:
   - linux
 
