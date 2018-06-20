@@ -97,7 +97,7 @@ bool StandardTool::press(bool leftClick)
                     currentAction = SIZE_CHANGE_ACTION;
                 }
 
-                // in the event means EventMoveTool
+                // in the event means EventMoveTool, except when CTRL is pressed
                 else {
                     int diffRight = ev->x() + ev->width() - mouseX;
                     int diffLeft = diffToMousePos = ev->x() - mouseX;
@@ -112,7 +112,11 @@ bool StandardTool::press(bool leftClick)
                     } else {
                         diffToMousePos = diffRight;
                     }
-                    currentAction = MOVE_ACTION;
+                    if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                        currentAction = MOVE_ACTION;
+                    } else {
+                        currentAction = NO_ACTION; // select tool
+                    }
                 }
 
                 if (diffToMousePos < 0) {
