@@ -4,7 +4,7 @@ dist: trusty
 branches:
   only:
     - master
-    - ^[0-9]+\.[0-9]+\.[0-9]+
+    - /^\d+\.\d+\.\d+$/
 
 os:
   - linux
@@ -21,7 +21,7 @@ env:
     - BUILD_OS=WINDOWS MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe DEPLOY_BINARIY=releases/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-Setup.exe
 
 before_install:
-    - if [ "$MIDIEDITOR_RELEASE_VERSION_STRING" = "" ]; then export MIDIEDITOR_RELEASE_VERSION_STRING=inoffical; fi
+    - if [ "$MIDIEDITOR_RELEASE_VERSION_STRING" = "" ]; then export MIDIEDITOR_RELEASE_VERSION_STRING=0.0.0; fi
     - if [ "$BUILD_OS" = "LINUX" ]; then sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa; fi
     - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get update -qq; fi
     - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get install qtbase5-dev qtdeclarative5-dev libqt5webkit5-dev libsqlite3-dev; fi
