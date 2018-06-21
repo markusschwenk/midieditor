@@ -4,7 +4,7 @@ dist: trusty
 branches:
   only:
     - master
-    - /^\d+\.\d+\.\d+$/
+    - /^\d+\.\d+\.\d+(\.\d+)?$/
 
 os:
   - linux
@@ -61,6 +61,5 @@ deploy:
   keep-history: true
   on:
     tags: true
-    condition: $TRAVIS_TAG =~ ^d+.d+.d+$
 
   file: $DEPLOY_BINARIY
