@@ -63,3 +63,10 @@ deploy:
     tags: true
 
   file: $DEPLOY_BINARIY
+
+notifications:
+  email:
+    recipients:
+      - support@midieditor.org
+    on_success: always
+    on_failure: always
