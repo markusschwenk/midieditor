@@ -4,7 +4,7 @@ dist: trusty
 branches:
   only:
     - master
-    - ^v[0-9]+\.[0-9]+\.[0-9]+
+    - ^[0-9]+\.[0-9]+\.[0-9]+
 
 os:
   - linux
@@ -13,7 +13,7 @@ env:
   global:
     - CONFIG=Release
     - MIDIEDITOR_RELEASE_VERSION_ID=2
-    - MIDIEDITOR_RELEASE_VERSION_STRING=$TRAVIS_TAG
+    - if [ "$TRAVIS_TAG" = "" ]; then MIDIEDITOR_RELEASE_VERSION_STRING=unofficial; else MIDIEDITOR_RELEASE_VERSION_STRING=$TRAVIS_TAG; fi
     - MIDIEDITOR_PACKAGE_VERSION=1
     - INSTALLJAMMER=installjammer/installjammer
   matrix:
