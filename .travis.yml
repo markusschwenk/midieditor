@@ -1,7 +1,11 @@
 language: cpp
 sudo: required
 dist: trusty
-s
+branches: all
+  only:
+    - master
+    - /^release*$/
+
 os:
   - linux
 
