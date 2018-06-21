@@ -1,10 +1,7 @@
 language: cpp
 sudo: required
 dist: trusty
-branches:
-  only:
-    - master
-    - release
+s
 os:
   - linux
 
@@ -50,10 +47,10 @@ script:
 
 deploy:
   provider: releases
+  prerelease: true
   skip-cleanup: true
   api_key: $GITHUB_TOKEN
   keep-history: true
   on:
-    branch: master
     tags: true
   file: $DEPLOY_BINARIY
