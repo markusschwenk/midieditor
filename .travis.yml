@@ -1,7 +1,7 @@
 language: cpp
 sudo: required
-branches:
 dist: trusty
+branches:
   only:
     - master
     - 3.2.0
