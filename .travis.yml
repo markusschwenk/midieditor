@@ -1,10 +1,10 @@
 language: cpp
 sudo: required
-dist: trusty
 branches:
+dist: trusty
   only:
     - master
-    - /^release*$/
+    - 3.2.0
 
 os:
   - linux
