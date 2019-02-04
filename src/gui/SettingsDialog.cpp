@@ -35,8 +35,7 @@
 #include "UpdateSettingsWidget.h"
 
 SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer* server, QWidget* parent)
-    : QDialog(parent)
-{
+    : QDialog(parent) {
 
     setWindowTitle(title);
 
@@ -60,7 +59,7 @@ SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer*
     _listWidget->setFixedWidth(170);
 
     connect(_listWidget, SIGNAL(currentRowChanged(int)), this,
-        SLOT(rowChanged(int)));
+            SLOT(rowChanged(int)));
 
     centralLayout->addWidget(_listWidget, 0, 0, 1, 1);
 
@@ -83,7 +82,7 @@ SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer*
     buttonBar->setLayout(buttonLayout);
 
     // ok
-    QPushButton* ok = new QPushButton("Close", buttonBar);
+    QPushButton* ok = new QPushButton(tr("Close"), buttonBar);
     buttonLayout->addWidget(ok, 0, 2, 1, 1);
     connect(ok, SIGNAL(clicked()), this, SLOT(submit()));
 
@@ -99,8 +98,7 @@ SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer*
     addSetting(new UpdateSettingsWidget(settings, central));
 }
 
-void SettingsDialog::addSetting(SettingsWidget* settingWidget)
-{
+void SettingsDialog::addSetting(SettingsWidget* settingWidget) {
 
     _settingsWidgets->append(settingWidget);
     _container->addWidget(settingWidget);
@@ -117,8 +115,7 @@ void SettingsDialog::addSetting(SettingsWidget* settingWidget)
     }
 }
 
-void SettingsDialog::rowChanged(int row)
-{
+void SettingsDialog::rowChanged(int row) {
     int oldIndex = _container->currentIndex();
     if (_settingsWidgets->at(oldIndex)) {
         if (!_settingsWidgets->at(oldIndex)->accept()) {
@@ -128,8 +125,7 @@ void SettingsDialog::rowChanged(int row)
     _container->setCurrentIndex(row);
 }
 
-void SettingsDialog::submit()
-{
+void SettingsDialog::submit() {
     int oldIndex = _container->currentIndex();
     if (_settingsWidgets->at(oldIndex)) {
         if (!_settingsWidgets->at(oldIndex)->accept()) {

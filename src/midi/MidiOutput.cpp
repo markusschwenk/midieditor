@@ -40,26 +40,23 @@ bool MidiOutput::isAlternativePlayer = false;
 
 int MidiOutput::_stdChannel = 0;
 
-void MidiOutput::init()
-{
+void MidiOutput::init() {
 
     // RtMidiOut constructor
     try {
-        _midiOut = new RtMidiOut(RtMidi::UNSPECIFIED, QString("MidiEditor output").toStdString());
+        _midiOut = new RtMidiOut(RtMidi::UNSPECIFIED, QString(tr("MidiEditor output")).toStdString());
     } catch (RtMidiError& error) {
         error.printMessage();
     }
     _sender->start(QThread::TimeCriticalPriority);
 }
 
-void MidiOutput::sendCommand(QByteArray array)
-{
+void MidiOutput::sendCommand(QByteArray array) {
 
     sendEnqueuedCommand(array);
 }
 
-void MidiOutput::sendCommand(MidiEvent* e)
-{
+void MidiOutput::sendCommand(MidiEvent* e) {
 
     if (e->channel() >= 0 && e->channel() < 16) {
         _sender->enqueue(e);
@@ -83,8 +80,7 @@ void MidiOutput::sendCommand(MidiEvent* e)
     }
 }
 
-QStringList MidiOutput::outputPorts()
-{
+QStringList MidiOutput::outputPorts() {
 
     QStringList ports;
 
@@ -102,8 +98,7 @@ QStringList MidiOutput::outputPorts()
     return ports;
 }
 
-bool MidiOutput::setOutputPort(QString name)
-{
+bool MidiOutput::setOutputPort(QString name) {
 
     // try to find the port
     unsigned int nPorts = _midiOut->getPortCount();
@@ -130,13 +125,11 @@ bool MidiOutput::setOutputPort(QString name)
     return false;
 }
 
-QString MidiOutput::outputPort()
-{
+QString MidiOutput::outputPort() {
     return _outPort;
 }
 
-void MidiOutput::sendEnqueuedCommand(QByteArray array)
-{
+void MidiOutput::sendEnqueuedCommand(QByteArray array) {
 
     if (_outPort != "") {
 
@@ -154,25 +147,21 @@ void MidiOutput::sendEnqueuedCommand(QByteArray array)
     }
 }
 
-void MidiOutput::setStandardChannel(int channel)
-{
+void MidiOutput::setStandardChannel(int channel) {
     _stdChannel = channel;
 }
 
-int MidiOutput::standardChannel()
-{
+int MidiOutput::standardChannel() {
     return _stdChannel;
 }
 
-void MidiOutput::sendProgram(int channel, int prog)
-{
+void MidiOutput::sendProgram(int channel, int prog) {
     QByteArray array = QByteArray();
     array.append(0xC0 | channel);
     array.append(prog);
     sendCommand(array);
 }
 
-bool MidiOutput::isConnected()
-{
+bool MidiOutput::isConnected() {
     return _outPort != "";
 }

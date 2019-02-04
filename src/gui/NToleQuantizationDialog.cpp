@@ -13,16 +13,15 @@ int NToleQuantizationDialog::replaceNumNum = 1;
 int NToleQuantizationDialog::replaceDenomNum = 2;
 
 NToleQuantizationDialog::NToleQuantizationDialog(QWidget* parent)
-    : QDialog(parent)
-{
+    : QDialog(parent) {
 
     connect(this, SIGNAL(accepted()), this, SLOT(takeResults()));
 
-    setWindowTitle("Tuplet Quantization");
+    setWindowTitle(tr("Tuplet Quantization"));
 
     QGridLayout* layout = new QGridLayout(this);
-    layout->addWidget(new QLabel("tuplet: ", this), 0, 0, 1, 1);
-    layout->addWidget(new QLabel("instead of: ", this), 1, 0, 1, 1);
+    layout->addWidget(new QLabel(tr("tuplet: "), this), 0, 0, 1, 1);
+    layout->addWidget(new QLabel(tr("instead of: "), this), 1, 0, 1, 1);
 
     ntoleBeat = new QComboBox(this);
     ntoleN = new QComboBox(this);
@@ -43,13 +42,13 @@ NToleQuantizationDialog::NToleQuantizationDialog(QWidget* parent)
         QString text = "";
 
         if (i == 0) {
-            text = "Whole note";
+            text = tr("Whole note");
         } else if (i == 1) {
-            text = "Half note";
+            text = tr("Half note");
         } else if (i == 2) {
-            text = "Quarter note";
+            text = tr("Quarter note");
         } else {
-            text = QString::number((int)qPow(2, i)) + "th note";
+            text = QString::number((int)qPow(2, i)) + tr("th note");
         }
 
         ntoleBeat->addItem(text);
@@ -61,17 +60,16 @@ NToleQuantizationDialog::NToleQuantizationDialog(QWidget* parent)
     replaceDenom->setCurrentIndex(replaceDenomNum);
     replaceNum->setCurrentIndex(replaceNumNum - 1);
 
-    QPushButton* ok = new QPushButton("Ok", this);
+    QPushButton* ok = new QPushButton(tr("Ok"), this);
     connect(ok, SIGNAL(clicked()), this, SLOT(accept()));
     layout->addWidget(ok, 2, 0, 1, 2);
 
-    QPushButton* close = new QPushButton("Cancel", this);
+    QPushButton* close = new QPushButton(tr("Cancel"), this);
     connect(close, SIGNAL(clicked()), this, SLOT(reject()));
     layout->addWidget(close, 2, 2, 1, 2);
 }
 
-void NToleQuantizationDialog::takeResults()
-{
+void NToleQuantizationDialog::takeResults() {
     ntoleNNum = ntoleN->currentIndex() + 1;
     ntoleBeatNum = ntoleBeat->currentIndex();
     replaceNumNum = replaceNum->currentIndex() + 1;

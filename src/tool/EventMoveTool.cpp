@@ -28,8 +28,7 @@
 #include "StandardTool.h"
 
 EventMoveTool::EventMoveTool(bool upDown, bool leftRight)
-    : EventTool()
-{
+    : EventTool() {
     moveUpDown = upDown;
     moveLeftRight = leftRight;
     inDrag = false;
@@ -37,19 +36,18 @@ EventMoveTool::EventMoveTool(bool upDown, bool leftRight)
     startY = 0;
     if (moveUpDown && moveLeftRight) {
         setImage(":/run_environment/graphics/tool/move_up_down_left_right.png");
-        setToolTipText("Move Events (all directions)");
+        setToolTipText(QObject::tr("Move Events (all directions)"));
     } else if (moveUpDown) {
         setImage(":/run_environment/graphics/tool/move_up_down.png");
-        setToolTipText("Move Events (up and down)");
+        setToolTipText(QObject::tr("Move Events (up and down)"));
     } else {
         setImage(":/run_environment/graphics/tool/move_left_right.png");
-        setToolTipText("Move Events (left and right)");
+        setToolTipText(QObject::tr("Move Events (left and right)"));
     }
 }
 
 EventMoveTool::EventMoveTool(EventMoveTool& other)
-    : EventTool(other)
-{
+    : EventTool(other) {
     moveUpDown = other.moveUpDown;
     moveLeftRight = other.moveLeftRight;
     inDrag = false;
@@ -57,13 +55,11 @@ EventMoveTool::EventMoveTool(EventMoveTool& other)
     startY = 0;
 }
 
-ProtocolEntry* EventMoveTool::copy()
-{
+ProtocolEntry* EventMoveTool::copy() {
     return new EventMoveTool(*this);
 }
 
-void EventMoveTool::reloadState(ProtocolEntry* entry)
-{
+void EventMoveTool::reloadState(ProtocolEntry* entry) {
     EventTool::reloadState(entry);
     EventMoveTool* other = dynamic_cast<EventMoveTool*>(entry);
     if (!other) {
@@ -77,8 +73,7 @@ void EventMoveTool::reloadState(ProtocolEntry* entry)
     startY = 0;
 }
 
-void EventMoveTool::draw(QPainter* painter)
-{
+void EventMoveTool::draw(QPainter* painter) {
     paintSelectedEvents(painter);
     int currentX = computeRaster();
 
@@ -107,20 +102,19 @@ void EventMoveTool::draw(QPainter* painter)
                 painter->setPen(Qt::lightGray);
                 painter->setBrush(Qt::darkBlue);
                 painter->drawRoundedRect(event->x() - shiftX, event->y() - customShiftY,
-                    event->width(), event->height(), 1, 1);
+                                         event->width(), event->height(), 1, 1);
                 painter->setPen(Qt::gray);
                 painter->drawLine(event->x() - shiftX, 0, event->x() - shiftX,
-                    matrixWidget->height());
+                                  matrixWidget->height());
                 painter->drawLine(event->x() + event->width() - shiftX, 0,
-                    event->x() + event->width() - shiftX, matrixWidget->height());
+                                  event->x() + event->width() - shiftX, matrixWidget->height());
                 painter->setPen(Qt::black);
             }
         }
     }
 }
 
-bool EventMoveTool::press(bool leftClick)
-{
+bool EventMoveTool::press(bool leftClick) {
     Q_UNUSED(leftClick);
     inDrag = true;
     startX = mouseX;
@@ -137,8 +131,7 @@ bool EventMoveTool::press(bool leftClick)
     return true;
 }
 
-bool EventMoveTool::release()
-{
+bool EventMoveTool::release() {
     inDrag = false;
     matrixWidget->setCursor(Qt::ArrowCursor);
     int currentX = computeRaster();
@@ -164,7 +157,7 @@ bool EventMoveTool::release()
         return true;
     }
 
-    currentProtocol()->startNewAction("Move events", image());
+    currentProtocol()->startNewAction(QObject::tr("Move events"), image());
 
     // backwards to hold stability
     for (int i = Selection::instance()->selectedEvents().count() - 1; i >= 0; i--) {
@@ -198,14 +191,12 @@ bool EventMoveTool::release()
     return true;
 }
 
-bool EventMoveTool::move(int mouseX, int mouseY)
-{
+bool EventMoveTool::move(int mouseX, int mouseY) {
     EventTool::move(mouseX, mouseY);
     return inDrag;
 }
 
-bool EventMoveTool::releaseOnly()
-{
+bool EventMoveTool::releaseOnly() {
     inDrag = false;
     matrixWidget->setCursor(Qt::ArrowCursor);
     startX = 0;
@@ -213,19 +204,16 @@ bool EventMoveTool::releaseOnly()
     return true;
 }
 
-void EventMoveTool::setDirections(bool upDown, bool leftRight)
-{
+void EventMoveTool::setDirections(bool upDown, bool leftRight) {
     moveUpDown = upDown;
     moveLeftRight = leftRight;
 }
 
-bool EventMoveTool::showsSelection()
-{
+bool EventMoveTool::showsSelection() {
     return true;
 }
 
-int EventMoveTool::computeRaster()
-{
+int EventMoveTool::computeRaster() {
 
     if (!moveLeftRight) {
         return mouseX;

@@ -30,8 +30,7 @@
 #include <QVariant>
 
 AboutDialog::AboutDialog(QWidget* parent)
-    : QDialog(parent)
-{
+    : QDialog(parent) {
 
     setMinimumWidth(550);
     setMaximumHeight(450);
@@ -74,20 +73,21 @@ AboutDialog::AboutDialog(QWidget* parent)
                                  "Website: <a href=\"http://www.markus-schwenk.de\">www.markus-schwenk.de</a><br>"
                                  "</p>"
                                  "<h3>Contributors</h3>"
-        + contributors +
+                                 + contributors +
 
-        "<h3>Credits</h3>"
-        "<p>"
-        "3D icons by Double-J Design (http://www.doublejdesign.co.uk)<br>"
-        "Flat icons designed by Freepik<br>"
-        "Metronome sound by Mike Koenig<br>"
-        "</p>"
-        "<h3>Third party Libraries</h3>"
-        "<p>"
-        "RtMidi (Copyright (c) 2003-2014 Gary P. Scavone)"
-        "</p>"
-        "</body>"
-        "</html>");
+                                 "<h3>Credits</h3>"
+                                 "<p>"
+                                 "3D icons by Double-J Design (http://www.doublejdesign.co.uk)<br>"
+                                 "Flat icons designed by Freepik<br>"
+                                 "Metronome sound by Mike Koenig<br>"
+                                 "Localization support and russian translation by PROPHESSOR<br>"
+                                 "</p>"
+                                 "<h3>Third party Libraries</h3>"
+                                 "<p>"
+                                 "RtMidi (Copyright (c) 2003-2014 Gary P. Scavone)"
+                                 "</p>"
+                                 "</body>"
+                                 "</html>");
     a->setWidgetResizable(true);
     a->setWidget(content);
     a->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -110,8 +110,7 @@ AboutDialog::AboutDialog(QWidget* parent)
     connect(close, SIGNAL(clicked()), this, SLOT(hide()));
 }
 
-QList<QString>* AboutDialog::loadContributors()
-{
+QList<QString>* AboutDialog::loadContributors() {
 
     QList<QString>* list = new QList<QString>();
 

@@ -42,30 +42,26 @@ int NewNoteTool::_channel = 0;
 int NewNoteTool::_track = 0;
 
 NewNoteTool::NewNoteTool()
-    : EventTool()
-{
+    : EventTool() {
     inDrag = false;
     line = 0;
     xPos = 0;
     _channel = 0;
     _track = 0;
     setImage(":/run_environment/graphics/tool/newnote.png");
-    setToolTipText("Create new Events");
+    setToolTipText(QObject::tr("Create new Events"));
 }
 
 NewNoteTool::NewNoteTool(NewNoteTool& other)
-    : EventTool(other)
-{
+    : EventTool(other) {
     return;
 }
 
-ProtocolEntry* NewNoteTool::copy()
-{
+ProtocolEntry* NewNoteTool::copy() {
     return new NewNoteTool(*this);
 }
 
-void NewNoteTool::reloadState(ProtocolEntry* entry)
-{
+void NewNoteTool::reloadState(ProtocolEntry* entry) {
     NewNoteTool* other = dynamic_cast<NewNoteTool*>(entry);
     if (!other) {
         return;
@@ -73,8 +69,7 @@ void NewNoteTool::reloadState(ProtocolEntry* entry)
     EventTool::reloadState(entry);
 }
 
-void NewNoteTool::draw(QPainter* painter)
-{
+void NewNoteTool::draw(QPainter* painter) {
     int currentX = rasteredX(mouseX);
     if (inDrag) {
         if (line <= 127) {
@@ -95,8 +90,7 @@ void NewNoteTool::draw(QPainter* painter)
     }
 }
 
-bool NewNoteTool::press(bool leftClick)
-{
+bool NewNoteTool::press(bool leftClick) {
     Q_UNUSED(leftClick);
     inDrag = true;
     line = matrixWidget->lineAtY(mouseY);
@@ -104,8 +98,7 @@ bool NewNoteTool::press(bool leftClick)
     return true;
 }
 
-bool NewNoteTool::release()
-{
+bool NewNoteTool::release() {
     int startTick, endTick;
     int currentX = rasteredX(mouseX);
     inDrag = false;
@@ -124,7 +117,7 @@ bool NewNoteTool::release()
 
         // note
         if (line >= 0 && line <= 127) {
-            currentProtocol()->startNewAction("Create note", image());
+            currentProtocol()->startNewAction(QObject::tr("Create note"), image());
 
             if (startTick == -1) {
                 int startMs = matrixWidget->msOfXPos(xPos);
@@ -136,7 +129,7 @@ bool NewNoteTool::release()
             }
 
             NoteOnEvent* on = file()->channel(_channel)->insertNote(127 - line,
-                startTick, endTick, 100, track);
+                              startTick, endTick, 100, track);
             selectEvent(on, true, true);
             currentProtocol()->endAction();
 
@@ -155,8 +148,8 @@ bool NewNoteTool::release()
             // prog
             if (line == MidiEvent::PROG_CHANGE_LINE) {
 
-                currentProtocol()->startNewAction("Create Program Change Event",
-                    image());
+                currentProtocol()->startNewAction(QObject::tr("Create Program Change Event"),
+                                                  image());
 
                 event = new ProgChangeEvent(_channel, 0, track);
                 int startMs = matrixWidget->msOfXPos(xPos);
@@ -166,8 +159,8 @@ bool NewNoteTool::release()
                 currentProtocol()->endAction();
 
             } else if (line == MidiEvent::TIME_SIGNATURE_EVENT_LINE) {
-                currentProtocol()->startNewAction("Create Time Signature Event",
-                    image());
+                currentProtocol()->startNewAction(QObject::tr("Create Time Signature Event"),
+                                                  image());
 
                 // 4/4
                 event = new TimeSignatureEvent(18, 4, 2, 24, 8, generalTrack);
@@ -177,8 +170,8 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::TEMPO_CHANGE_EVENT_LINE) {
-                currentProtocol()->startNewAction("Create Tempo Change Event",
-                    image());
+                currentProtocol()->startNewAction(QObject::tr("Create Tempo Change Event"),
+                                                  image());
                 // quarter = 120
                 event = new TempoChangeEvent(17, 500000, generalTrack);
                 int startMs = matrixWidget->msOfXPos(xPos);
@@ -187,8 +180,8 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::KEY_SIGNATURE_EVENT_LINE) {
-                currentProtocol()->startNewAction("Create Key Signature Event",
-                    image());
+                currentProtocol()->startNewAction(QObject::tr("Create Key Signature Event"),
+                                                  image());
                 event = new KeySignatureEvent(16, 0, false, generalTrack);
 
                 int startMs = matrixWidget->msOfXPos(xPos);
@@ -197,8 +190,8 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::CONTROLLER_LINE) {
-                currentProtocol()->startNewAction("Create Control Change Event",
-                    image());
+                currentProtocol()->startNewAction(QObject::tr("Create Control Change Event"),
+                                                  image());
                 event = new ControlChangeEvent(_channel, 0, 0, track);
                 int startMs = matrixWidget->msOfXPos(xPos);
                 int startTick = file()->tick(startMs);
@@ -206,8 +199,8 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::KEY_PRESSURE_LINE) {
-                currentProtocol()->startNewAction("Create Key Pressure Event",
-                    image());
+                currentProtocol()->startNewAction(QObject::tr("Create Key Pressure Event"),
+                                                  image());
                 event = new KeyPressureEvent(_channel, 127, 100, track);
                 int startMs = matrixWidget->msOfXPos(xPos);
                 int startTick = file()->tick(startMs);
@@ -215,8 +208,7 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::CHANNEL_PRESSURE_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create Channel Pressure Event", image());
+                currentProtocol()->startNewAction(QObject::tr("Create Channel Pressure Event"), image());
                 event = new ChannelPressureEvent(_channel, 100, track);
                 int startMs = matrixWidget->msOfXPos(xPos);
                 int startTick = file()->tick(startMs);
@@ -233,8 +225,7 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::TEXT_EVENT_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create Text Event", image());
+                currentProtocol()->startNewAction(QObject::tr("Create Text Event"), image());
                 event = new TextEvent(16, track);
                 TextEvent* textEvent = (TextEvent*)event;
                 textEvent->setText("New Text Event");
@@ -245,8 +236,7 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::UNKNOWN_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create Unknown Event", image());
+                currentProtocol()->startNewAction(QObject::tr("Create Unknown Event"), image());
                 event = new UnknownEvent(16, 0x52, QByteArray(), track);
                 int startMs = matrixWidget->msOfXPos(xPos);
                 int startTick = file()->tick(startMs);
@@ -254,8 +244,7 @@ bool NewNoteTool::release()
                 selectEvent(event, true, true);
                 currentProtocol()->endAction();
             } else if (line == MidiEvent::SYSEX_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create SysEx Event", image());
+                currentProtocol()->startNewAction(QObject::tr("Create SysEx Event"), image());
                 event = new SysExEvent(16, QByteArray(), track);
                 int startMs = matrixWidget->msOfXPos(xPos);
                 int startTick = file()->tick(startMs);
@@ -280,35 +269,29 @@ bool NewNoteTool::release()
     return true;
 }
 
-bool NewNoteTool::move(int mouseX, int mouseY)
-{
+bool NewNoteTool::move(int mouseX, int mouseY) {
     EventTool::move(mouseX, mouseY);
     return inDrag;
 }
 
-bool NewNoteTool::releaseOnly()
-{
+bool NewNoteTool::releaseOnly() {
     inDrag = false;
     xPos = 0;
     return true;
 }
 
-int NewNoteTool::editTrack()
-{
+int NewNoteTool::editTrack() {
     return _track;
 }
 
-int NewNoteTool::editChannel()
-{
+int NewNoteTool::editChannel() {
     return _channel;
 }
 
-void NewNoteTool::setEditTrack(int i)
-{
+void NewNoteTool::setEditTrack(int i) {
     _track = i;
 }
 
-void NewNoteTool::setEditChannel(int i)
-{
+void NewNoteTool::setEditChannel(int i) {
     _channel = i;
 }

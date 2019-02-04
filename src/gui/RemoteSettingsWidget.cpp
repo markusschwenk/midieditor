@@ -27,26 +27,25 @@
 #include "../remote/RemoteServer.h"
 
 RemoteSettingsWidget::RemoteSettingsWidget(RemoteServer* server, QWidget* parent)
-    : SettingsWidget("Android Remote", parent)
-{
+    : SettingsWidget(tr("Android Remote"), parent) {
     _server = server;
 
     QGridLayout* layout = new QGridLayout(this);
     setLayout(layout);
-    setWindowTitle("Enter IP and Port for the connection");
+    setWindowTitle(tr("Enter IP and Port for the connection"));
     setMinimumWidth(400);
     setMinimumHeight(170);
 
-    QLabel* title = new QLabel("Enter IP and Port for the connection.", this);
+    QLabel* title = new QLabel(tr("Enter IP and Port for the connection."), this);
     layout->addWidget(title, 0, 0, 1, 3);
 
-    QLabel* ipLabel = new QLabel("IP:", this);
+    QLabel* ipLabel = new QLabel(tr("IP:"), this);
     layout->addWidget(ipLabel, 1, 0, 1, 1);
 
     _ipField = new QLineEdit(_server->clientIp(), this);
     layout->addWidget(_ipField, 1, 1, 1, 2);
 
-    QLabel* portL = new QLabel("Port:", this);
+    QLabel* portL = new QLabel(tr("Port:"), this);
     layout->addWidget(portL, 2, 0, 1, 1);
 
     QString port = QString::number(_server->clientPort());
@@ -59,13 +58,12 @@ RemoteSettingsWidget::RemoteSettingsWidget(RemoteServer* server, QWidget* parent
     layout->setRowStretch(6, 1);
 }
 
-bool RemoteSettingsWidget::accept()
-{
+bool RemoteSettingsWidget::accept() {
     bool ok;
 
     int port = _portField->text().toInt(&ok);
     if (!ok) {
-        QMessageBox::information(this, "Enter number", QString("Port is no number!"));
+        QMessageBox::information(this, tr("Enter number"), QString(tr("Port is no number!")));
         return true;
     }
     QString ip = _ipField->text();
@@ -73,6 +71,6 @@ bool RemoteSettingsWidget::accept()
     _server->setIp(ip);
     _server->setPort(port);
     //_server->tryConnect();
-    QMessageBox::information(this, "Restart", QString("You have to restart MidiEditor to connect!"));
+    QMessageBox::information(this, tr("Restart"), QString(tr("You have to restart MidiEditor to connect!")));
     return true;
 }

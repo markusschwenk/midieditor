@@ -43,17 +43,14 @@ int EventTool::_pasteTrack = -2;
 bool EventTool::_magnet = false;
 
 EventTool::EventTool()
-    : EditorTool()
-{
+    : EditorTool() {
 }
 
 EventTool::EventTool(EventTool& other)
-    : EditorTool(other)
-{
+    : EditorTool(other) {
 }
 
-void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
-{
+void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr) {
 
     if (!event->file()->channel(event->channel())->visible()) {
         return;
@@ -87,8 +84,7 @@ void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
     _mainWindow->eventWidget()->reportSelectionChangedByTool();
 }
 
-void EventTool::deselectEvent(MidiEvent* event)
-{
+void EventTool::deselectEvent(MidiEvent* event) {
 
     QList<MidiEvent*> selected = Selection::instance()->selectedEvents();
     selected.removeAll(event);
@@ -99,14 +95,12 @@ void EventTool::deselectEvent(MidiEvent* event)
     }
 }
 
-void EventTool::clearSelection()
-{
+void EventTool::clearSelection() {
     Selection::instance()->clearSelection();
     _mainWindow->eventWidget()->reportSelectionChangedByTool();
 }
 
-void EventTool::paintSelectedEvents(QPainter* painter)
-{
+void EventTool::paintSelectedEvents(QPainter* painter) {
     foreach (MidiEvent* event, Selection::instance()->selectedEvents()) {
 
         bool show = event->shown();
@@ -129,13 +123,12 @@ void EventTool::paintSelectedEvents(QPainter* painter)
             painter->setBrush(Qt::darkBlue);
             painter->setPen(Qt::lightGray);
             painter->drawRoundedRect(event->x(), event->y(), event->width(),
-                event->height(), 1, 1);
+                                     event->height(), 1, 1);
         }
     }
 }
 
-void EventTool::changeTick(MidiEvent* event, int shiftX)
-{
+void EventTool::changeTick(MidiEvent* event, int shiftX) {
     // TODO: falls event gezeigt ist, über matrixWidget tick erfragen (effizienter)
     //int newMs = matrixWidget->msOfXPos(event->x()-shiftX);
 
@@ -162,8 +155,7 @@ void EventTool::changeTick(MidiEvent* event, int shiftX)
     event->setMidiTime(tick);
 }
 
-void EventTool::copyAction()
-{
+void EventTool::copyAction() {
 
     if (Selection::instance()->selectedEvents().size() > 0) {
         // clear old copied Events
@@ -195,8 +187,7 @@ void EventTool::copyAction()
     }
 }
 
-void EventTool::pasteAction()
-{
+void EventTool::pasteAction() {
 
     if (copiedEvents->size() == 0) {
         return;
@@ -232,7 +223,7 @@ void EventTool::pasteAction()
     if (copiedCopiedEvents.count() > 0) {
 
         // Begin a new ProtocolAction
-        currentFile()->protocol()->startNewAction("Paste " + QString::number(copiedCopiedEvents.count()) + " events");
+        currentFile()->protocol()->startNewAction(QObject::tr("Paste ") + QString::number(copiedCopiedEvents.count()) + QObject::tr(" events"));
 
         double tickscale = 1;
         if (currentFile() != copiedEvents->first()->file()) {
@@ -288,7 +279,7 @@ void EventTool::pasteAction()
             event->setChannel(channel, false);
             event->setTrack(track, false);
             currentFile()->channel(channel)->insertEvent(event,
-                (int)(tickscale * event->midiTime()) + diff);
+                    (int)(tickscale * event->midiTime()) + diff);
             selectEvent(event, false, true);
         }
 
@@ -296,33 +287,27 @@ void EventTool::pasteAction()
     }
 }
 
-bool EventTool::showsSelection()
-{
+bool EventTool::showsSelection() {
     return false;
 }
 
-void EventTool::setPasteTrack(int track)
-{
+void EventTool::setPasteTrack(int track) {
     _pasteTrack = track;
 }
 
-int EventTool::pasteTrack()
-{
+int EventTool::pasteTrack() {
     return _pasteTrack;
 }
 
-void EventTool::setPasteChannel(int channel)
-{
+void EventTool::setPasteChannel(int channel) {
     _pasteChannel = channel;
 }
 
-int EventTool::pasteChannel()
-{
+int EventTool::pasteChannel() {
     return _pasteChannel;
 }
 
-int EventTool::rasteredX(int x, int* tick)
-{
+int EventTool::rasteredX(int x, int* tick) {
     if (!_magnet) {
         if (tick) {
             *tick = -1;
@@ -345,12 +330,10 @@ int EventTool::rasteredX(int x, int* tick)
     return x;
 }
 
-void EventTool::enableMagnet(bool enable)
-{
+void EventTool::enableMagnet(bool enable) {
     _magnet = enable;
 }
 
-bool EventTool::magnetEnabled()
-{
+bool EventTool::magnetEnabled() {
     return _magnet;
 }

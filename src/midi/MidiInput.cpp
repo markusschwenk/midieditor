@@ -42,12 +42,11 @@ int MidiInput::_currentTime = 0;
 bool MidiInput::_recording = false;
 bool MidiInput::_thru = false;
 
-void MidiInput::init()
-{
+void MidiInput::init() {
 
     // RtMidiIn constructor
     try {
-        _midiIn = new RtMidiIn(RtMidi::UNSPECIFIED, QString("MidiEditor input").toStdString());
+        _midiIn = new RtMidiIn(RtMidi::UNSPECIFIED, QString(tr("MidiEditor input")).toStdString());
         //_midiIn->setQueueSizeLimit(65535);
         _midiIn->ignoreTypes(false, true, true);
         _midiIn->setCallback(&receiveMessage);
@@ -56,8 +55,7 @@ void MidiInput::init()
     }
 }
 
-void MidiInput::receiveMessage(double deltatime, std::vector<unsigned char>* message, void* userData)
-{
+void MidiInput::receiveMessage(double deltatime, std::vector<unsigned char>* message, void* userData) {
     if (message->size() > 1) {
         _messages->insert(_currentTime, *message);
     }
@@ -68,34 +66,34 @@ void MidiInput::receiveMessage(double deltatime, std::vector<unsigned char>* mes
             // check channel
             if (i == 0) {
                 switch (message->at(i) & 0xF0) {
-                case 0x80: {
-                    a.append(0x80 | MidiOutput::standardChannel());
-                    continue;
-                }
-                case 0x90: {
-                    a.append(0x90 | MidiOutput::standardChannel());
-                    continue;
-                }
-                case 0xD0: {
-                    a.append(0xD0 | MidiOutput::standardChannel());
-                    continue;
-                }
-                case 0xC0: {
-                    a.append(0xC0 | MidiOutput::standardChannel());
-                    continue;
-                }
-                case 0xB0: {
-                    a.append(0xB0 | MidiOutput::standardChannel());
-                    continue;
-                }
-                case 0xA0: {
-                    a.append(0xA0 | MidiOutput::standardChannel());
-                    continue;
-                }
-                case 0xE0: {
-                    a.append(0xE0 | MidiOutput::standardChannel());
-                    continue;
-                }
+                    case 0x80: {
+                        a.append(0x80 | MidiOutput::standardChannel());
+                        continue;
+                    }
+                    case 0x90: {
+                        a.append(0x90 | MidiOutput::standardChannel());
+                        continue;
+                    }
+                    case 0xD0: {
+                        a.append(0xD0 | MidiOutput::standardChannel());
+                        continue;
+                    }
+                    case 0xC0: {
+                        a.append(0xC0 | MidiOutput::standardChannel());
+                        continue;
+                    }
+                    case 0xB0: {
+                        a.append(0xB0 | MidiOutput::standardChannel());
+                        continue;
+                    }
+                    case 0xA0: {
+                        a.append(0xA0 | MidiOutput::standardChannel());
+                        continue;
+                    }
+                    case 0xE0: {
+                        a.append(0xE0 | MidiOutput::standardChannel());
+                        continue;
+                    }
                 }
             }
             a.append(message->at(i));
@@ -104,8 +102,7 @@ void MidiInput::receiveMessage(double deltatime, std::vector<unsigned char>* mes
     }
 }
 
-QStringList MidiInput::inputPorts()
-{
+QStringList MidiInput::inputPorts() {
 
     QStringList ports;
 
@@ -123,8 +120,7 @@ QStringList MidiInput::inputPorts()
     return ports;
 }
 
-bool MidiInput::setInputPort(QString name)
-{
+bool MidiInput::setInputPort(QString name) {
 
     // try to find the port
     unsigned int nPorts = _midiIn->getPortCount();
@@ -151,13 +147,11 @@ bool MidiInput::setInputPort(QString name)
     return false;
 }
 
-QString MidiInput::inputPort()
-{
+QString MidiInput::inputPort() {
     return _inPort;
 }
 
-void MidiInput::startInput()
-{
+void MidiInput::startInput() {
 
     // clear eventlist
     _messages->clear();
@@ -165,8 +159,7 @@ void MidiInput::startInput()
     _recording = true;
 }
 
-QMultiMap<int, MidiEvent*> MidiInput::endInput(MidiTrack* track)
-{
+QMultiMap<int, MidiEvent*> MidiInput::endInput(MidiTrack* track) {
 
     QMultiMap<int, MidiEvent*> eventList;
     QByteArray array;
@@ -329,18 +322,15 @@ QMultiMap<int, MidiEvent*> MidiInput::endInput(MidiTrack* track)
     return eventList;
 }
 
-void MidiInput::setTime(int ms)
-{
+void MidiInput::setTime(int ms) {
     _currentTime = ms;
 }
 
-bool MidiInput::recording()
-{
+bool MidiInput::recording() {
     return _recording;
 }
 
-QList<int> MidiInput::toUnique(QList<int> in)
-{
+QList<int> MidiInput::toUnique(QList<int> in) {
     QList<int> out;
     foreach (int i, in) {
         if ((out.size() == 0) || (out.last() != i)) {
@@ -350,17 +340,14 @@ QList<int> MidiInput::toUnique(QList<int> in)
     return out;
 }
 
-void MidiInput::setThruEnabled(bool b)
-{
+void MidiInput::setThruEnabled(bool b) {
     _thru = b;
 }
 
-bool MidiInput::thru()
-{
+bool MidiInput::thru() {
     return _thru;
 }
 
-bool MidiInput::isConnected()
-{
+bool MidiInput::isConnected() {
     return _inPort != "";
 }

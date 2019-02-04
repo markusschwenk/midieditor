@@ -1,5 +1,7 @@
 TEMPLATE = app
 TARGET = MidiEditor
+TRANSLATIONS += \
+        locale/locale_ru.ts
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 QT += core \
     gui \
@@ -76,3 +78,5 @@ win32: {
     MOC_DIR = .tmp
     Release:DESTDIR = bin
 }
+
+DISTFILES +=

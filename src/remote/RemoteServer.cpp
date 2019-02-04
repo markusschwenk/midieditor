@@ -30,19 +30,17 @@
 using namespace std;
 
 RemoteServer::RemoteServer(QObject* parent)
-    : QObject(parent)
-{
+    : QObject(parent) {
     _timeSentLast = -1;
     _file = 0;
     _connected = false;
     _clientIp = "";
     _port = -1;
-    _clientname = "Not connected";
+    _clientname = tr("Not connected");
     connect(&udpSocket, SIGNAL(readyRead()), this, SLOT(readUDP()));
 }
 
-void RemoteServer::readUDP()
-{
+void RemoteServer::readUDP() {
     while (udpSocket.hasPendingDatagrams()) {
         QByteArray datagram;
         datagram.resize(udpSocket.pendingDatagramSize());
@@ -50,7 +48,7 @@ void RemoteServer::readUDP()
         quint16 senderPort;
 
         udpSocket.readDatagram(datagram.data(), datagram.size(),
-            &sender, &senderPort);
+                               &sender, &senderPort);
 
         if (sender == QHostAddress(_clientIp)) {
             QString message(datagram);
@@ -59,8 +57,7 @@ void RemoteServer::readUDP()
     }
 }
 
-void RemoteServer::receive(QString message)
-{
+void RemoteServer::receive(QString message) {
 
     QStringList pair = message.trimmed().split("=");
     if (pair[0].trimmed() == "action") {
@@ -114,54 +111,45 @@ void RemoteServer::receive(QString message)
     }
 }
 
-void RemoteServer::sendMessage(QString message)
-{
+void RemoteServer::sendMessage(QString message) {
     message += newline;
     udpSocket.writeDatagram(message.toLatin1(), QHostAddress(_clientIp), _port);
 }
 
-void RemoteServer::setTime(int ms)
-{
+void RemoteServer::setTime(int ms) {
     if (ms >= _timeSentLast + 1000 || _timeSentLast < 0 || _timeSentLast > ms) {
         sendMessage("time=" + QString::number(ms - ms % 1000));
         _timeSentLast = ms - ms % 1000;
     }
 }
 
-void RemoteServer::setTonality(int tonality)
-{
+void RemoteServer::setTonality(int tonality) {
     sendMessage("tonality=" + QString::number(tonality));
 }
 
-void RemoteServer::setMeter(int num, int denum)
-{
+void RemoteServer::setMeter(int num, int denum) {
     sendMessage("numerator=" + QString::number(num));
     sendMessage(QString("denumerator=") + QString::number(powf(2, denum)));
 }
 
-void RemoteServer::play()
-{
+void RemoteServer::play() {
     sendMessage("state=play");
 }
 
-void RemoteServer::record()
-{
+void RemoteServer::record() {
     sendMessage("state=record");
 }
 
-void RemoteServer::stop()
-{
+void RemoteServer::stop() {
     sendMessage("state=stop");
     cursorPositionChanged();
 }
 
-void RemoteServer::pause()
-{
+void RemoteServer::pause() {
     sendMessage("state=pause");
 }
 
-void RemoteServer::setFile(MidiFile* file)
-{
+void RemoteServer::setFile(MidiFile* file) {
 
     _file = file;
 
@@ -178,26 +166,22 @@ void RemoteServer::setFile(MidiFile* file)
     cursorPositionChanged();
 }
 
-void RemoteServer::setMaxTime(int ms)
-{
+void RemoteServer::setMaxTime(int ms) {
     sendMessage("maxtime=" + QString::number(ms));
 }
 
-void RemoteServer::setMeasure(int measure)
-{
+void RemoteServer::setMeasure(int measure) {
     if (measure < 1) {
         measure = 1;
     }
     sendMessage("measure=" + QString::number(measure));
 }
 
-void RemoteServer::setPositionInMeasure(double pos)
-{
+void RemoteServer::setPositionInMeasure(double pos) {
     sendMessage("position_in_measure=" + QString::number(pos));
 }
 
-void RemoteServer::cursorPositionChanged()
-{
+void RemoteServer::cursorPositionChanged() {
     if (_file) {
 
         int tick = _file->cursorTick();
@@ -220,40 +204,33 @@ void RemoteServer::cursorPositionChanged()
     }
 }
 
-void RemoteServer::setPort(int port)
-{
+void RemoteServer::setPort(int port) {
     _port = port;
 }
 
-void RemoteServer::setIp(QString ip)
-{
+void RemoteServer::setIp(QString ip) {
     _clientIp = ip;
 }
 
-QString RemoteServer::clientIp()
-{
+QString RemoteServer::clientIp() {
     return _clientIp;
 }
 
-int RemoteServer::clientPort()
-{
+int RemoteServer::clientPort() {
     return _port;
 }
 
-void RemoteServer::stopServer()
-{
+void RemoteServer::stopServer() {
     sendMessage("action=disconnect");
     sendMessage("action=disconnect");
     _connected = false;
 }
 
-bool RemoteServer::isConnected()
-{
+bool RemoteServer::isConnected() {
     return _connected;
 }
 
-void RemoteServer::tryConnect()
-{
+void RemoteServer::tryConnect() {
     if (isConnected()) {
         stopServer();
     }
@@ -263,7 +240,6 @@ void RemoteServer::tryConnect()
     udpSocket.bind(_port);
 }
 
-QString RemoteServer::clientName()
-{
+QString RemoteServer::clientName() {
     return _clientname;
 }
