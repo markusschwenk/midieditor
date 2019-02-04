@@ -1328,6 +1328,1115 @@
     </message>
 </context>
 <context>
+    <name>MidiFile</name>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="60"/>
+        <source>Tempo Track</source>
+        <translation>Дорожка темпа</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="65"/>
+        <source>New Instrument</source>
+        <translation>Новый инструмент</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="99"/>
+        <source>File opened</source>
+        <translation>Открыт файл</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="106"/>
+        <source>Error: File could not be opened.</source>
+        <translation>Ошибка: Невозможно открыть файл.</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="140"/>
+        <source>Error: Bad format in file header (Expected MThd).</source>
+        <translation>Ошибка: Неверный формат заголовка файла (Ожидается MThd).</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="165"/>
+        <source>Error: MThdTrackLength wrong (expected 6).</source>
+        <translation>Ошибка: Неверная MThdTrackLength (ожидается 6).</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="172"/>
+        <source>Error: MidiFormat v. 2 cannot be loaded with this Editor.</source>
+        <translation>Ошибка: Данный редактор не может работать с MidiFormat v. 2.</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="189"/>
+        <source>Error in Track </source>
+        <translation>Ошибка в дорожке </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="196"/>
+        <source>Warning: found OnEvent without OffEvent (line </source>
+        <translation>Предупреждение: найден OnEvent без OffEvent (строка </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="196"/>
+        <source>) - removing...</source>
+        <translation>) - удаление...</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="209"/>
+        <source>Error: Bad format in track header (Track </source>
+        <translation>Ошибка: Неверный формат в заголовке дорожки (Дорожка </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="209"/>
+        <source>, Expected MTrk).</source>
+        <translation>, Ожидается Mtrk).</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="260"/>
+        <source>Warning: detected offEvent without prior onEvent. Skipping!</source>
+        <translation>Предупреждение: обнаружен OffEvent без предыдущего OnEvent. Пропускаем!</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="295"/>
+        <source>Error: track </source>
+        <translation>Ошибка дорожка </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="295"/>
+        <source>not ended as expected. </source>
+        <translation>не завершается, как ожидается. </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="304"/>
+        <source>Warning: no TimeSignatureEvent detected at tick 0. Adding default value.</source>
+        <translation>Предупреждение: не обнарушен TimeSignatureEvent на нулевом тике. Добавляется стандартное значение.</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="632"/>
+        <source>Acoustic Grand Piano</source>
+        <translation>Акустический рояль</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="635"/>
+        <source>Bright Acoustic Piano</source>
+        <translation>Акустическое пианино</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="638"/>
+        <source>Electric Grand Piano</source>
+        <translation>Электрический рояль</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="641"/>
+        <source>Honky-tonk Piano</source>
+        <translation>Фортепиано</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="644"/>
+        <source> Electric Piano 1</source>
+        <translation>Электрическое пианино 1</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="647"/>
+        <source>Electric Piano 2</source>
+        <translation>Электрическое пианино 2</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="650"/>
+        <source>Harpsichord</source>
+        <translation>Клавесин</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="653"/>
+        <source>Clavinet (Clavi)</source>
+        <translation>Клавинет</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="656"/>
+        <source>Celesta</source>
+        <translation>Челеста</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="659"/>
+        <source>Glockenspiel</source>
+        <translation>Колокольчики</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="662"/>
+        <source>Music Box</source>
+        <translation>Музыкальная шкатулка</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="665"/>
+        <source>Vibraphone</source>
+        <translation>Вибрафон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="668"/>
+        <source>Marimba</source>
+        <translation>Маримба</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="671"/>
+        <source>Xylophone</source>
+        <translation>Ксилофон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="674"/>
+        <source>Tubular Bells</source>
+        <translation>Колокола</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="677"/>
+        <source>Dulcimer</source>
+        <translation>Цимбалы</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="680"/>
+        <source>Drawbar Organ</source>
+        <translation>Орган Хаммонда</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="683"/>
+        <source>Percussive Organ</source>
+        <translation>Перкуссионный орган</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="686"/>
+        <source>Rock Organ</source>
+        <translation>Рок-орган</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="689"/>
+        <source>Church Organ</source>
+        <translation>Церковный орган</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="692"/>
+        <source>Reed Organ</source>
+        <translation>Тростниковый орган</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="695"/>
+        <source>Accordion</source>
+        <translation>Аккордеон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="698"/>
+        <source>Harmonica</source>
+        <translation>Гармоника</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="701"/>
+        <source>Tango Accordion</source>
+        <translation>Бандонеон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="704"/>
+        <source>Acoustic Guitar (nylon)</source>
+        <translation>Акустическая гитара (нейлон)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="707"/>
+        <source>Acoustic Guitar (steel)</source>
+        <translation>Акустическая гитара (сталь)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="710"/>
+        <source>Electric Guitar (jazz)</source>
+        <translation>Электрогитара (джаз)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="713"/>
+        <source>Electric Guitar (clean)</source>
+        <translation>Электрогитара (чистый звук)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="716"/>
+        <source>Electric Guitar (muted)</source>
+        <translation>Электрогитара (с приемом palm mute)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="719"/>
+        <source>Overdriven Guitar</source>
+        <translation>Перегруженная электрогитара</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="722"/>
+        <source>Distortion Guitar</source>
+        <translation>Дисторшн-электрогитара</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="725"/>
+        <source>Guitar harmonics</source>
+        <translation>Гитарные флажолеты</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="728"/>
+        <source>Acoustic Bass</source>
+        <translation>Акустический бас</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="731"/>
+        <source>Electric Bass (finger)</source>
+        <translation>Электрическая бас-гитара (палец)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="734"/>
+        <source>Electric Bass (pick)</source>
+        <translation>Электрическая бас-гитара (медиатор)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="737"/>
+        <source>Fretless Bass</source>
+        <translation>Безладовый бас</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="740"/>
+        <source>Slap Bass 1</source>
+        <translation>Слэп-бас 1</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="743"/>
+        <source>Slap Bass 2</source>
+        <translation>Слэп-бас 2</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="746"/>
+        <source>Synth Bass 1</source>
+        <translation>Синтезаторный бас 1</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="749"/>
+        <source>Synth Bass 2</source>
+        <translation>Синтезаторный бас 2</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="752"/>
+        <source>Violin</source>
+        <translation>Скрипка</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="755"/>
+        <source>Viola</source>
+        <translation>Виола</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="758"/>
+        <source>Cello</source>
+        <translation>Виолончель</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="761"/>
+        <source>Contrabass</source>
+        <translation>Контрабас</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="764"/>
+        <source>Tremolo Strings</source>
+        <translation>Скрипичное тремоло</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="767"/>
+        <source>Pizzicato Strings</source>
+        <translation>Скрипичное пиццикато</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="770"/>
+        <source>Orchestral Harp</source>
+        <translation>Арфа</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="773"/>
+        <source>Timpani</source>
+        <translation>Тимпан</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="776"/>
+        <source>String Ensemble 1</source>
+        <translation>Струнный оркестр 1</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="779"/>
+        <source>String Ensemble 2</source>
+        <translation>Струнный оркестр 2</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="782"/>
+        <source>Synth Strings 1</source>
+        <translation>Синтезаторный оркестр 1</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="785"/>
+        <source>Synth Strings 2</source>
+        <translation>Синтезаторный оркестр 2</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="788"/>
+        <source>Choir Aahs</source>
+        <translation>Хор, поющий «А»</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="791"/>
+        <source>Voice Oohs</source>
+        <translation>Голос, поющий «О»</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="794"/>
+        <source>Synth Choir</source>
+        <translation>Синтезаторный хор</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="797"/>
+        <source>Orchestra Hit</source>
+        <translation>Оркестровый акцент</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="800"/>
+        <source>Trumpet</source>
+        <translation>Труба</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="803"/>
+        <source>Trombone</source>
+        <translation>Тромбон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="806"/>
+        <source>Tuba</source>
+        <translation>Туба</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="809"/>
+        <source>Muted Trumpet</source>
+        <translation>Приглушенная труба</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="812"/>
+        <source>French Horn</source>
+        <translation>Валторна</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="815"/>
+        <source>Brass Section</source>
+        <translation>Духовой оркестр</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="818"/>
+        <source>Synth Brass 1</source>
+        <translation>Синтезаторные духовые 1</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="821"/>
+        <source>Synth Brass 2</source>
+        <translation>Синтезаторные духовые 2</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="824"/>
+        <source>Soprano Sax</source>
+        <translation>Сопрано-саксофон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="827"/>
+        <source>Alto Sax</source>
+        <translation>Альт-саксофон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="830"/>
+        <source>Tenor Sax</source>
+        <translation>Тенор-саксофон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="833"/>
+        <source>Baritone Sax</source>
+        <translation>Баритон-саксофон</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="836"/>
+        <source>Oboe</source>
+        <translation>Гобой</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="839"/>
+        <source>English Horn</source>
+        <translation>Английский рожок</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="842"/>
+        <source>Bassoon</source>
+        <translation>Фагот</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="845"/>
+        <source>Clarinet</source>
+        <translation>Кларнет</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="848"/>
+        <source>Piccolo</source>
+        <translation>Пикколо</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="851"/>
+        <source>Flute</source>
+        <translation>Флейта</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="854"/>
+        <source>Recorder</source>
+        <translation>Блокфлейта</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="857"/>
+        <source>Pan Flute</source>
+        <translation>Флейта Пана</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="860"/>
+        <source>Blown Bottle</source>
+        <translation>Бутылочные горлышки</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="863"/>
+        <source>Shakuhachi</source>
+        <translation>Сякухати</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="866"/>
+        <source>Whistle</source>
+        <translation>Свисток</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="869"/>
+        <source>Ocarina</source>
+        <translation>Окарина</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="872"/>
+        <source>Lead 1 (square)</source>
+        <translation>Ведущий голос 1 (квадрат)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="875"/>
+        <source>Lead 2 (sawtooth)</source>
+        <translation>Ведущий голос 2 (пила)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="878"/>
+        <source>Lead 3 (calliope)</source>
+        <translation>Ведущий голос 3 (каллиопа)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="881"/>
+        <source>Lead 4 (chiff)</source>
+        <translation>Ведущий голос 4 (чифф)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="884"/>
+        <source>Lead 5 (charang)</source>
+        <translation>Ведущий голос 5 (чаранг)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="887"/>
+        <source>Lead 6 (voice)</source>
+        <translation>Ведущий голос 6 (голос)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="890"/>
+        <source>Lead 7 (fifths)</source>
+        <translation>Ведущий голос 7 (квинта)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="893"/>
+        <source>Lead 8 (bass + lead)</source>
+        <translation>Ведущий голос 8 (бас и ведущий голос)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="896"/>
+        <source>Pad 1 (new age)</source>
+        <translation>Подголосок 1 (Нью Эйдж)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="899"/>
+        <source>Pad 2 (warm)</source>
+        <translation>Подголосок 2 (теплый звук)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="902"/>
+        <source>Pad 3 (polysynth)</source>
+        <translation>Подголосок 3 (полисинтезатор)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="905"/>
+        <source>Pad 4 (choir)</source>
+        <translation>Подголосок 4 (хор)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="908"/>
+        <source>Pad 5 (bowed)</source>
+        <translation>Подголосок 5 (искривленный звук)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="911"/>
+        <source>Pad 6 (metallic)</source>
+        <translation>Подголосок 6 (металлический звук)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="914"/>
+        <source>Pad 7 (halo)</source>
+        <translation>Подголосок 7 (гало)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="917"/>
+        <source>Pad 8 (sweep)</source>
+        <translation>Подголосок 8 (свип)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="920"/>
+        <source>FX 1 (rain)</source>
+        <translation>FX 1 (дождь)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="923"/>
+        <source>FX 2 (soundtrack)</source>
+        <translation>FX 2 (саундтрэк)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="926"/>
+        <source>FX 3 (crystal)</source>
+        <translation>FX 3 (кристалл)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="929"/>
+        <source>FX 4 (atmosphere)</source>
+        <translation>FX 4 (атмосфера)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="932"/>
+        <source>FX 5 (brightness)</source>
+        <translation>FX 5 (яркость)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="935"/>
+        <source>FX 6 (goblins)</source>
+        <translation>FX 6 (гоблины)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="938"/>
+        <source>FX 7 (echoes)</source>
+        <translation>FX 7 (эхо)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="941"/>
+        <source>FX 8 (sci-fi)</source>
+        <translation>FX 8 (сай-фай)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="944"/>
+        <source>Sitar</source>
+        <translation>Ситар</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="947"/>
+        <source>Banjo</source>
+        <translation>Банджо</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="950"/>
+        <source>Shamisen</source>
+        <translation>Сямисэн</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="953"/>
+        <source>Koto</source>
+        <translation>Кото</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="956"/>
+        <source>Kalimba</source>
+        <translation>Калимба</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="959"/>
+        <source>Bag pipe</source>
+        <translation>Волынка</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="962"/>
+        <source>Fiddle</source>
+        <translation>Фиддл</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="965"/>
+        <source>Shanai</source>
+        <translation>Шахнай</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="968"/>
+        <source>Tinkle Bell</source>
+        <translation>Медные колокольчики</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="971"/>
+        <source>Agogo</source>
+        <translation>Агого</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="974"/>
+        <source>Steel Drums</source>
+        <translation>Стальные барабаны</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="977"/>
+        <source>Woodblock</source>
+        <translation>Деревянная коробочка</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="980"/>
+        <source>Taiko Drum</source>
+        <translation>Тайко</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="983"/>
+        <source>Melodic Tom</source>
+        <translation>Мелодичный том-том</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="986"/>
+        <source>Synth Drum</source>
+        <translation>Электробарабаны</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="989"/>
+        <source>Reverse Cymbal</source>
+        <translation>Реверс-цимбалы</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="992"/>
+        <source>Guitar Fret Noise</source>
+        <translation>Шум гитарных струн</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="995"/>
+        <source>Breath Noise</source>
+        <translation>Дыхание</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="998"/>
+        <source>Seashore</source>
+        <translation>Шум прибоя</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1001"/>
+        <source>Bird Tweet</source>
+        <translation>Птичья трель</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1004"/>
+        <source>Telephone Ring</source>
+        <translation>Телефонный звонок</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1007"/>
+        <source>Helicopter</source>
+        <translation>Шум вертолета</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1010"/>
+        <source>Applause</source>
+        <translation>Аплодисменты</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1013"/>
+        <source>Gunshot</source>
+        <translation>Выстрел</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1016"/>
+        <source>out of range</source>
+        <translation>вышел за границы</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1023"/>
+        <source>Bank Select (MSB)</source>
+        <translation>Выбор банка (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1026"/>
+        <source>Modulation Wheel (MSB)</source>
+        <translation>Колесо модуляции (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1029"/>
+        <source>Breath Controller (MSB) </source>
+        <translation>Контроллер дыхания (MSB) </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1033"/>
+        <source>Foot Controller (MSB)</source>
+        <translation>Ножной контроллер (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1036"/>
+        <source>Portamento Time (MSB)</source>
+        <translation>Время портаменто (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1039"/>
+        <source>Data Entry (MSB)</source>
+        <translation>Вход данных (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1042"/>
+        <source>Channel Volume (MSB)</source>
+        <translation>Громкость канала (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1045"/>
+        <source>Balance (MSB) </source>
+        <translation>Баланс (MSB) </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1049"/>
+        <source>Pan (MSB)</source>
+        <translation>Панорамирование (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1052"/>
+        <source>Expression (MSB)</source>
+        <translation>Экспрессия (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1055"/>
+        <source>Effect Control 1 (MSB)</source>
+        <translation>Эффект 1 (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1058"/>
+        <source>Effect Control 2 (MSB) </source>
+        <translation>Эффект 2 (MSB) </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1062"/>
+        <source>General Purpose Controller 1 (MSB)</source>
+        <translation>Общий контроллер 1 (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1065"/>
+        <source>General Purpose Controller 2 (MSB)</source>
+        <translation>Общий контроллер 2 (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1068"/>
+        <source>General Purpose Controller 3 (MSB)</source>
+        <translation>Общий контроллер 3 (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1071"/>
+        <source>General Purpose Controller 4 (MSB) </source>
+        <translation>Общий контроллер 4 (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1075"/>
+        <source>Bank Select (LSB)</source>
+        <translation>Выбор банка (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1078"/>
+        <source>Modulation Wheel (LSB)</source>
+        <translation>Колесо модуляции (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1081"/>
+        <source>Breath Controller (LSB) </source>
+        <translation>Контроллер дыхания (LSB) </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1085"/>
+        <source>Foot Controller (LSB)</source>
+        <translation>Ножной контроллер (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1088"/>
+        <source>Portamento Time (LSB)</source>
+        <translation>Время портаменто (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1091"/>
+        <source>Data Entry (LSB) Channel</source>
+        <translation>Вход данных (LSB) Канал</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1094"/>
+        <source>Channel Volume (LSB)</source>
+        <translation>Громкость канала (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1097"/>
+        <source>Balance (LSB) </source>
+        <translation>Баланс (LSB) </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1101"/>
+        <source>Pan (LSB)</source>
+        <translation>Панорамирование (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1104"/>
+        <source>Expression (LSB)</source>
+        <translation>Экспрессия (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1107"/>
+        <source>Effect Control 1 (LSB)</source>
+        <translation>Эффект 1 (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1110"/>
+        <source>Effect Control 2 (LSB) </source>
+        <translation>Эффект 2 (LSB) </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1114"/>
+        <source>General Purpose Controller 1 (LSB)</source>
+        <translation>Общий контроллер 1 (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1117"/>
+        <source>General Purpose Controller 2 (LSB)</source>
+        <translation>Общий контроллер 2 (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1120"/>
+        <source>General Purpose Controller 3 (LSB)</source>
+        <translation>Общий контроллер 3 (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1123"/>
+        <source>General Purpose Controller 4 (LSB) </source>
+        <translation>Общий контроллер 4 (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1127"/>
+        <source>Sustain Pedal</source>
+        <translation>Педаль сустейна</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1130"/>
+        <source>Portamento On/Off</source>
+        <translation>Портаменто Вкл./Выкл.</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1133"/>
+        <source>Sostenuto</source>
+        <translation>Состенуто (Сверхлегато)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1136"/>
+        <source>Soft Pedal</source>
+        <translation>Мягкая педать</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1139"/>
+        <source>Legato Footswitch</source>
+        <translation>Ножной переключатель легато</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1142"/>
+        <source>Hold 2</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1145"/>
+        <source>Sound Controller 1</source>
+        <translation>Звуковой контроллер 1</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1148"/>
+        <source>Sound Controller 2</source>
+        <translation>Звуковой контроллер 2</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1151"/>
+        <source>Sound Controller 3</source>
+        <translation>Звуковой контроллер 3</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1154"/>
+        <source>Sound Controller 4</source>
+        <translation>Звуковой контроллер 4</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1157"/>
+        <source>Sound Controller 5</source>
+        <translation>Звуковой контроллер 5</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1160"/>
+        <source>Sound Controller 6</source>
+        <translation>Звуковой контроллер 6</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1163"/>
+        <source>Sound Controller 7</source>
+        <translation>Звуковой контроллер 7</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1166"/>
+        <source>Sound Controller 8</source>
+        <translation>Звуковой контроллер 8</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1169"/>
+        <source>Sound Controller 9</source>
+        <translation>Звуковой контроллер 9</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1172"/>
+        <source>Sound Controller 10 (GM2 default: Undefined)</source>
+        <translation>Звуковой контроллер 10 (GM2 стнд.: Неизвестно)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1175"/>
+        <source>General Purpose Controller 5</source>
+        <translation>Общий контроллер 5</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1178"/>
+        <source>General Purpose Controller 6</source>
+        <translation>Общий контроллер 6</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1181"/>
+        <source>General Purpose Controller 7</source>
+        <translation>Общий контроллер 7</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1184"/>
+        <source>General Purpose Controller 8</source>
+        <translation>Общий контроллер 8</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1187"/>
+        <source>Portamento Control </source>
+        <translation>Управление портаменто </translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1191"/>
+        <source>Effects 1 Depth (default: Reverb Send)</source>
+        <translation>Эффект 1 Глубина (стнд: Реверб)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1194"/>
+        <source>Effects 2 Depth (default: Tremolo Depth)</source>
+        <translation>Эффект 2 Глубина (стнд: Глубина тремоло)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1197"/>
+        <source>Effects 3 Depth (default: Chorus Send)</source>
+        <translation>Эффект 3 Глубина (стнд: Хорус)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1200"/>
+        <source>Effects 4 Depth (default: Celeste [Detune] Depth)</source>
+        <translation>Эффект 4 Глубина (стнд: Расстройка челесты)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1203"/>
+        <source>Effects 5 Depth (default: Phaser Depth)</source>
+        <translation>Эффект 5 Глубина (стнд: Глубина фейзера)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1206"/>
+        <source>Data Increment</source>
+        <translation>Инкремент данных</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1209"/>
+        <source>Data Decrement</source>
+        <translation>Декремент данных</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1212"/>
+        <source>Non-Registered Parameter Number (LSB)</source>
+        <translation>Незарегистрированный параметр (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1215"/>
+        <source>Non-Registered Parameter Number(MSB)</source>
+        <translation>Незарегистрированный параметр (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1218"/>
+        <source>Registered Parameter Number (LSB)</source>
+        <translation>Зарегистрированный параметр (LSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1221"/>
+        <source>Registered Parameter Number(MSB) </source>
+        <translation>Зарегистрированный параметр (MSB)</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1225"/>
+        <source>All Sound Off</source>
+        <translation>Выкл. все звуки</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1228"/>
+        <source>Reset All Controllers</source>
+        <translation>Сброс всех контроллеров</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1231"/>
+        <source>Local Control On/Off</source>
+        <translation>Вкл./Выкл. локальный контроллер</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1234"/>
+        <source>All Notes Off</source>
+        <translation>Выкл. все ноты</translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1237"/>
+        <source>Omni Mode Off</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1240"/>
+        <source>Omni Mode On</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1243"/>
+        <source>Poly Mode Off</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1246"/>
+        <source>Poly Mode On</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="../src/midi/MidiFile.cpp" line="1250"/>
+        <source>undefined</source>
+        <translation></translation>
+    </message>
+</context>
+<context>
+    <name>MidiInput</name>
+    <message>
+        <location filename="../src/midi/MidiInput.cpp" line="49"/>
+        <source>MidiEditor input</source>
+        <translation>Вход MidiEditor</translation>
+    </message>
+</context>
+<context>
+    <name>MidiOutput</name>
+    <message>
+        <location filename="../src/midi/MidiOutput.cpp" line="47"/>
+        <source>MidiEditor output</source>
+        <translation>Выход MidiEditor</translation>
+    </message>
+</context>
+<context>
     <name>MidiSettingsWidget</name>
     <message>
         <location filename="../src/gui/MidiSettingsWidget.cpp" line="118"/>
@@ -1349,6 +2458,14 @@
         <location filename="../src/gui/MidiSettingsWidget.cpp" line="139"/>
         <source>Midi input: </source>
         <translation>Midi вход: </translation>
+    </message>
+</context>
+<context>
+    <name>MidiTrack</name>
+    <message>
+        <location filename="../src/midi/MidiTrack.cpp" line="58"/>
+        <source>Untitled track</source>
+        <translation>Безымянная дорожка</translation>
     </message>
 </context>
 <context>
@@ -1493,6 +2610,172 @@
     </message>
 </context>
 <context>
+    <name>QObject</name>
+    <message>
+        <location filename="../src/Terminal.cpp" line="79"/>
+        <source>Started process</source>
+        <translation>Запущен процес</translation>
+    </message>
+    <message>
+        <location filename="../src/Terminal.cpp" line="106"/>
+        <source>Trying to set Input Port to </source>
+        <translation>Попытка задать входной порт </translation>
+    </message>
+    <message>
+        <location filename="../src/Terminal.cpp" line="111"/>
+        <location filename="../src/Terminal.cpp" line="129"/>
+        <source>Found port </source>
+        <translation>Найден порт </translation>
+    </message>
+    <message>
+        <location filename="../src/Terminal.cpp" line="124"/>
+        <source>Trying to set Output Port to </source>
+        <translation>Попытка задать выходной порт </translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EraserTool.cpp" line="31"/>
+        <source>Eraser (remove Events)</source>
+        <translation>Ластик (удаляет события)</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EraserTool.cpp" line="66"/>
+        <source>Remove event</source>
+        <translation>Удалить событие</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EventMoveTool.cpp" line="39"/>
+        <source>Move Events (all directions)</source>
+        <translation>Перемещение событий (во всех направлениях)</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EventMoveTool.cpp" line="42"/>
+        <source>Move Events (up and down)</source>
+        <translation>Перемщение событий (вверх и вниз)</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EventMoveTool.cpp" line="45"/>
+        <source>Move Events (left and right)</source>
+        <translation>Перемещение событий (влево и вправо)</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EventMoveTool.cpp" line="160"/>
+        <source>Move events</source>
+        <translation>Перемещение событий</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EventTool.cpp" line="226"/>
+        <source>Paste </source>
+        <translation>Вставка </translation>
+    </message>
+    <message>
+        <location filename="../src/tool/EventTool.cpp" line="226"/>
+        <source> events</source>
+        <translation> событий</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="52"/>
+        <source>Create new Events</source>
+        <translation>Создать новые события</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="120"/>
+        <source>Create note</source>
+        <translation>Создать ноту</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="151"/>
+        <source>Create Program Change Event</source>
+        <translation>Создать событие смены программы</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="162"/>
+        <source>Create Time Signature Event</source>
+        <translation>Создать временную метку</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="173"/>
+        <source>Create Tempo Change Event</source>
+        <translation>Создать событие смены темпа</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="183"/>
+        <source>Create Key Signature Event</source>
+        <translation>Создать клавишную метку</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="193"/>
+        <source>Create Control Change Event</source>
+        <translation>Создать событие изменения контроллера</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="202"/>
+        <source>Create Key Pressure Event</source>
+        <translation>Создать событие давления на клавишу</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="211"/>
+        <source>Create Channel Pressure Event</source>
+        <translation>Создать событие давления канала</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="228"/>
+        <source>Create Text Event</source>
+        <translation>Создать текстовое событие</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="239"/>
+        <source>Create Unknown Event</source>
+        <translation>Создать неизвестное событие</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/NewNoteTool.cpp" line="247"/>
+        <source>Create SysEx Event</source>
+        <translation>Создать SysEx событие</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/SelectTool.cpp" line="35"/>
+        <source>Select Events (Box)</source>
+        <translation>Выделение события (Квадрат)</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/SelectTool.cpp" line="40"/>
+        <source>Select single Events</source>
+        <translation>Выделение одного события</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/SelectTool.cpp" line="45"/>
+        <source>Select all Events on the left side</source>
+        <translation>Выделение событий слева от курсора</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/SelectTool.cpp" line="50"/>
+        <source>Select all Events on the right side</source>
+        <translation>Выделение событий справа от курсора</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/SelectTool.cpp" line="97"/>
+        <location filename="../src/tool/StandardTool.cpp" line="144"/>
+        <location filename="../src/tool/StandardTool.cpp" line="158"/>
+        <source>Selection changed</source>
+        <translation>Изменено выделение</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/SizeChangeTool.cpp" line="38"/>
+        <source>Change the duration of the selected event</source>
+        <translation>Изменить длительность выделенных событий</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/SizeChangeTool.cpp" line="140"/>
+        <source>Change event duration</source>
+        <translation>Изменена длительность события</translation>
+    </message>
+    <message>
+        <location filename="../src/tool/StandardTool.cpp" line="49"/>
+        <source>Standard Tool</source>
+        <translation>Стандартный инструмент</translation>
+    </message>
+</context>
+<context>
     <name>RecordDialog</name>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="59"/>
@@ -1634,6 +2917,14 @@
         <location filename="../src/gui/RecordDialog.cpp" line="227"/>
         <source>No</source>
         <translation>Нет</translation>
+    </message>
+</context>
+<context>
+    <name>RemoteServer</name>
+    <message>
+        <location filename="../src/remote/RemoteServer.cpp" line="39"/>
+        <source>Not connected</source>
+        <translation>Не подключён</translation>
     </message>
 </context>
 <context>
