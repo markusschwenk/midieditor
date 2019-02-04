@@ -2774,6 +2774,46 @@
         <source>Standard Tool</source>
         <translation>Стандартный инструмент</translation>
     </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="72"/>
+        <source>Text Event</source>
+        <translation>Текстовая вставка</translation>
+    </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="92"/>
+        <source>General text</source>
+        <translation>Общий текст</translation>
+    </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="94"/>
+        <source>Copyright</source>
+        <translation>Копирайт</translation>
+    </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="96"/>
+        <source>Trackname</source>
+        <translation>Название дорожки</translation>
+    </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="98"/>
+        <source>Instrument name</source>
+        <translation>Название инструмента</translation>
+    </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="100"/>
+        <source>Lyric</source>
+        <translation>Слова</translation>
+    </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="102"/>
+        <source>Marker</source>
+        <translation>Метка</translation>
+    </message>
+    <message>
+        <location filename="../src/MidiEvent/TextEvent.cpp" line="104"/>
+        <source>Comment</source>
+        <translation>Комментарий</translation>
+    </message>
 </context>
 <context>
     <name>RecordDialog</name>
