@@ -63,5 +63,6 @@
         <file>run_environment/graphics/icon.png</file>
         <file>run_environment/graphics/midieditor.png</file>
         <file>CONTRIBUTORS</file>
+        <file>locale/locale_ru.qm</file>
     </qresource>
 </RCC>
