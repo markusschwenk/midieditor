@@ -22,50 +22,42 @@
 #include "../midi/MidiTrack.h"
 
 TextEvent::TextEvent(int channel, MidiTrack* track)
-    : MidiEvent(channel, track)
-{
+    : MidiEvent(channel, track) {
     _type = TEXT;
     _text = "";
 }
 
 TextEvent::TextEvent(TextEvent& other)
-    : MidiEvent(other)
-{
+    : MidiEvent(other) {
     _type = other._type;
     _text = other._text;
 }
 
-QString TextEvent::text()
-{
+QString TextEvent::text() {
     return _text;
 }
 
-void TextEvent::setText(QString text)
-{
+void TextEvent::setText(QString text) {
     ProtocolEntry* toCopy = copy();
     _text = text;
     protocol(toCopy, this);
 }
 
-int TextEvent::type()
-{
+int TextEvent::type() {
     return _type;
 }
 
-void TextEvent::setType(int type)
-{
+void TextEvent::setType(int type) {
     ProtocolEntry* toCopy = copy();
     _type = type;
     protocol(toCopy, this);
 }
 
-int TextEvent::line()
-{
+int TextEvent::line() {
     return TEXT_EVENT_LINE;
 }
 
-QByteArray TextEvent::save()
-{
+QByteArray TextEvent::save() {
     QByteArray array = QByteArray();
     QByteArray utf8text = _text.toUtf8();
 
@@ -76,18 +68,15 @@ QByteArray TextEvent::save()
     return array;
 }
 
-QString TextEvent::typeString()
-{
-    return "Text Event";
+QString TextEvent::typeString() {
+    return QObject::tr("Text Event");
 }
 
-ProtocolEntry* TextEvent::copy()
-{
+ProtocolEntry* TextEvent::copy() {
     return new TextEvent(*this);
 }
 
-void TextEvent::reloadState(ProtocolEntry* entry)
-{
+void TextEvent::reloadState(ProtocolEntry* entry) {
     TextEvent* other = dynamic_cast<TextEvent*>(entry);
     if (!other) {
         return;
@@ -97,23 +86,22 @@ void TextEvent::reloadState(ProtocolEntry* entry)
     _type = other->_type;
 }
 
-QString TextEvent::textTypeString(int type)
-{
+QString TextEvent::textTypeString(int type) {
     switch (type) {
-    case TEXT:
-        return "General text";
-    case COPYRIGHT:
-        return "Copyright";
-    case TRACKNAME:
-        return "Trackname";
-    case INSTRUMENT_NAME:
-        return "Instrument name";
-    case LYRIK:
-        return "Lyric";
-    case MARKER:
-        return "Marker";
-    case COMMENT:
-        return "Comment";
+        case TEXT:
+            return QObject::tr("General text");
+        case COPYRIGHT:
+            return QObject::tr("Copyright");
+        case TRACKNAME:
+            return QObject::tr("Trackname");
+        case INSTRUMENT_NAME:
+            return QObject::tr("Instrument name");
+        case LYRIK:
+            return QObject::tr("Lyric");
+        case MARKER:
+            return QObject::tr("Marker");
+        case COMMENT:
+            return QObject::tr("Comment");
     }
     return QString();
 }
