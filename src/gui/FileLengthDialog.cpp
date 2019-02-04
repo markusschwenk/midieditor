@@ -26,17 +26,16 @@
 #include <QSpinBox>
 
 FileLengthDialog::FileLengthDialog(MidiFile* f, QWidget* parent)
-    : QDialog(parent)
-{
+    : QDialog(parent) {
     _file = f;
-    QLabel* text = new QLabel("File duration (ms): ", this);
+    QLabel* text = new QLabel(tr("File duration (ms): "), this);
     _box = new QSpinBox(this);
     _box->setMinimum(1);
     _box->setMaximum(2147483647);
     _box->setValue(_file->maxTime());
-    QPushButton* breakButton = new QPushButton("Cancel");
+    QPushButton* breakButton = new QPushButton(tr("Cancel"));
     connect(breakButton, SIGNAL(clicked()), this, SLOT(hide()));
-    QPushButton* acceptButton = new QPushButton("Accept");
+    QPushButton* acceptButton = new QPushButton(tr("Accept"));
     connect(acceptButton, SIGNAL(clicked()), this, SLOT(accept()));
 
     QGridLayout* layout = new QGridLayout(this);
@@ -47,12 +46,11 @@ FileLengthDialog::FileLengthDialog(MidiFile* f, QWidget* parent)
     layout->setColumnStretch(1, 1);
 
     _box->setFocus();
-    setWindowTitle("File duration");
+    setWindowTitle(tr("File duration"));
 }
 
-void FileLengthDialog::accept()
-{
-    _file->protocol()->startNewAction("Change file duration");
+void FileLengthDialog::accept() {
+    _file->protocol()->startNewAction(tr("Change file duration"));
     _file->setMaxLengthMs(_box->value());
     _file->protocol()->endAction();
     hide();

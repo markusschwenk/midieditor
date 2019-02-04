@@ -31,8 +31,7 @@
 #define ROW_HEIGHT 85
 
 ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
-    : QWidget(parent)
-{
+    : QWidget(parent) {
 
     channelList = parent;
     channel = ch;
@@ -44,15 +43,15 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
 
     colored = new ColoredWidget(*(MidiChannel::colorByChannelNumber(channel)), this);
     layout->addWidget(colored, 0, 0, 2, 1);
-    QString text = "Channel " + QString::number(channel);
+    QString text = tr("Channel ") + QString::number(channel);
     if (channel == 16) {
-        text = "General Events";
+        text = tr("General Events");
     }
     QLabel* text1 = new QLabel(text, this);
     text1->setFixedHeight(15);
     layout->addWidget(text1, 0, 1, 1, 1);
 
-    instrumentLabel = new QLabel("none", this);
+    instrumentLabel = new QLabel(tr("none"), this);
     instrumentLabel->setFixedHeight(15);
     layout->addWidget(instrumentLabel, 1, 1, 1, 1);
 
@@ -63,7 +62,7 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     toolBar->setPalette(palette);
 
     // visibility
-    visibleAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/visible.png"), "Channel visible", toolBar);
+    visibleAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/visible.png"), tr("Channel visible"), toolBar);
     visibleAction->setCheckable(true);
     visibleAction->setChecked(true);
     toolBar->addAction(visibleAction);
@@ -71,14 +70,14 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
 
     // audibility
     if (channel < 16) {
-        loudAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/loud.png"), "Channel audible", toolBar);
+        loudAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/loud.png"), tr("Channel audible"), toolBar);
         loudAction->setCheckable(true);
         loudAction->setChecked(true);
         toolBar->addAction(loudAction);
         connect(loudAction, SIGNAL(toggled(bool)), this, SLOT(toggleAudibility(bool)));
 
         // solo
-        soloAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/solo.png"), "Solo mode", toolBar);
+        soloAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/solo.png"), tr("Solo mode"), toolBar);
         soloAction->setCheckable(true);
         soloAction->setChecked(false);
         toolBar->addAction(soloAction);
@@ -87,7 +86,7 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
         toolBar->addSeparator();
 
         // instrument
-        QAction* instrumentAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/instrument.png"), "Select instrument", toolBar);
+        QAction* instrumentAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/instrument.png"), tr("Select instrument"), toolBar);
         toolBar->addAction(instrumentAction);
         connect(instrumentAction, SIGNAL(triggered()), this, SLOT(instrument()));
     }
@@ -99,11 +98,10 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     setFixedHeight(ROW_HEIGHT);
 }
 
-void ChannelListItem::toggleVisibility(bool visible)
-{
-    QString text = "Hide channel";
+void ChannelListItem::toggleVisibility(bool visible) {
+    QString text = tr("Hide channel");
     if (visible) {
-        text = "Show channel";
+        text = tr("Show channel");
     }
     channelList->midiFile()->protocol()->startNewAction(text);
     channelList->midiFile()->channel(channel)->setVisible(visible);
@@ -111,11 +109,10 @@ void ChannelListItem::toggleVisibility(bool visible)
     emit channelStateChanged();
 }
 
-void ChannelListItem::toggleAudibility(bool audible)
-{
-    QString text = "Mute channel";
+void ChannelListItem::toggleAudibility(bool audible) {
+    QString text = tr("Mute channel");
     if (audible) {
-        text = "Channel audible";
+        text = tr("Channel audible");
     }
     channelList->midiFile()->protocol()->startNewAction(text);
     channelList->midiFile()->channel(channel)->setMute(!audible);
@@ -123,8 +120,7 @@ void ChannelListItem::toggleAudibility(bool audible)
     emit channelStateChanged();
 }
 
-void ChannelListItem::toggleSolo(bool solo)
-{
+void ChannelListItem::toggleSolo(bool solo) {
     QString text = "Enter solo mode";
     if (!solo) {
         text = "Exited solo mode";
@@ -135,17 +131,15 @@ void ChannelListItem::toggleSolo(bool solo)
     emit channelStateChanged();
 }
 
-void ChannelListItem::instrument()
-{
+void ChannelListItem::instrument() {
     emit selectInstrumentClicked(channel);
 }
 
-void ChannelListItem::onBeforeUpdate()
-{
+void ChannelListItem::onBeforeUpdate() {
 
     QString text = MidiFile::instrumentName(channelList->midiFile()->channel(channel)->progAtTick(channelList->midiFile()->cursorTick()));
     if (channel == 16) {
-        text = "Events affecting all channels";
+        text = tr("Events affecting all channels");
     }
     instrumentLabel->setText(text);
 
@@ -178,8 +172,7 @@ void ChannelListItem::onBeforeUpdate()
 }
 
 ChannelListWidget::ChannelListWidget(QWidget* parent)
-    : QListWidget(parent)
-{
+    : QListWidget(parent) {
 
     setSelectionMode(QAbstractItemView::NoSelection);
     setStyleSheet("QListWidget::item { border-bottom: 1px solid lightGray; }");
@@ -199,15 +192,13 @@ ChannelListWidget::ChannelListWidget(QWidget* parent)
     file = 0;
 }
 
-void ChannelListWidget::setFile(MidiFile* f)
-{
+void ChannelListWidget::setFile(MidiFile* f) {
     file = f;
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(update()));
     update();
 }
 
-void ChannelListWidget::update()
-{
+void ChannelListWidget::update() {
 
     foreach (ChannelListItem* item, items) {
         item->onBeforeUpdate();
@@ -216,21 +207,18 @@ void ChannelListWidget::update()
     QListWidget::update();
 }
 
-MidiFile* ChannelListWidget::midiFile()
-{
+MidiFile* ChannelListWidget::midiFile() {
     return file;
 }
 
 ColoredWidget::ColoredWidget(QColor color, QWidget* parent)
-    : QWidget(parent)
-{
+    : QWidget(parent) {
     _color = color;
     setFixedWidth(30);
     setContentsMargins(0, 0, 0, 0);
 }
 
-void ColoredWidget::paintEvent(QPaintEvent* event)
-{
+void ColoredWidget::paintEvent(QPaintEvent* event) {
     QPainter p;
     int l = width() - 1;
     int x = 0;

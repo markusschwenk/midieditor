@@ -24,6 +24,7 @@
 
 #include <QFile>
 #include <QTextStream>
+#include <QTranslator>
 
 #include "UpdateManager.h"
 #include <QMultiMap>
@@ -32,19 +33,17 @@
 #ifdef NO_CONSOLE_MODE
 #include <tchar.h>
 #include <windows.h>
-std::string wstrtostr(const std::wstring& wstr)
-{
+std::string wstrtostr(const std::wstring& wstr) {
     std::string strTo;
     char* szTo = new char[wstr.length() + 1];
     szTo[wstr.size()] = '\0';
     WideCharToMultiByte(CP_ACP, 0, wstr.c_str(), -1, szTo, (int)wstr.length(),
-        NULL, NULL);
+                        NULL, NULL);
     strTo = szTo;
     delete[] szTo;
     return strTo;
 }
-int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
-{
+int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show) {
     int argc = 1;
     char* argv[] = { "", "" };
     std::string str;
@@ -56,8 +55,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmd, int show)
     }
 
 #else
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 #endif
 
     QApplication a(argc, argv);
@@ -65,6 +63,13 @@ int main(int argc, char* argv[])
     if (!ok) {
         ok = QResource::registerResource("ressources.rcc");
     }
+
+    QString locale = QLocale::system().name();
+    locale.truncate(locale.lastIndexOf('_'));
+
+    QTranslator *translator = new QTranslator();
+    translator->load(":locale/locale_" + locale);
+    a.installTranslator(translator);
 
     UpdateManager::instance()->init();
     a.setApplicationVersion(UpdateManager::instance()->versionString());

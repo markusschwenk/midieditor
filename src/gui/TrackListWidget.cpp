@@ -36,8 +36,7 @@
 #define ROW_HEIGHT 85
 
 TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
-    : QWidget(parent)
-{
+    : QWidget(parent) {
 
     trackList = parent;
     this->track = track;
@@ -49,12 +48,12 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
 
     colored = new ColoredWidget(*(track->color()), this);
     layout->addWidget(colored, 0, 0, 2, 1);
-    QString text = "Track " + QString::number(track->number());
+    QString text = tr("Track ") + QString::number(track->number());
     QLabel* text1 = new QLabel(text, this);
     text1->setFixedHeight(15);
     layout->addWidget(text1, 0, 1, 1, 1);
 
-    trackNameLabel = new QLabel("New Track", this);
+    trackNameLabel = new QLabel(tr("New Track"), this);
     trackNameLabel->setFixedHeight(15);
     layout->addWidget(trackNameLabel, 1, 1, 1, 1);
 
@@ -64,14 +63,14 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
     palette.setColor(QPalette::Background, Qt::white);
     toolBar->setPalette(palette);
     // visibility
-    visibleAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/visible.png"), "Track visible", toolBar);
+    visibleAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/visible.png"), tr("Track visible"), toolBar);
     visibleAction->setCheckable(true);
     visibleAction->setChecked(true);
     toolBar->addAction(visibleAction);
     connect(visibleAction, SIGNAL(toggled(bool)), this, SLOT(toggleVisibility(bool)));
 
     // audibility
-    loudAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/loud.png"), "Track audible", toolBar);
+    loudAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/loud.png"), tr("Track audible"), toolBar);
     loudAction->setCheckable(true);
     loudAction->setChecked(true);
     toolBar->addAction(loudAction);
@@ -80,12 +79,12 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
     toolBar->addSeparator();
 
     // name
-    QAction* renameAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/rename.png"), "Rename track", toolBar);
+    QAction* renameAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/rename.png"), tr("Rename track"), toolBar);
     toolBar->addAction(renameAction);
     connect(renameAction, SIGNAL(triggered()), this, SLOT(renameTrack()));
 
     // remove
-    QAction* removeAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/remove.png"), "Remove track", toolBar);
+    QAction* removeAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/remove.png"), tr("Remove track"), toolBar);
     toolBar->addAction(removeAction);
     connect(removeAction, SIGNAL(triggered()), this, SLOT(removeTrack()));
 
@@ -96,40 +95,35 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
     setFixedHeight(ROW_HEIGHT);
 }
 
-void TrackListItem::toggleVisibility(bool visible)
-{
-    QString text = "Hide track";
+void TrackListItem::toggleVisibility(bool visible) {
+    QString text = tr("Hide track");
     if (visible) {
-        text = "Show track";
+        text = tr("Show track");
     }
     trackList->midiFile()->protocol()->startNewAction(text);
     track->setHidden(!visible);
     trackList->midiFile()->protocol()->endAction();
 }
 
-void TrackListItem::toggleAudibility(bool audible)
-{
-    QString text = "Mute track";
+void TrackListItem::toggleAudibility(bool audible) {
+    QString text = tr("Mute track");
     if (audible) {
-        text = "Track audible";
+        text = tr("Track audible");
     }
     trackList->midiFile()->protocol()->startNewAction(text);
     track->setMuted(!audible);
     trackList->midiFile()->protocol()->endAction();
 }
 
-void TrackListItem::renameTrack()
-{
+void TrackListItem::renameTrack() {
     emit trackRenameClicked(track->number());
 }
 
-void TrackListItem::removeTrack()
-{
+void TrackListItem::removeTrack() {
     emit trackRemoveClicked(track->number());
 }
 
-void TrackListItem::onBeforeUpdate()
-{
+void TrackListItem::onBeforeUpdate() {
 
     trackNameLabel->setText(track->name());
 
@@ -147,8 +141,7 @@ void TrackListItem::onBeforeUpdate()
 }
 
 TrackListWidget::TrackListWidget(QWidget* parent)
-    : QListWidget(parent)
-{
+    : QListWidget(parent) {
 
     setSelectionMode(QAbstractItemView::SingleSelection);
     setStyleSheet("QListWidget::item { border-bottom: 1px solid lightGray; }");
@@ -156,23 +149,20 @@ TrackListWidget::TrackListWidget(QWidget* parent)
     connect(this, SIGNAL(itemClicked(QListWidgetItem*)), this, SLOT(chooseTrack(QListWidgetItem*)));
 }
 
-void TrackListWidget::setFile(MidiFile* f)
-{
+void TrackListWidget::setFile(MidiFile* f) {
     file = f;
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(update()));
     update();
 }
 
-void TrackListWidget::chooseTrack(QListWidgetItem* item)
-{
+void TrackListWidget::chooseTrack(QListWidgetItem* item) {
 
     int t = item->data(Qt::UserRole).toInt();
     MidiTrack* track = trackorder.at(t);
     emit trackClicked(track);
 }
 
-void TrackListWidget::update()
-{
+void TrackListWidget::update() {
 
     if (!file) {
         clear();
@@ -223,7 +213,6 @@ void TrackListWidget::update()
     QListWidget::update();
 }
 
-MidiFile* TrackListWidget::midiFile()
-{
+MidiFile* TrackListWidget::midiFile() {
     return file;
 }
