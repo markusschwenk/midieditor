@@ -24,7 +24,7 @@
     <message>
         <location filename="../src/gui/MidiSettingsWidget.cpp" line="53"/>
         <source>Note: There aren&apos;t many reasons to change this. MIDI files have a resolution for how many ticks can fit in a quarter note. Higher values = more detail. Lower values may be required for compatibility. Only affects new files.</source>
-        <translation>Учтите: Существует не так много причин, для изменения этого. MIDI файлы содержат нужную информацию. Значение выше = больше деталей. Значения ниже могут потребоваться для совместимости. Влияет только на новые файлы.</translation>
+        <translation>Учтите: Существует не так много причин, для изменения этого значения. MIDI файлы содержат нужную информацию. Значение выше = больше деталей. Значения ниже могут потребоваться для совместимости. Влияет только на новые файлы.</translation>
     </message>
     <message>
         <location filename="../src/gui/MidiSettingsWidget.cpp" line="58"/>
@@ -49,7 +49,7 @@
     <message>
         <location filename="../src/gui/MidiSettingsWidget.cpp" line="83"/>
         <source>The start command can be used to start additional software components (e.g. Midi synthesizers) each time, MidiEditor is started. You can see the output of the started software / script in the field below.</source>
-        <translation>Команду запуска можно использовать для запуска дополнительных программ(т.к. Midi синтезаторы) сразу после запуска MidiEditor. Вы можете видеть их выхлоп в поле ниже.</translation>
+        <translation>Команду запуска можно использовать для запуска дополнительных программ (т.к. Midi синтезаторы) сразу после запуска MidiEditor. Вы можете видеть их выхлоп в поле ниже.</translation>
     </message>
 </context>
 <context>
@@ -240,7 +240,7 @@
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="768"/>
         <source>Control Change Event</source>
-        <translation>Управление значениями</translation>
+        <translation>Изменение контроллера</translation>
     </message>
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="771"/>
@@ -336,7 +336,7 @@
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="836"/>
         <source>Velocity</source>
-        <translation>Скорость</translation>
+        <translation>Сила нажатия</translation>
     </message>
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="847"/>
@@ -505,7 +505,7 @@
         <location filename="../src/gui/MainWindow.cpp" line="388"/>
         <location filename="../src/gui/MainWindow.cpp" line="1021"/>
         <source>All channels audible</source>
-        <translation>Все каналы слышими</translation>
+        <translation>Все каналы слышны</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="394"/>
@@ -579,7 +579,7 @@
         <location filename="../src/gui/MainWindow.cpp" line="827"/>
         <location filename="../src/gui/MainWindow.cpp" line="882"/>
         <source>One or more channels/tracks are not audible. They will be audible in the saved file.</source>
-        <translation>Один, или более каналов/дорожек заглушены. В сохранённом файле они будут слышимы.</translation>
+        <translation>Один, или более каналов/дорожек заглушены. В сохранённом файле они будут слышны.</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="828"/>
@@ -760,7 +760,7 @@
         <location filename="../src/gui/MainWindow.cpp" line="1532"/>
         <location filename="../src/gui/MainWindow.cpp" line="2151"/>
         <source>Same as selected for new events</source>
-        <translation>Так же, как и для новых событий</translation>
+        <translation>Как новые события</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="1534"/>
@@ -1120,7 +1120,7 @@
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="2367"/>
         <source>Zoom...</source>
-        <translation>Увеличение...</translation>
+        <translation>Масштаб...</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="2368"/>
@@ -1160,7 +1160,7 @@
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="2421"/>
         <source>From tracks</source>
-        <translation>Цвета дорожен</translation>
+        <translation>Цвета дорожек</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="2430"/>
@@ -1274,7 +1274,7 @@
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="405"/>
         <source>Control Change</source>
-        <translation>Управление</translation>
+        <translation>Измение контроллера</translation>
     </message>
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="409"/>
@@ -1356,12 +1356,12 @@
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="45"/>
         <source>Velocity</source>
-        <translation>Скорость</translation>
+        <translation>Сила нажатия</translation>
     </message>
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="47"/>
         <source>Control Change</source>
-        <translation>Управление</translation>
+        <translation>Изменение контроллера</translation>
     </message>
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="49"/>
@@ -1392,7 +1392,7 @@
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="491"/>
         <source>Edited velocity</source>
-        <translation>Изменена скорость</translation>
+        <translation>Изменена сила нажатия</translation>
     </message>
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="532"/>
@@ -1441,7 +1441,7 @@
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="784"/>
         <source>Changed velocity</source>
-        <translation>Изменена скорость</translation>
+        <translation>Изменена сила нажатия</translation>
     </message>
 </context>
 <context>
@@ -1513,7 +1513,7 @@
         <location filename="../src/gui/RecordDialog.cpp" line="64"/>
         <location filename="../src/gui/RecordDialog.cpp" line="79"/>
         <source>Same as selected for new events</source>
-        <translation>Так же, как и для новых событий</translation>
+        <translation>Как новые события</translation>
     </message>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="66"/>
@@ -1548,7 +1548,7 @@
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="94"/>
         <source>Control Change Events</source>
-        <translation>Управление значениями</translation>
+        <translation>Изменение контроллера</translation>
     </message>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="95"/>
