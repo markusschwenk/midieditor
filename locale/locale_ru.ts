@@ -532,7 +532,7 @@
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="428"/>
         <source>Protocol</source>
-        <translation>Протокол</translation>
+        <translation>История</translation>
     </message>
     <message>
         <location filename="../src/gui/MainWindow.cpp" line="433"/>
