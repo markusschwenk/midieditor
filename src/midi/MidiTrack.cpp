@@ -22,8 +22,7 @@
 #include "MidiFile.h"
 
 MidiTrack::MidiTrack(MidiFile* file)
-    : ProtocolEntry()
-{
+    : ProtocolEntry() {
 
     _number = 0;
     _nameEvent = 0;
@@ -36,8 +35,7 @@ MidiTrack::MidiTrack(MidiFile* file)
 
 MidiTrack::MidiTrack(MidiTrack& other)
     : QObject()
-    , ProtocolEntry(other)
-{
+    , ProtocolEntry(other) {
     _number = other._number;
     _nameEvent = other._nameEvent;
     _file = other._file;
@@ -46,25 +44,21 @@ MidiTrack::MidiTrack(MidiTrack& other)
     _color = other._color;
 }
 
-MidiTrack::~MidiTrack()
-{
+MidiTrack::~MidiTrack() {
 }
 
-MidiFile* MidiTrack::file()
-{
+MidiFile* MidiTrack::file() {
     return _file;
 }
 
-QString MidiTrack::name()
-{
+QString MidiTrack::name() {
     if (_nameEvent) {
         return _nameEvent->text();
     }
-    return "Untitled track";
+    return tr("Untitled track");
 }
 
-void MidiTrack::setName(QString name)
-{
+void MidiTrack::setName(QString name) {
 
     if (!_nameEvent) {
         _nameEvent = new TextEvent(16, this);
@@ -76,92 +70,89 @@ void MidiTrack::setName(QString name)
     emit trackChanged();
 }
 
-int MidiTrack::number()
-{
+int MidiTrack::number() {
     return _number;
 }
 
-void MidiTrack::setNumber(int number)
-{
+void MidiTrack::setNumber(int number) {
     ProtocolEntry* toCopy = copy();
     _number = number;
 
     switch ((number - 1) % 16) {
-    case 0: {
-        _color = new QColor(241, 70, 57, 255);
-        break;
-    }
-    case 1: {
-        _color = new QColor(205, 241, 0, 255);
-        break;
-    }
-    case 2: {
-        _color = new QColor(50, 201, 20, 255);
-        break;
-    }
-    case 3: {
-        _color = new QColor(107, 241, 231, 255);
-        break;
-    }
-    case 4: {
-        _color = new QColor(127, 67, 255, 255);
-        break;
-    }
-    case 5: {
-        _color = new QColor(241, 127, 200, 255);
-        break;
-    }
-    case 6: {
-        _color = new QColor(170, 212, 170, 255);
-        break;
-    }
-    case 7: {
-        _color = new QColor(222, 202, 170, 255);
-        break;
-    }
-    case 8: {
-        _color = new QColor(241, 201, 20, 255);
-        break;
-    }
-    case 9: {
-        _color = new QColor(80, 80, 80, 255);
-        break;
-    }
-    case 10: {
-        _color = new QColor(202, 50, 127, 255);
-        break;
-    }
-    case 11: {
-        _color = new QColor(0, 132, 255, 255);
-        break;
-    }
-    case 12: {
-        _color = new QColor(102, 127, 37, 255);
-        break;
-    }
-    case 13: {
-        _color = new QColor(241, 164, 80, 255);
-        break;
-    }
-    case 14: {
-        _color = new QColor(107, 30, 107, 255);
-        break;
-    }
-    case 15: {
-        _color = new QColor(50, 127, 127, 255);
-        break;
-    }
-    default: {
-        _color = new QColor(50, 50, 255, 255);
-        break;
-    }
+        case 0: {
+            _color = new QColor(241, 70, 57, 255);
+            break;
+        }
+        case 1: {
+            _color = new QColor(205, 241, 0, 255);
+            break;
+        }
+        case 2: {
+            _color = new QColor(50, 201, 20, 255);
+            break;
+        }
+        case 3: {
+            _color = new QColor(107, 241, 231, 255);
+            break;
+        }
+        case 4: {
+            _color = new QColor(127, 67, 255, 255);
+            break;
+        }
+        case 5: {
+            _color = new QColor(241, 127, 200, 255);
+            break;
+        }
+        case 6: {
+            _color = new QColor(170, 212, 170, 255);
+            break;
+        }
+        case 7: {
+            _color = new QColor(222, 202, 170, 255);
+            break;
+        }
+        case 8: {
+            _color = new QColor(241, 201, 20, 255);
+            break;
+        }
+        case 9: {
+            _color = new QColor(80, 80, 80, 255);
+            break;
+        }
+        case 10: {
+            _color = new QColor(202, 50, 127, 255);
+            break;
+        }
+        case 11: {
+            _color = new QColor(0, 132, 255, 255);
+            break;
+        }
+        case 12: {
+            _color = new QColor(102, 127, 37, 255);
+            break;
+        }
+        case 13: {
+            _color = new QColor(241, 164, 80, 255);
+            break;
+        }
+        case 14: {
+            _color = new QColor(107, 30, 107, 255);
+            break;
+        }
+        case 15: {
+            _color = new QColor(50, 127, 127, 255);
+            break;
+        }
+        default: {
+            _color = new QColor(50, 50, 255, 255);
+            break;
+        }
     }
 
     protocol(toCopy, this);
 }
 
-void MidiTrack::setNameEvent(TextEvent* nameEvent)
-{
+void MidiTrack::setNameEvent(TextEvent* nameEvent) {
     if ((_nameEvent) && (_nameEvent->type() == TextEvent::TRACKNAME)) {
         _nameEvent->setType(TextEvent::TEXT);
     }
@@ -174,18 +165,15 @@ void MidiTrack::setNameEvent(TextEvent* nameEvent)
     emit trackChanged();
 }
 
-TextEvent* MidiTrack::nameEvent()
-{
+TextEvent* MidiTrack::nameEvent() {
     return _nameEvent;
 }
 
-ProtocolEntry* MidiTrack::copy()
-{
+ProtocolEntry* MidiTrack::copy() {
     return new MidiTrack(*this);
 }
 
-void MidiTrack::reloadState(ProtocolEntry* entry)
-{
+void MidiTrack::reloadState(ProtocolEntry* entry) {
     MidiTrack* other = dynamic_cast<MidiTrack*>(entry);
     if (!other) {
         return;
@@ -199,39 +187,33 @@ void MidiTrack::reloadState(ProtocolEntry* entry)
     _muted = other->_muted;
 }
 
-void MidiTrack::setHidden(bool hidden)
-{
+void MidiTrack::setHidden(bool hidden) {
     ProtocolEntry* toCopy = copy();
     _hidden = hidden;
     protocol(toCopy, this);
     emit trackChanged();
 }
 
-bool MidiTrack::hidden()
-{
+bool MidiTrack::hidden() {
     return _hidden;
 }
 
-void MidiTrack::setMuted(bool muted)
-{
+void MidiTrack::setMuted(bool muted) {
     ProtocolEntry* toCopy = copy();
     _muted = muted;
     protocol(toCopy, this);
     emit trackChanged();
 }
 
-bool MidiTrack::muted()
-{
+bool MidiTrack::muted() {
     return _muted;
 }
 
-QColor* MidiTrack::color()
-{
+QColor* MidiTrack::color() {
     return _color;
 }
 
-MidiTrack* MidiTrack::copyToFile(MidiFile* file)
-{
+MidiTrack* MidiTrack::copyToFile(MidiFile* file) {
 
     file->addTrack();
     MidiTrack* newTrack = file->tracks()->last();
@@ -242,12 +224,10 @@ MidiTrack* MidiTrack::copyToFile(MidiFile* file)
     return newTrack;
 }
 
-void MidiTrack::assignChannel(int ch)
-{
+void MidiTrack::assignChannel(int ch) {
     _assignedChannel = ch;
 }
 
-int MidiTrack::assignedChannel()
-{
+int MidiTrack::assignedChannel() {
     return _assignedChannel;
 }

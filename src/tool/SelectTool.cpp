@@ -25,45 +25,42 @@
 #include "StandardTool.h"
 
 SelectTool::SelectTool(int type)
-    : EventTool()
-{
+    : EventTool() {
     stool_type = type;
     x_rect = 0;
     y_rect = 0;
     switch (stool_type) {
-    case SELECTION_TYPE_BOX: {
-        setImage(":/run_environment/graphics/tool/select_box.png");
-        setToolTipText("Select Events (Box)");
-        break;
-    }
-    case SELECTION_TYPE_SINGLE: {
-        setImage(":/run_environment/graphics/tool/select_single.png");
-        setToolTipText("Select single Events");
-        break;
-    }
-    case SELECTION_TYPE_LEFT: {
-        setImage(":/run_environment/graphics/tool/select_left.png");
-        setToolTipText("Select all Events on the left side");
-        break;
-    }
-    case SELECTION_TYPE_RIGHT: {
-        setImage(":/run_environment/graphics/tool/select_right.png");
-        setToolTipText("Select all Events on the right side");
-        break;
-    }
+        case SELECTION_TYPE_BOX: {
+            setImage(":/run_environment/graphics/tool/select_box.png");
+            setToolTipText(QObject::tr("Select Events (Box)"));
+            break;
+        }
+        case SELECTION_TYPE_SINGLE: {
+            setImage(":/run_environment/graphics/tool/select_single.png");
+            setToolTipText(QObject::tr("Select single Events"));
+            break;
+        }
+        case SELECTION_TYPE_LEFT: {
+            setImage(":/run_environment/graphics/tool/select_left.png");
+            setToolTipText(QObject::tr("Select all Events on the left side"));
+            break;
+        }
+        case SELECTION_TYPE_RIGHT: {
+            setImage(":/run_environment/graphics/tool/select_right.png");
+            setToolTipText(QObject::tr("Select all Events on the right side"));
+            break;
+        }
     }
 }
 
 SelectTool::SelectTool(SelectTool& other)
-    : EventTool(other)
-{
+    : EventTool(other) {
     stool_type = other.stool_type;
     x_rect = 0;
     y_rect = 0;
 }
 
-void SelectTool::draw(QPainter* painter)
-{
+void SelectTool::draw(QPainter* painter) {
     paintSelectedEvents(painter);
     if (SELECTION_TYPE_BOX && (x_rect || y_rect)) {
         painter->setPen(Qt::gray);
@@ -83,8 +80,7 @@ void SelectTool::draw(QPainter* painter)
     }
 }
 
-bool SelectTool::press(bool leftClick)
-{
+bool SelectTool::press(bool leftClick) {
     Q_UNUSED(leftClick);
     if (stool_type == SELECTION_TYPE_BOX) {
         y_rect = mouseY;
@@ -93,13 +89,12 @@ bool SelectTool::press(bool leftClick)
     return true;
 }
 
-bool SelectTool::release()
-{
+bool SelectTool::release() {
 
     if (!file()) {
         return false;
     }
-    file()->protocol()->startNewAction("Selection changed", image());
+    file()->protocol()->startNewAction(QObject::tr("Selection changed"), image());
     ProtocolEntry* toCopy = copy();
 
     if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
@@ -162,24 +157,20 @@ bool SelectTool::release()
     return true;
 }
 
-bool SelectTool::inRect(MidiEvent* event, int x_start, int y_start, int x_end, int y_end)
-{
+bool SelectTool::inRect(MidiEvent* event, int x_start, int y_start, int x_end, int y_end) {
     return pointInRect(event->x(), event->y(), x_start, y_start, x_end, y_end) || pointInRect(event->x(), event->y() + event->height(), x_start, y_start, x_end, y_end) || pointInRect(event->x() + event->width(), event->y(), x_start, y_start, x_end, y_end) || pointInRect(event->x() + event->width(), event->y() + event->height(), x_start, y_start, x_end, y_end) || pointInRect(x_start, y_start, event->x(), event->y(), event->x() + event->width(), event->y() + event->height());
 }
 
-bool SelectTool::move(int mouseX, int mouseY)
-{
+bool SelectTool::move(int mouseX, int mouseY) {
     EditorTool::move(mouseX, mouseY);
     return true;
 }
 
-ProtocolEntry* SelectTool::copy()
-{
+ProtocolEntry* SelectTool::copy() {
     return new SelectTool(*this);
 }
 
-void SelectTool::reloadState(ProtocolEntry* entry)
-{
+void SelectTool::reloadState(ProtocolEntry* entry) {
     SelectTool* other = dynamic_cast<SelectTool*>(entry);
     if (!other) {
         return;
@@ -190,12 +181,10 @@ void SelectTool::reloadState(ProtocolEntry* entry)
     stool_type = other->stool_type;
 }
 
-bool SelectTool::releaseOnly()
-{
+bool SelectTool::releaseOnly() {
     return release();
 }
 
-bool SelectTool::showsSelection()
-{
+bool SelectTool::showsSelection() {
     return true;
 }

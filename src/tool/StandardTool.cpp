@@ -33,8 +33,7 @@
 #define MOVE_ACTION 2
 
 StandardTool::StandardTool()
-    : EventTool()
-{
+    : EventTool() {
 
     setImage(":/run_environment/graphics/tool/select.png");
 
@@ -47,24 +46,21 @@ StandardTool::StandardTool()
     newNoteTool = new NewNoteTool();
     newNoteTool->setStandardTool(this);
 
-    setToolTipText("Standard Tool");
+    setToolTipText(QObject::tr("Standard Tool"));
 }
 
 StandardTool::StandardTool(StandardTool& other)
-    : EventTool(other)
-{
+    : EventTool(other) {
     sizeChangeTool = other.sizeChangeTool;
     moveTool = other.moveTool;
     selectTool = other.selectTool;
 }
 
-void StandardTool::draw(QPainter* painter)
-{
+void StandardTool::draw(QPainter* painter) {
     paintSelectedEvents(painter);
 }
 
-bool StandardTool::press(bool leftClick)
-{
+bool StandardTool::press(bool leftClick) {
 
     if (leftClick) {
         // find event to handle
@@ -74,7 +70,7 @@ bool StandardTool::press(bool leftClick)
         int action = NO_ACTION;
         foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
             if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + ev->width() + 2,
-                    ev->y() + ev->height())) {
+                            ev->y() + ev->height())) {
 
                 if (Selection::instance()->selectedEvents().contains(ev)) {
                     onSelectedEvent = true;
@@ -85,14 +81,14 @@ bool StandardTool::press(bool leftClick)
 
                 // left side means SizeChangeTool
                 if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + 2,
-                        ev->y() + ev->height())) {
+                                ev->y() + ev->height())) {
                     diffToMousePos = ev->x() - mouseX;
                     currentAction = SIZE_CHANGE_ACTION;
                 }
 
                 // right side means SizeChangeTool
                 else if (pointInRect(mouseX, mouseY, ev->x() + ev->width() - 2, ev->y(),
-                             ev->x() + ev->width() + 2, ev->y() + ev->height())) {
+                                     ev->x() + ev->width() + 2, ev->y() + ev->height())) {
                     diffToMousePos = ev->x() + ev->width() - mouseX;
                     currentAction = SIZE_CHANGE_ACTION;
                 }
@@ -135,49 +131,49 @@ bool StandardTool::press(bool leftClick)
 
             switch (action) {
 
-            case NO_ACTION: {
-                // no event means SelectTool
-                Tool::setCurrentTool(selectTool);
-                selectTool->move(mouseX, mouseY);
-                selectTool->press(leftClick);
-                return true;
-            }
-
-            case SIZE_CHANGE_ACTION: {
-                if (!onSelectedEvent) {
-                    file()->protocol()->startNewAction("Selection changed", image());
-                    ProtocolEntry* toCopy = copy();
-                    EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
-                    protocol(toCopy, this);
-                    file()->protocol()->endAction();
+                case NO_ACTION: {
+                    // no event means SelectTool
+                    Tool::setCurrentTool(selectTool);
+                    selectTool->move(mouseX, mouseY);
+                    selectTool->press(leftClick);
+                    return true;
                 }
-                Tool::setCurrentTool(sizeChangeTool);
-                sizeChangeTool->move(mouseX, mouseY);
-                sizeChangeTool->press(leftClick);
-                return false;
-            }
 
-            case MOVE_ACTION: {
-                if (!onSelectedEvent) {
-                    file()->protocol()->startNewAction("Selection changed", image());
-                    ProtocolEntry* toCopy = copy();
-                    EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
-                    protocol(toCopy, this);
-                    file()->protocol()->endAction();
+                case SIZE_CHANGE_ACTION: {
+                    if (!onSelectedEvent) {
+                        file()->protocol()->startNewAction(QObject::tr("Selection changed"), image());
+                        ProtocolEntry* toCopy = copy();
+                        EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
+                        protocol(toCopy, this);
+                        file()->protocol()->endAction();
+                    }
+                    Tool::setCurrentTool(sizeChangeTool);
+                    sizeChangeTool->move(mouseX, mouseY);
+                    sizeChangeTool->press(leftClick);
+                    return false;
                 }
-                /* TODO reenable
-					if(altGrPressed){
-						moveTool->setDirections(true, false);
-					} else if(spacePressed){
-						moveTool->setDirections(false, true);
-					} else {
-						moveTool->setDirections(true, true);
-					} */
-                Tool::setCurrentTool(moveTool);
-                moveTool->move(mouseX, mouseY);
-                moveTool->press(leftClick);
-                return false;
-            }
+
+                case MOVE_ACTION: {
+                    if (!onSelectedEvent) {
+                        file()->protocol()->startNewAction(QObject::tr("Selection changed"), image());
+                        ProtocolEntry* toCopy = copy();
+                        EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
+                        protocol(toCopy, this);
+                        file()->protocol()->endAction();
+                    }
+                    /* TODO reenable
+                        if(altGrPressed){
+                            moveTool->setDirections(true, false);
+                        } else if(spacePressed){
+                            moveTool->setDirections(false, true);
+                        } else {
+                            moveTool->setDirections(true, true);
+                        } */
+                    Tool::setCurrentTool(moveTool);
+                    moveTool->move(mouseX, mouseY);
+                    moveTool->press(leftClick);
+                    return false;
+                }
             }
         }
     } else {
@@ -193,15 +189,14 @@ bool StandardTool::press(bool leftClick)
     return true;
 }
 
-bool StandardTool::move(int mouseX, int mouseY)
-{
+bool StandardTool::move(int mouseX, int mouseY) {
     EventTool::move(mouseX, mouseY);
     foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
         // left/right side means SizeChangeTool
         if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + 2,
-                ev->y() + ev->height())
-            || pointInRect(mouseX, mouseY, ev->x() + ev->width() - 2, ev->y(),
-                   ev->x() + ev->width() + 2, ev->y() + ev->height())) {
+                        ev->y() + ev->height())
+                || pointInRect(mouseX, mouseY, ev->x() + ev->width() - 2, ev->y(),
+                               ev->x() + ev->width() + 2, ev->y() + ev->height())) {
             matrixWidget->setCursor(Qt::SplitHCursor);
             return false;
         }
@@ -210,13 +205,11 @@ bool StandardTool::move(int mouseX, int mouseY)
     return false;
 }
 
-ProtocolEntry* StandardTool::copy()
-{
+ProtocolEntry* StandardTool::copy() {
     return new StandardTool(*this);
 }
 
-void StandardTool::reloadState(ProtocolEntry* entry)
-{
+void StandardTool::reloadState(ProtocolEntry* entry) {
     StandardTool* other = dynamic_cast<StandardTool*>(entry);
     if (!other) {
         return;
@@ -227,13 +220,11 @@ void StandardTool::reloadState(ProtocolEntry* entry)
     selectTool = other->selectTool;
 }
 
-bool StandardTool::release()
-{
+bool StandardTool::release() {
     matrixWidget->setCursor(Qt::ArrowCursor);
     return true;
 }
 
-bool StandardTool::showsSelection()
-{
+bool StandardTool::showsSelection() {
     return true;
 }
