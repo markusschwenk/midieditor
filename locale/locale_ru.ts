@@ -240,7 +240,7 @@
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="768"/>
         <source>Control Change Event</source>
-        <translation>Изменение контроллера</translation>
+        <translation>Событие управления контроллером</translation>
     </message>
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="771"/>
@@ -250,7 +250,7 @@
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="774"/>
         <source>Key Signature Event</source>
-        <translation>Клавишная метка</translation>
+        <translation>Смена тональности</translation>
     </message>
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="777"/>
@@ -265,7 +265,7 @@
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="783"/>
         <source>Program Change Event</source>
-        <translation>Изменение программы</translation>
+        <translation>Смена инструмента</translation>
     </message>
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="786"/>
@@ -285,7 +285,7 @@
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="795"/>
         <source>Time Signature Event</source>
-        <translation>Временная метка</translation>
+        <translation>Размерность</translation>
     </message>
     <message>
         <location filename="../src/gui/EventWidget.cpp" line="798"/>
@@ -447,7 +447,7 @@
     <message>
         <location filename="../src/gui/InstrumentChooser.cpp" line="54"/>
         <source>Remove other Program Change Events</source>
-        <translation>Удалить другие События Изменения Программы</translation>
+        <translation>Удалить другие события смены инструмента</translation>
     </message>
     <message>
         <location filename="../src/gui/InstrumentChooser.cpp" line="56"/>
@@ -1274,7 +1274,7 @@
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="405"/>
         <source>Control Change</source>
-        <translation>Измение контроллера</translation>
+        <translation>Упр. контроллером</translation>
     </message>
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="409"/>
@@ -1284,17 +1284,17 @@
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="413"/>
         <source>Time Signature</source>
-        <translation>Временная метка</translation>
+        <translation>Размерность</translation>
     </message>
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="417"/>
         <source>Key Signature.</source>
-        <translation>Клавишная метка.</translation>
+        <translation>Тональность.</translation>
     </message>
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="421"/>
         <source>Program Change</source>
-        <translation>Изменение программы</translation>
+        <translation>Смена инструмента</translation>
     </message>
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="425"/>
@@ -1319,7 +1319,7 @@
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="441"/>
         <source>System Exclusive</source>
-        <translation></translation>
+        <translation>Системо-зависим.</translation>
     </message>
     <message>
         <location filename="../src/gui/MatrixWidget.cpp" line="445"/>
@@ -2478,7 +2478,7 @@
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="47"/>
         <source>Control Change</source>
-        <translation>Изменение контроллера</translation>
+        <translation>Упр. Контроллером</translation>
     </message>
     <message>
         <location filename="../src/gui/MiscWidget.cpp" line="49"/>
@@ -2685,7 +2685,7 @@
     <message>
         <location filename="../src/tool/NewNoteTool.cpp" line="151"/>
         <source>Create Program Change Event</source>
-        <translation>Создать событие смены программы</translation>
+        <translation>Создать событие смены инструмента</translation>
     </message>
     <message>
         <location filename="../src/tool/NewNoteTool.cpp" line="162"/>
@@ -2705,7 +2705,7 @@
     <message>
         <location filename="../src/tool/NewNoteTool.cpp" line="193"/>
         <source>Create Control Change Event</source>
-        <translation>Создать событие изменения контроллера</translation>
+        <translation>Создать событие управления контроллером</translation>
     </message>
     <message>
         <location filename="../src/tool/NewNoteTool.cpp" line="202"/>
@@ -2831,7 +2831,7 @@
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="94"/>
         <source>Control Change Events</source>
-        <translation>Изменение контроллера</translation>
+        <translation>События управления контроллером</translation>
     </message>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="95"/>
@@ -2851,12 +2851,12 @@
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="98"/>
         <source>Program Change Events</source>
-        <translation>Изменение программы</translation>
+        <translation>События смены инструмента</translation>
     </message>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="99"/>
         <source>System Exclusive Events</source>
-        <translation></translation>
+        <translation>Системо-зависимые события</translation>
     </message>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="100"/>
@@ -2866,12 +2866,12 @@
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="101"/>
         <source>Time Signature Events</source>
-        <translation>Временная метка</translation>
+        <translation>Размерность</translation>
     </message>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="102"/>
         <source>Key Signature Events</source>
-        <translation>Клавишная метка</translation>
+        <translation>События смены тональности</translation>
     </message>
     <message>
         <location filename="../src/gui/RecordDialog.cpp" line="103"/>
