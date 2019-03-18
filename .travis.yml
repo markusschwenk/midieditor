@@ -30,8 +30,8 @@ before_install:
     - QT_VERSION_MM=59
     - QT_VERSION_FULL=591-trusty
     # For mxe.cc (see http://mxe.cc/#requirements)
-    - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo add-apt-repository 'deb [arch=amd64] https://mirror.mxe.cc/repos/apt xenial main'; fi
-    - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 84C7C89FC632241A6999ED0A580873F586B72ED9; fi
+    - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 86B72ED9; fi
+    - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo add-apt-repository 'deb [arch=amd64] http://mirror.mxe.cc/repos/apt trusty main'; fi
     - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-get update; fi
     - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-get install mxe-i686-w64-mingw32.static-qtbase mxe-i686-w64-mingw32.static-qtmultimedia; fi
     
