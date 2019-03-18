@@ -1123,12 +1123,12 @@ void MatrixWidget::wheelEvent(QWheelEvent* event)
     Qt::KeyboardModifiers km = event->modifiers();
     if (km) {
         if (km == Qt::ShiftModifier) {
-            if (event->delta() > 0)
+            if (event->pixelDelta().y() > 0)
                 zoomVerIn();
             else
                 zoomVerOut();
         } else if (km == Qt::ControlModifier) {
-            if (event->delta() > 0)
+            if (event->pixelDelta().x() > 0)
                 zoomHorIn();
             else
                 zoomHorOut();
@@ -1138,6 +1138,7 @@ void MatrixWidget::wheelEvent(QWheelEvent* event)
             int maxTimeInFile = file->maxTime();
             int widgetRange = endTimeX - startTimeX;
 
+            // TODO: use pixelDelta
             int scroll = -1 * event->delta() * widgetRange / 1000;
 
             int newStartTime = startTimeX + scroll;
@@ -1152,10 +1153,9 @@ void MatrixWidget::wheelEvent(QWheelEvent* event)
         int widgetRange = endTimeX - startTimeX;
 
         int newStartLineY = startLineY;
-
-        if (event->delta() > 0)
+        if (event->pixelDelta().y() > 0)
             newStartLineY -= 5;
-        else
+        else if (event->pixelDelta().y() < 0)
             newStartLineY += 5;
 
         if (newStartLineY < 0)
