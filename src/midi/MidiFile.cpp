@@ -627,6 +627,43 @@ int MidiFile::measure(int startTick, int endTick,
     return measure;
 }
 
+int MidiFile::measure(int startTick, int* startTickOfMeasure ,int* endTickOfMeasure)
+{
+    QList<MidiEvent*> events = channels[18]->eventMap()->values();
+    TimeSignatureEvent* event = 0;
+    int i = 0;
+    int measure = 1;
+
+    // find the startEvent and the firstTick
+    for (; i < events.length(); i++) {
+
+        TimeSignatureEvent* ev = dynamic_cast<TimeSignatureEvent*>(events.at(i));
+        if (!ev) {
+            qWarning("unknown eventtype in the List [2]");
+            continue;
+        }
+        if (!event) {
+            event = ev;
+            measure = 1;
+            continue;
+        } else {
+            if (ev->midiTime() <= startTick) {
+                int ticks = ev->midiTime() - event->midiTime();
+                measure += event->measures(ticks);
+                event = ev;
+            } else {
+                break;
+            }
+        }
+    }
+    int ticks = startTick - event->midiTime();
+    int ticksInmeasure;
+    measure += event->measures(ticks, &ticksInmeasure);
+    *(startTickOfMeasure) = startTick - ticksInmeasure;
+    *(endTickOfMeasure) = *startTickOfMeasure + event->ticksPerMeasure();
+    return measure;
+}
+
 int MidiFile::ticksPerQuarter()
 {
     return timePerQuarter;

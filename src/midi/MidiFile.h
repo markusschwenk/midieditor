@@ -47,7 +47,7 @@ public:
     int maxTime();
     int endTick();
     int timeMS(int midiTime);
-    int measure(int midiTime, int& midiTimeInMeasure);
+    int measure(int startTick, int* startTickOfMeasure ,int* endTickOfMeasure);
     QMap<int, MidiEvent*>* tempoEvents();
     QMap<int, MidiEvent*>* timeSignatureEvents();
     void calcMaxTime();

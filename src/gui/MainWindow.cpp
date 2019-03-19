@@ -67,6 +67,7 @@
 #include "../tool/Selection.h"
 #include "../tool/SizeChangeTool.h"
 #include "../tool/StandardTool.h"
+#include "../tool/TimeSignatureTool.h"
 #include "../tool/Tool.h"
 #include "../tool/ToolButton.h"
 
@@ -2273,6 +2274,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     toolsToolsMenu->addAction(selectRightAction);
 
     toolsToolsMenu->addSeparator();
+
+    QAction* timeSignatureAction= new ToolButton(new TimeSignatureTool(), QKeySequence(Qt::Key_F12), toolsToolsMenu);
+    toolsToolsMenu->addAction(timeSignatureAction);
+
+    toolsToolsMenu->addSeparator();
     QAction* moveAllAction = new ToolButton(new EventMoveTool(true, true), QKeySequence(Qt::Key_F6), toolsToolsMenu);
     _activateWithSelections.append(moveAllAction);
     toolsToolsMenu->addAction(moveAllAction);
@@ -2792,6 +2798,9 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     upperTB->addAction(sizeChangeAction);
 
     upperTB->addSeparator();
+    upperTB->addAction(timeSignatureAction);
+    upperTB->addSeparator();
+
 
     upperTB->addAction(alignLeftAction);
     upperTB->addAction(alignRightAction);
