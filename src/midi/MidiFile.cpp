@@ -1842,3 +1842,25 @@ QList<int> MidiFile::quantization(int fractionSize)
     }
     return list;
 }
+
+
+int MidiFile::startTickOfMeasure(int measure){
+    QMap<int, MidiEvent*> *timeSigs = timeSignatureEvents();
+    QMap<int, MidiEvent*>::iterator it = timeSigs->begin();
+
+    // Find the time signature event the measure is in and its start measure
+    int currentMeasure = 1;
+    TimeSignatureEvent *currentEvent = dynamic_cast<TimeSignatureEvent*>(timeSigs->value(0));
+    it++;
+    while (it != timeSigs->end()) {
+        int endMeasureOfCurrentEvent = currentMeasure + ceil((it.key() - currentEvent->midiTime()) / currentEvent->ticksPerMeasure());
+        if (endMeasureOfCurrentEvent > measure) {
+            break;
+        }
+        currentEvent = dynamic_cast<TimeSignatureEvent*>(it.value());
+        currentMeasure = endMeasureOfCurrentEvent;
+        it++;
+    }
+
+    return currentEvent->midiTime() + (measure - currentMeasure) * currentEvent->ticksPerMeasure();
+}

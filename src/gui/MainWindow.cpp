@@ -62,6 +62,7 @@
 #include "../tool/EraserTool.h"
 #include "../tool/EventMoveTool.h"
 #include "../tool/EventTool.h"
+#include "../tool/MeasureTool.h"
 #include "../tool/NewNoteTool.h"
 #include "../tool/SelectTool.h"
 #include "../tool/Selection.h"
@@ -2279,6 +2280,9 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     QAction* timeSignatureAction= new ToolButton(new TimeSignatureTool(), QKeySequence(Qt::Key_F12), toolsToolsMenu);
     toolsToolsMenu->addAction(timeSignatureAction);
 
+    QAction* measureAction= new ToolButton(new MeasureTool(), QKeySequence(Qt::Key_F14), toolsToolsMenu);
+    toolsToolsMenu->addAction(measureAction);
+
     QAction* tempoAction= new ToolButton(new TempoTool(), QKeySequence(Qt::Key_F13), toolsToolsMenu);
     toolsToolsMenu->addAction(tempoAction);
 
@@ -2803,6 +2807,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     upperTB->addSeparator();
     upperTB->addAction(timeSignatureAction);
+    upperTB->addAction(measureAction);
     upperTB->addAction(tempoAction);
     upperTB->addSeparator();
 

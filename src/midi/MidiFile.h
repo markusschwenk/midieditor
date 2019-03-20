@@ -99,6 +99,8 @@ public:
 
     QList<int> quantization(int fractionSize);
 
+    int startTickOfMeasure(int measure);
+
 signals:
     void cursorPositionChanged();
     void recalcWidgetSize();

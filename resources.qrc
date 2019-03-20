@@ -65,5 +65,6 @@
         <file>CONTRIBUTORS</file>
         <file>run_environment/graphics/tool/meter.png</file>
         <file>run_environment/graphics/tool/tempo.png</file>
+        <file>run_environment/graphics/tool/measure.png</file>
     </qresource>
 </RCC>
