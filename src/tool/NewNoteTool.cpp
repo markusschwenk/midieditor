@@ -126,15 +126,6 @@ bool NewNoteTool::release()
         if (line >= 0 && line <= 127) {
             currentProtocol()->startNewAction("Create note", image());
 
-            if (startTick == -1) {
-                int startMs = matrixWidget->msOfXPos(xPos);
-                startTick = file()->tick(startMs);
-            }
-            if (endTick == -1) {
-                int endMs = matrixWidget->msOfXPos(currentX);
-                endTick = file()->tick(endMs);
-            }
-
             NoteOnEvent* on = file()->channel(_channel)->insertNote(127 - line,
                 startTick, endTick, 100, track);
             selectEvent(on, true, true);

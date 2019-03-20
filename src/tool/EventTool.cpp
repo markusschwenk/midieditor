@@ -325,7 +325,7 @@ int EventTool::rasteredX(int x, int* tick)
 {
     if (!_magnet) {
         if (tick) {
-            *tick = -1;
+            *tick = _currentFile->tick(matrixWidget->msOfXPos(x));
         }
         return x;
     }
@@ -340,7 +340,7 @@ int EventTool::rasteredX(int x, int* tick)
         }
     }
     if (tick) {
-        *tick = -1;
+        *tick = _currentFile->tick(matrixWidget->msOfXPos(x));
     }
     return x;
 }
