@@ -2895,11 +2895,11 @@ void MainWindow::quantizeSelection()
         OnEvent* on = dynamic_cast<OnEvent*>(e);
         if (on) {
             MidiEvent* off = on->offEvent();
-            off->setMidiTime(quantize(off->midiTime(), ticks));
-            if (off->midiTime() == on->midiTime()) {
-                int idx = ticks.indexOf(off->midiTime());
+            off->setMidiTime(quantize(off->midiTime(), ticks)-1);
+            if (off->midiTime() <= on->midiTime()) {
+                int idx = ticks.indexOf(off->midiTime()+1);
                 if ((idx >= 0) && (ticks.size() > idx + 1)) {
-                    off->setMidiTime(ticks.at(idx + 1));
+                    off->setMidiTime(ticks.at(idx + 1) - 1);
                 }
             }
         }
