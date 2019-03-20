@@ -32,6 +32,10 @@ TimeSignatureDialog::TimeSignatureDialog(MidiFile *file, int measure, int measur
     icon->setFixedSize(80, 80);
     layout->addWidget(icon, 0, 0, 3, 1);
 
+    QLabel* title = new QLabel("<h3>Edit Time Signature</h3>", this);
+    layout->addWidget(title, 0, 1, 1, 2);
+    title->setStyleSheet("color: black");
+
     // Beats
     QLabel *beatsLabel = new QLabel("Number of Beats:");
     _beats = new QSpinBox();
@@ -67,6 +71,10 @@ TimeSignatureDialog::TimeSignatureDialog(MidiFile *file, int measure, int measur
     _untilNextMeterChange->setChecked(true);
     layout->addWidget(_untilNextMeterChange, 5, 1, 1, 2);
     rangeGroup->addButton(_untilNextMeterChange);
+
+    QFrame* f = new QFrame(this);
+    f->setFrameStyle(QFrame::HLine | QFrame::Sunken);
+    layout->addWidget(f, 9, 0, 1, 3);
 
     // Accept / Break button
     QPushButton* breakButton = new QPushButton("Cancel");
