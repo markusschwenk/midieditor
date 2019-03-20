@@ -64,5 +64,6 @@
         <file>run_environment/graphics/midieditor.png</file>
         <file>CONTRIBUTORS</file>
         <file>run_environment/graphics/tool/meter.png</file>
+        <file>run_environment/graphics/tool/tempo.png</file>
     </qresource>
 </RCC>
