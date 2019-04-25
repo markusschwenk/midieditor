@@ -14,6 +14,7 @@ public:
     bool press(bool leftClick);
     bool release();
     bool releaseOnly();
+    bool releaseKey(int key);
 
     bool move(int mouseX, int mouseY);
 

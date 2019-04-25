@@ -81,6 +81,9 @@ public:
     void addTrack();
     void setMaxLengthMs(int ms);
 
+    void deleteMeasures(int from, int to);
+    void insertMeasures(int after, int numMeasures);
+
     ProtocolEntry* copy();
     void reloadState(ProtocolEntry* entry);
     MidiFile* file();
@@ -88,7 +91,7 @@ public:
     MidiTrack* track(int number);
 
     int tonalityAt(int tick);
-    void meterAt(int tick, int* num, int* denum);
+    void meterAt(int tick, int* num, int* denum, TimeSignatureEvent **lastTimeSigEvent = 0);
 
     static int variableLengthvalue(QDataStream* content);
     static QByteArray writeVariableLengthValue(int value);

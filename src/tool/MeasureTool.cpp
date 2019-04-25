@@ -1,9 +1,11 @@
 #include "MeasureTool.h"
 
+#include <QInputDialog>
+
 #include "EventTool.h"
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiFile.h"
-
+#include "../protocol/Protocol.h"
 
 MeasureTool::MeasureTool()
     : EventTool()
@@ -83,9 +85,19 @@ bool MeasureTool::release(){
     int dist, measureX;
     int measure = this->closestMeasureStart(&dist, &measureX);
     if (dist < 10) {
-        // TODO dialog
-        _firstSelectedMeasure = -1;
-        _secondSelectedMeasure = -1;
+        bool ok;
+        if (measure < 2) {
+            return true;
+        }
+        int num = QInputDialog::getInt(matrixWidget, "Insert Measures",
+            "Number of measures:", 1, 1, 100000, 1, &ok);
+        if (ok) {
+            file()->protocol()->startNewAction("Insert measures", image());
+            file()->insertMeasures(measure-1, num);
+            _firstSelectedMeasure = -1;
+            _secondSelectedMeasure = -1;
+            file()->protocol()->endAction();
+        }
         return true;
     } else {
         int ms = matrixWidget->msOfXPos(mouseX);
@@ -105,6 +117,24 @@ bool MeasureTool::releaseOnly(){
     _firstSelectedMeasure = -1;
     _secondSelectedMeasure = -1;
     return false;
+}
+
+bool MeasureTool::releaseKey(int key){
+    if(key == Qt::Key_Delete && _firstSelectedMeasure > -1){
+        file()->protocol()->startNewAction("Remove measures", image());
+        if (_secondSelectedMeasure == -1) {
+            _secondSelectedMeasure = _firstSelectedMeasure;
+        }
+        if (_firstSelectedMeasure > _secondSelectedMeasure) {
+            int tmp = _firstSelectedMeasure;
+            _firstSelectedMeasure = _secondSelectedMeasure;
+            _secondSelectedMeasure = tmp;
+        }
+        file()->deleteMeasures(_firstSelectedMeasure, _secondSelectedMeasure);
+        _firstSelectedMeasure = -1;
+        _secondSelectedMeasure = -1;
+        file()->protocol()->endAction();
+    }
 }
 
 bool MeasureTool::move(int mouseX, int mouseY){

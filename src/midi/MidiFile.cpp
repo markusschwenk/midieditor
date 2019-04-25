@@ -1741,7 +1741,7 @@ int MidiFile::tonalityAt(int tick)
     }
 }
 
-void MidiFile::meterAt(int tick, int* num, int* denum)
+void MidiFile::meterAt(int tick, int* num, int* denum, TimeSignatureEvent **lastTimeSigEvent)
 {
     QMap<int, MidiEvent*>* meterEvents = timeSignatureEvents();
     QMap<int, MidiEvent*>::iterator it = meterEvents->begin();
@@ -1759,11 +1759,12 @@ void MidiFile::meterAt(int tick, int* num, int* denum)
     if (!event) {
         *num = 4;
         *denum = 4;
-    }
-
-    else {
+    } else {
         *num = event->num();
         *denum = event->denom();
+        if (lastTimeSigEvent) {
+            *lastTimeSigEvent = event;
+        }
     }
 }
 
@@ -1863,4 +1864,103 @@ int MidiFile::startTickOfMeasure(int measure){
     }
 
     return currentEvent->midiTime() + (measure - currentMeasure) * currentEvent->ticksPerMeasure();
+}
+
+void MidiFile::deleteMeasures(int from, int to){
+
+    int tickFrom = startTickOfMeasure(from);
+    int tickTo = startTickOfMeasure(to + 1);
+
+    // Find and remember meter (time signture event) at the first undeleted measure
+    int num;
+    int denom;
+    meterAt(tickTo, &num, &denom);
+
+    // Delete all events. For notes, only delete if starting within the given tick range.
+    for (int ch = 0; ch < 19; ch++) {
+        QMap<int, MidiEvent*>::Iterator it = channel(ch)->eventMap()->begin();
+        QList<MidiEvent*> toRemove;
+        while(it != channel(ch)->eventMap()->end()) {
+            if (it.key() >= tickFrom && it.key() <= tickTo) {
+                OffEvent *offEvent = dynamic_cast<OffEvent*>(it.value());
+                if (!offEvent) {
+                    // Only remove if no off-event, off-event are handled separately
+                    toRemove.append(it.value());
+
+                    OnEvent *onEvent = dynamic_cast<OnEvent*>(it.value());
+                    if (onEvent) {
+                        OffEvent *offEventOfRemovedNote = onEvent->offEvent();
+                        toRemove.append(offEventOfRemovedNote);
+                    }
+                }
+            }
+            it++;
+        }
+
+        foreach (MidiEvent* event, toRemove) {
+            channel(ch)->removeEvent(event);
+        }
+    }
+
+    // All remaining events after the end tick have to be shifted. Note: off events that still
+    // exist inbetween the deleted inerval are not shifted, since this would cause negative
+    // duration.
+    for (int ch = 0; ch < 19; ch++) {
+        QList<MidiEvent*> toUpdate;
+        QMap<int, MidiEvent*>::Iterator it = channel(ch)->eventMap()->begin();
+        while(it != channel(ch)->eventMap()->end()) {
+            if (it.key() > tickTo) {
+                toUpdate.append(it.value());
+            }
+            it++;
+        }
+
+        foreach(MidiEvent *event, toUpdate) {
+            event->setMidiTime(event->midiTime() - (tickTo - tickFrom));
+        }
+    }
+
+    // Check meter again. If changed, add event to readjust.
+    int numAfter;
+    int denomAfter;
+    meterAt(tickFrom, &numAfter, &denomAfter);
+    if (denom != denomAfter || num != numAfter) {
+        TimeSignatureEvent *newEvent = new TimeSignatureEvent(18, num, denom, 24, 8, track(0));
+        channel(18)->insertEvent(newEvent, tickFrom);
+    }
+
+    calcMaxTime();
+}
+
+void MidiFile::insertMeasures(int after, int numMeasures){
+    if (after == 0) {
+        // Cannot insert before first measure.
+        return;
+    }
+    int tick = startTickOfMeasure(after + 1);
+
+    // Find meter at measure and compute number of inserted ticks.
+    int num;
+    int denom;
+    TimeSignatureEvent *lastTimeSig;
+    meterAt(tick-1, &num, &denom, &lastTimeSig);
+    int numTicks = lastTimeSig->ticksPerMeasure() * numMeasures;
+
+    // Shift all ticks.
+    for (int ch = 0; ch < 19; ch++) {
+        QList<MidiEvent*> toUpdate;
+        QMap<int, MidiEvent*>::Iterator it = channel(ch)->eventMap()->begin();
+        while(it != channel(ch)->eventMap()->end()) {
+            if (it.key() >= tick) {
+                toUpdate.append(it.value());
+            }
+            it++;
+        }
+
+        foreach(MidiEvent *event, toUpdate) {
+            event->setMidiTime(event->midiTime() + numTicks);
+        }
+    }
+
+    calcMaxTime();
 }
