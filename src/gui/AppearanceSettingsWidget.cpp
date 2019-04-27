@@ -8,6 +8,7 @@
 #include <QColorDialog>
 #include <QPushButton>
 #include <QList>
+#include <QSlider>
 
 #include "Appearance.h"
 
@@ -61,6 +62,15 @@ AppearanceSettingsWidget::AppearanceSettingsWidget(QWidget* parent)
     QPushButton *resetButton = new QPushButton("Reset Colors", this);
     connect(resetButton, SIGNAL(clicked()), this, SLOT(resetColors()));
     layout->addWidget(resetButton, 4, 1, 1, 1);
+
+
+    layout->addWidget(new QLabel("Event Opacity"), 6, 0, 1, 1);
+    QSlider *opacity = new QSlider(Qt::Horizontal, this);
+    opacity->setMaximum(0);
+    opacity->setMaximum(100);
+    opacity->setValue(Appearance::opacity());
+    connect(opacity, SIGNAL(valueChanged(int)), this, SLOT(opacityChanged(int)));
+    layout->addWidget(opacity, 6, 1, 1, 1);
 }
 
 void AppearanceSettingsWidget::channelColorChanged(int channel, QColor c){
@@ -73,6 +83,18 @@ void AppearanceSettingsWidget::trackColorChanged(int track, QColor c) {
 
 void AppearanceSettingsWidget::resetColors() {
     Appearance::reset();
+    foreach (NamedColorWidgetItem* item, *_trackItems) {
+        item->colorChanged(*Appearance::trackColor(item->number()));
+    }
+    foreach (NamedColorWidgetItem* item, *_channelItems) {
+        item->colorChanged(*Appearance::channelColor(item->number()));
+    }
+    update();
+}
+
+
+void AppearanceSettingsWidget::opacityChanged(int opacity) {
+    Appearance::setOpacity(opacity);
     foreach (NamedColorWidgetItem* item, *_trackItems) {
         item->colorChanged(*Appearance::trackColor(item->number()));
     }

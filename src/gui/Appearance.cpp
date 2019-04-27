@@ -2,6 +2,7 @@
 
 QMap<int, QColor*> Appearance::channelColors = QMap<int, QColor*>();
 QMap<int, QColor*> Appearance::trackColors = QMap<int, QColor*>();
+int Appearance::_opacity = 100;
 
 void Appearance::init(QSettings *settings){
     for (int channel = 0; channel < 17; channel++) {
@@ -14,14 +15,19 @@ void Appearance::init(QSettings *settings){
                            decode("track_color_" + QString::number(track),
                                   settings, defaultColor(track)));
     }
+    _opacity = settings->value("appearance_opacity", 100).toInt();
 }
 
 QColor *Appearance::channelColor(int channel){
-    return channelColors[channelToColorIndex(channel)];
+    QColor *color = channelColors[channelToColorIndex(channel)];
+    color->setAlpha(_opacity * 255 / 100);
+    return color;
 }
 
 QColor *Appearance::trackColor(int track) {
-    return trackColors[trackToColorIndex(track)];
+    QColor *color = trackColors[trackToColorIndex(track)];
+    color->setAlpha(_opacity * 255 / 100);
+    return color;
 }
 
 void Appearance::writeSettings(QSettings *settings) {
@@ -31,6 +37,7 @@ void Appearance::writeSettings(QSettings *settings) {
     for (int track = 0; track < 17; track++) {
         write("track_color_" + QString::number(track), settings, trackColors[track]);
     }
+    settings->setValue("appearance_opacity", _opacity);
 }
 
 QColor *Appearance::defaultColor(int n) {
@@ -162,4 +169,12 @@ void Appearance::reset() {
     for (int track = 0; track < 17; track++) {
         trackColors[track] = defaultColor(track);
     }
+}
+
+int Appearance::opacity(){
+    return _opacity;
+}
+
+void Appearance::setOpacity(int opacity){
+    _opacity = opacity;
 }

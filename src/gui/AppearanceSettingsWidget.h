@@ -40,6 +40,7 @@ public slots:
     void channelColorChanged(int channel, QColor c);
     void trackColorChanged(int track, QColor c);
     void resetColors();
+    void opacityChanged(int opacity);
 
 private:
     QList<NamedColorWidgetItem*> *_channelItems;
