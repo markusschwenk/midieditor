@@ -26,6 +26,7 @@
 
 #include <QColor>
 
+#include "../gui/Appearance.h"
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
@@ -35,85 +36,6 @@
 #include "../gui/EventWidget.h"
 #include "MidiFile.h"
 #include "MidiTrack.h"
-
-QColor* MidiChannel::colorByChannelNumber(int number)
-{
-
-    QColor* color;
-
-    switch (number) {
-    case 0: {
-        color = new QColor(241, 70, 57, 255);
-        break;
-    }
-    case 1: {
-        color = new QColor(205, 241, 0, 255);
-        break;
-    }
-    case 2: {
-        color = new QColor(50, 201, 20, 255);
-        break;
-    }
-    case 3: {
-        color = new QColor(107, 241, 231, 255);
-        break;
-    }
-    case 4: {
-        color = new QColor(127, 67, 255, 255);
-        break;
-    }
-    case 5: {
-        color = new QColor(241, 127, 200, 255);
-        break;
-    }
-    case 6: {
-        color = new QColor(170, 212, 170, 255);
-        break;
-    }
-    case 7: {
-        color = new QColor(222, 202, 170, 255);
-        break;
-    }
-    case 8: {
-        color = new QColor(241, 201, 20, 255);
-        break;
-    }
-    case 9: {
-        color = new QColor(80, 80, 80, 255);
-        break;
-    }
-    case 10: {
-        color = new QColor(202, 50, 127, 255);
-        break;
-    }
-    case 11: {
-        color = new QColor(0, 132, 255, 255);
-        break;
-    }
-    case 12: {
-        color = new QColor(102, 127, 37, 255);
-        break;
-    }
-    case 13: {
-        color = new QColor(241, 164, 80, 255);
-        break;
-    }
-    case 14: {
-        color = new QColor(107, 30, 107, 255);
-        break;
-    }
-    case 15: {
-        color = new QColor(50, 127, 127, 255);
-        break;
-    }
-    default: {
-        color = new QColor(50, 50, 255, 255);
-        break;
-    }
-    }
-
-    return color;
-}
 
 MidiChannel::MidiChannel(MidiFile* f, int num)
 {
@@ -126,9 +48,6 @@ MidiChannel::MidiChannel(MidiFile* f, int num)
     _solo = false;
 
     _events = new QMultiMap<int, MidiEvent*>;
-
-    // the color only depends on the number
-    _color = colorByChannelNumber(num);
 }
 
 MidiChannel::MidiChannel(MidiChannel& other)
@@ -138,7 +57,6 @@ MidiChannel::MidiChannel(MidiChannel& other)
     _mute = other._mute;
     _solo = other._solo;
     _events = new QMultiMap<int, MidiEvent*>(*(other._events));
-    _color = other._color;
     _num = other._num;
 }
 
@@ -158,7 +76,6 @@ void MidiChannel::reloadState(ProtocolEntry* entry)
     _mute = other->_mute;
     _solo = other->_solo;
     _events = other->_events;
-    _color = other->_color;
     _num = other->_num;
 }
 
@@ -218,7 +135,7 @@ QMultiMap<int, MidiEvent*>* MidiChannel::eventMap()
 
 QColor* MidiChannel::color()
 {
-    return _color;
+    return Appearance::channelColor(number());
 }
 
 NoteOnEvent* MidiChannel::insertNote(int note, int startTick, int endTick, int velocity, MidiTrack* track)

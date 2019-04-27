@@ -24,6 +24,8 @@
 #include <QToolBar>
 #include <QWidget>
 
+#include "Appearance.h"
+#include "ColoredWidget.h"
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
@@ -42,7 +44,7 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     setLayout(layout);
     layout->setVerticalSpacing(1);
 
-    colored = new ColoredWidget(*(MidiChannel::colorByChannelNumber(channel)), this);
+    colored = new ColoredWidget(*(Appearance::channelColor(channel)), this);
     layout->addWidget(colored, 0, 0, 2, 1);
     QString text = "Channel " + QString::number(channel);
     if (channel == 16) {
@@ -152,7 +154,7 @@ void ChannelListItem::onBeforeUpdate()
     if (channelList->midiFile()->channel(channel)->eventMap()->isEmpty()) {
         colored->setColor(Qt::lightGray);
     } else {
-        colored->setColor(*(MidiChannel::colorByChannelNumber(channel)));
+        colored->setColor(*(Appearance::channelColor(channel)));
     }
 
     if (visibleAction->isChecked() != channelList->midiFile()->channel(channel)->visible()) {
@@ -219,33 +221,4 @@ void ChannelListWidget::update()
 MidiFile* ChannelListWidget::midiFile()
 {
     return file;
-}
-
-ColoredWidget::ColoredWidget(QColor color, QWidget* parent)
-    : QWidget(parent)
-{
-    _color = color;
-    setFixedWidth(30);
-    setContentsMargins(0, 0, 0, 0);
-}
-
-void ColoredWidget::paintEvent(QPaintEvent* event)
-{
-    QPainter p;
-    int l = width() - 1;
-    int x = 0;
-    int y = (height() - 1 - l) / 2;
-    if (l > height() - 1) {
-        l = height() - 1;
-        y = 0;
-        x = (width() - 1 - l) / 2;
-    }
-
-    p.begin(this);
-    p.setRenderHint(QPainter::Antialiasing);
-    p.fillRect(0, 0, width(), height(), Qt::white);
-    p.setPen(Qt::lightGray);
-    p.setBrush(_color);
-    p.drawRoundRect(x, y, l, l, 30, 30);
-    p.end();
 }

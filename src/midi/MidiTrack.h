@@ -72,7 +72,6 @@ private:
     TextEvent* _nameEvent;
     MidiFile* _file;
     bool _hidden, _muted;
-    QColor* _color;
 
     int _assignedChannel;
 };

@@ -17,6 +17,8 @@
  */
 
 #include "MidiTrack.h"
+
+#include "../gui/Appearance.h"
 #include "../MidiEvent/TextEvent.h"
 #include "MidiChannel.h"
 #include "MidiFile.h"
@@ -24,13 +26,11 @@
 MidiTrack::MidiTrack(MidiFile* file)
     : ProtocolEntry()
 {
-
     _number = 0;
     _nameEvent = 0;
     _file = file;
     _hidden = false;
     _muted = false;
-    _color = new QColor(Qt::red);
     _assignedChannel = -1;
 }
 
@@ -43,7 +43,6 @@ MidiTrack::MidiTrack(MidiTrack& other)
     _file = other._file;
     _hidden = other._hidden;
     _muted = other._muted;
-    _color = other._color;
 }
 
 MidiTrack::~MidiTrack()
@@ -85,78 +84,6 @@ void MidiTrack::setNumber(int number)
 {
     ProtocolEntry* toCopy = copy();
     _number = number;
-
-    switch ((number - 1) % 16) {
-    case 0: {
-        _color = new QColor(241, 70, 57, 255);
-        break;
-    }
-    case 1: {
-        _color = new QColor(205, 241, 0, 255);
-        break;
-    }
-    case 2: {
-        _color = new QColor(50, 201, 20, 255);
-        break;
-    }
-    case 3: {
-        _color = new QColor(107, 241, 231, 255);
-        break;
-    }
-    case 4: {
-        _color = new QColor(127, 67, 255, 255);
-        break;
-    }
-    case 5: {
-        _color = new QColor(241, 127, 200, 255);
-        break;
-    }
-    case 6: {
-        _color = new QColor(170, 212, 170, 255);
-        break;
-    }
-    case 7: {
-        _color = new QColor(222, 202, 170, 255);
-        break;
-    }
-    case 8: {
-        _color = new QColor(241, 201, 20, 255);
-        break;
-    }
-    case 9: {
-        _color = new QColor(80, 80, 80, 255);
-        break;
-    }
-    case 10: {
-        _color = new QColor(202, 50, 127, 255);
-        break;
-    }
-    case 11: {
-        _color = new QColor(0, 132, 255, 255);
-        break;
-    }
-    case 12: {
-        _color = new QColor(102, 127, 37, 255);
-        break;
-    }
-    case 13: {
-        _color = new QColor(241, 164, 80, 255);
-        break;
-    }
-    case 14: {
-        _color = new QColor(107, 30, 107, 255);
-        break;
-    }
-    case 15: {
-        _color = new QColor(50, 127, 127, 255);
-        break;
-    }
-    default: {
-        _color = new QColor(50, 50, 255, 255);
-        break;
-    }
-    }
-
     protocol(toCopy, this);
 }
 
@@ -227,7 +154,7 @@ bool MidiTrack::muted()
 
 QColor* MidiTrack::color()
 {
-    return _color;
+    return Appearance::trackColor(number());
 }
 
 MidiTrack* MidiTrack::copyToFile(MidiFile* file)

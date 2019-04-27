@@ -33,7 +33,6 @@ public:
     QWidget* createInfoBox(QString info);
     QWidget* separator();
     virtual QIcon icon();
-
 private:
     QString _title;
 };

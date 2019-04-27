@@ -43,6 +43,7 @@
 #include <QToolBar>
 #include <QToolButton>
 
+#include "Appearance.h"
 #include "AboutDialog.h"
 #include "ChannelListWidget.h"
 #include "ClickButton.h"
@@ -109,6 +110,8 @@ MainWindow::MainWindow(QString initFile)
 
     _moveSelectedEventsToChannelMenu = 0;
     _moveSelectedEventsToTrackMenu = 0;
+
+    Appearance::init(_settings);
 
 #ifdef ENABLE_REMOTE
     bool ok;
@@ -1146,6 +1149,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
     _settings->setValue("auto_update_after_prompt", UpdateManager::autoCheckForUpdates());
     _settings->setValue("has_prompted_for_updates", true); // Happens on first start
+
+    Appearance::writeSettings(_settings);
 }
 
 void MainWindow::donate()
@@ -2865,6 +2870,7 @@ void MainWindow::openConfig()
 #else
     SettingsDialog* d = new SettingsDialog("Settings", _settings, 0, this);
 #endif
+    connect(d, SIGNAL(settingsChanged()), this, SLOT(updateAll()));
     d->show();
 }
 
@@ -3063,4 +3069,12 @@ void MainWindow::promtUpdatesDeactivatedDialog() {
     AutomaticUpdateDialog* d = new AutomaticUpdateDialog(this);
     d->setModal(true);
     d->exec();
+}
+
+void MainWindow::updateAll() {
+    mw_matrixWidget->registerRelayout();
+    mw_matrixWidget->update();
+    channelWidget->update();
+    _trackWidget->update();
+    _miscWidget->update();
 }

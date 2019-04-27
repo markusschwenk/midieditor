@@ -17,7 +17,7 @@
  */
 
 #include "TrackListWidget.h"
-#include "ChannelListWidget.h"
+#include "ColoredWidget.h"
 
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
@@ -144,6 +144,7 @@ void TrackListItem::onBeforeUpdate()
         loudAction->setChecked(!track->muted());
         connect(loudAction, SIGNAL(toggled(bool)), this, SLOT(toggleAudibility(bool)));
     }
+    colored->setColor(*(track->color()));
 }
 
 TrackListWidget::TrackListWidget(QWidget* parent)

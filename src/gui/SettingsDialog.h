@@ -41,6 +41,9 @@ public slots:
     void rowChanged(int row);
     void submit();
 
+signals:
+    void settingsChanged();
+
 protected:
     QListWidget* _listWidget;
     QList<SettingsWidget*>* _settingsWidgets;

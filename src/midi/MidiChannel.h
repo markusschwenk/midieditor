@@ -150,11 +150,6 @@ public:
 		 */
     void deleteAllEvents();
 
-    /**
-		 * \brief returns the color of the channel with the given number.
-		 */
-    static QColor* colorByChannelNumber(int number);
-
     /*
 		 * The following methods reimplement methods from the superclass
 		 * ProtocolEntry
@@ -178,13 +173,6 @@ protected:
 		 * \brief contains all MidiEvents of the channel sorted by their tick.
 		 */
     QMultiMap<int, MidiEvent*>* _events;
-
-    /**
-		 * \brief the channels color.
-		 *
-		 * This color is used to paint the channel in the matrix widget.
-		 */
-    QColor* _color;
 
     /**
 		 * \brief the channels number.

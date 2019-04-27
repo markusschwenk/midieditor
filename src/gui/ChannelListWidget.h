@@ -31,23 +31,7 @@ class MidiFile;
 class QLabel;
 
 class ChannelListWidget;
-
-class ColoredWidget : public QWidget {
-
-public:
-    ColoredWidget(QColor color, QWidget* parent = 0);
-    void setColor(QColor c)
-    {
-        _color = c;
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent* event);
-
-private:
-    QColor _color;
-};
+class ColoredWidget;
 
 class ChannelListItem : public QWidget {
 
