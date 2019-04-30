@@ -374,7 +374,6 @@ void MidiFile::calcMaxTime()
         if (i < events.length() - 1) {
             ticks = events.at(i + 1)->midiTime() - ev->midiTime();
         } else {
-            //ticks = 0;
             ticks = midiTicks - ev->midiTime();
         }
         time += ticks * ev->msPerTick();
@@ -1867,14 +1866,15 @@ int MidiFile::startTickOfMeasure(int measure){
 }
 
 void MidiFile::deleteMeasures(int from, int to){
-
     int tickFrom = startTickOfMeasure(from);
     int tickTo = startTickOfMeasure(to + 1);
 
     // Find and remember meter (time signture event) at the first undeleted measure
+    TimeSignatureEvent *lastTimeSig;
     int num;
     int denom;
-    meterAt(tickTo, &num, &denom);
+    meterAt(tickTo, &num, &denom, &lastTimeSig);
+    ProtocolEntry* toCopy = copy();
 
     // Delete all events. For notes, only delete if starting within the given tick range.
     for (int ch = 0; ch < 19; ch++) {
@@ -1924,12 +1924,22 @@ void MidiFile::deleteMeasures(int from, int to){
     int numAfter;
     int denomAfter;
     meterAt(tickFrom, &numAfter, &denomAfter);
+    int ticksPerMeasure;
     if (denom != denomAfter || num != numAfter) {
         TimeSignatureEvent *newEvent = new TimeSignatureEvent(18, num, denom, 24, 8, track(0));
         channel(18)->insertEvent(newEvent, tickFrom);
+        ticksPerMeasure = newEvent->ticksPerMeasure();
+    } else {
+        ticksPerMeasure = lastTimeSig->ticksPerMeasure();
     }
 
+    midiTicks = midiTicks - (tickTo - tickFrom);
+    // make sure, we have at east one measure
+    if (ticksPerMeasure > midiTicks) {
+        midiTicks = ticksPerMeasure;
+    }
     calcMaxTime();
+    ProtocolEntry::protocol(toCopy, this);
 }
 
 void MidiFile::insertMeasures(int after, int numMeasures){
@@ -1937,6 +1947,7 @@ void MidiFile::insertMeasures(int after, int numMeasures){
         // Cannot insert before first measure.
         return;
     }
+    ProtocolEntry* toCopy = copy();
     int tick = startTickOfMeasure(after + 1);
 
     // Find meter at measure and compute number of inserted ticks.
@@ -1945,6 +1956,7 @@ void MidiFile::insertMeasures(int after, int numMeasures){
     TimeSignatureEvent *lastTimeSig;
     meterAt(tick-1, &num, &denom, &lastTimeSig);
     int numTicks = lastTimeSig->ticksPerMeasure() * numMeasures;
+    midiTicks = midiTicks + numTicks;
 
     // Shift all ticks.
     for (int ch = 0; ch < 19; ch++) {
@@ -1963,4 +1975,5 @@ void MidiFile::insertMeasures(int after, int numMeasures){
     }
 
     calcMaxTime();
+    ProtocolEntry::protocol(toCopy, this);
 }
