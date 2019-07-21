@@ -92,25 +92,25 @@ void MiscWidget::paintEvent(QPaintEvent* event)
         return;
 
     // draw background
-    QPainter* painter = new QPainter(this);
-    QFont f = painter->font();
+    QPainter painter(this);
+    QFont f = painter.font();
     f.setPixelSize(9);
-    painter->setFont(f);
+    painter.setFont(f);
     QColor c(234, 246, 255);
-    painter->setRenderHint(QPainter::Antialiasing);
-    painter->setPen(Qt::gray);
-    painter->setBrush(c);
-    painter->drawRect(0, 0, width() - 1, height() - 1);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::gray);
+    painter.setBrush(c);
+    painter.drawRect(0, 0, width() - 1, height() - 1);
 
-    painter->setPen(QColor(194, 230, 255));
+    painter.setPen(QColor(194, 230, 255));
     for (int i = 0; i < 8; i++) {
-        painter->drawLine(0, (i * height()) / 8, width(), (i * height()) / 8);
+        painter.drawLine(0, (i * height()) / 8, width(), (i * height()) / 8);
     }
 
     // divs
     typedef QPair<int, int> TMPPair;
     foreach (TMPPair p, matrixWidget->divs()) {
-        painter->drawLine(p.first - LEFT_BORDER_MATRIX_WIDGET, 0, p.first - LEFT_BORDER_MATRIX_WIDGET, height());
+        painter.drawLine(p.first - LEFT_BORDER_MATRIX_WIDGET, 0, p.first - LEFT_BORDER_MATRIX_WIDGET, height());
     }
 
     // draw contents
@@ -139,9 +139,9 @@ void MiscWidget::paintEvent(QPaintEvent* event)
 
                 if (velocity > 0) {
                     int h = (height() * velocity) / 128;
-                    painter->setBrush(*c);
-                    painter->setPen(Qt::lightGray);
-                    painter->drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
+                    painter.setBrush(*c);
+                    painter.setPen(Qt::lightGray);
+                    painter.drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
                 }
             }
         }
@@ -170,9 +170,9 @@ void MiscWidget::paintEvent(QPaintEvent* event)
                         if (edit_mode == SINGLE_MODE && dragging) {
                             h += (dragY - mouseY);
                         }
-                        painter->setBrush(Qt::darkBlue);
-                        painter->setPen(Qt::lightGray);
-                        painter->drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
+                        painter.setBrush(Qt::darkBlue);
+                        painter.setPen(Qt::lightGray);
+                        painter.drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
                     }
                 }
             }
@@ -185,7 +185,7 @@ void MiscWidget::paintEvent(QPaintEvent* event)
         QColor* c = matrixWidget->midiFile()->channel(0)->color();
         QPen pen(*c);
         pen.setWidth(3);
-        painter->setPen(pen);
+        painter.setPen(pen);
 
         QPen circlePen(Qt::darkGray);
         circlePen.setWidth(1);
@@ -208,13 +208,13 @@ void MiscWidget::paintEvent(QPaintEvent* event)
                 }
             }
             if (i > 0) {
-                painter->drawLine(xOld, yOld, xPix, yOld);
-                painter->drawLine(xPix, yOld, xPix, yPix);
+                painter.drawLine(xOld, yOld, xPix, yOld);
+                painter.drawLine(xPix, yOld, xPix, yPix);
             }
             xOld = xPix;
             yOld = yPix;
         }
-        painter->drawLine(xOld, yOld, width(), yOld);
+        painter.drawLine(xOld, yOld, width(), yOld);
 
         for (int i = 0; i < track.size(); i++) {
 
@@ -231,15 +231,15 @@ void MiscWidget::paintEvent(QPaintEvent* event)
             if (edit_mode == SINGLE_MODE && (dragging || mouseOver)) {
 
                 if (accordingEvents.at(i) && Selection::instance()->selectedEvents().contains(accordingEvents.at(i))) {
-                    painter->setBrush(Qt::darkBlue);
+                    painter.setBrush(Qt::darkBlue);
                 }
-                painter->setPen(circlePen);
+                painter.setPen(circlePen);
                 if (i == trackIndex) {
-                    painter->setBrush(Qt::gray);
+                    painter.setBrush(Qt::gray);
                 }
-                painter->drawEllipse(xPix - 4, yPix - 4, 8, 8);
-                painter->setPen(pen);
-                painter->setBrush(Qt::NoBrush);
+                painter.drawEllipse(xPix - 4, yPix - 4, 8, 8);
+                painter.setPen(pen);
+                painter.setBrush(Qt::NoBrush);
             }
         }
     }
@@ -252,13 +252,13 @@ void MiscWidget::paintEvent(QPaintEvent* event)
 
         QPen pen(Qt::darkBlue);
         pen.setWidth(3);
-        painter->setPen(pen);
+        painter.setPen(pen);
 
         for (int i = 0; i < freeHandCurve.size(); i++) {
             int xPix = freeHandCurve.at(i).first;
             int yPix = freeHandCurve.at(i).second;
             if (i > 0) {
-                painter->drawLine(xOld, yOld, xPix, yPix);
+                painter.drawLine(xOld, yOld, xPix, yPix);
             }
             xOld = xPix;
             yOld = yPix;
@@ -270,9 +270,9 @@ void MiscWidget::paintEvent(QPaintEvent* event)
 
         QPen pen(Qt::darkBlue);
         pen.setWidth(3);
-        painter->setPen(pen);
+        painter.setPen(pen);
 
-        painter->drawLine(lineX, lineY, mouseX, mouseY);
+        painter.drawLine(lineX, lineY, mouseX, mouseY);
     }
 }
 
