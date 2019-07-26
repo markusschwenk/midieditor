@@ -42,6 +42,7 @@
 #include <QTextStream>
 #include <QToolBar>
 #include <QToolButton>
+#include <QDesktopServices>
 
 #include "Appearance.h"
 #include "AboutDialog.h"
@@ -2058,21 +2059,7 @@ void MainWindow::spreadSelection()
 
 void MainWindow::manual()
 {
-
-    QProcess* process = new QProcess;
-    process->setWorkingDirectory("assistant");
-    QStringList args;
-    args << QLatin1String("-collectionFile")
-         << QLatin1String("midieditor-collection.qhc");
-
-#ifdef __WINDOWS_MM__
-    process->start(QLatin1String("assistant/assistant"), args);
-#else
-    process->start(QLatin1String("assistant"), args);
-#endif
-
-    if (!process->waitForStarted())
-        return;
+    QDesktopServices::openUrl(QUrl("http://www.midieditor.org/index.php?category=manual&subcategory=editor-and-components", QUrl::TolerantMode));
 }
 
 void MainWindow::changeMiscMode(int mode)

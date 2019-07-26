@@ -63,14 +63,6 @@ SIZE=$(du -sb $DIR | cut -f1)
 SIZE=$(($SIZE / 1024))
 sed -i 's/{SIZE}/'"$SIZE"'/g' $PACKAGE_DIR/DEBIAN/control
 
-# Create manual
-cp -R midieditor-manual/. $PACKAGE_DIR/usr/share/midieditor/assistant
-cp -a packaging/manual/. $PACKAGE_DIR/usr/share/midieditor/assistant
-D=${PWD}
-cd $PACKAGE_DIR/usr/share/midieditor/assistant
-qcollectiongenerator midieditor-collection.qhcp -o midieditor-collection.qhc
-cd $D
-
 # permissions
 find $PACKAGE_DIR -type d -exec chmod 755 {} \;
 find $PACKAGE_DIR -type f -exec chmod 644 {} \;

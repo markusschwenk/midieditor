@@ -18,19 +18,8 @@ mkdir MidiEditor-win32/win_root/
 # Copy binary
 cp $MIDIEDITOR_BINARY_WINDOWS MidiEditor-win32/win_root/MidiEditor.exe
 
-# Copy assistant files
-cp -R packaging/windows/assistant MidiEditor-win32/win_root/assistant
-
 # Copy metronome
 cp -R packaging/metronome MidiEditor-win32/win_root/metronome
-
-# Create manual
-cp -R midieditor-manual/. MidiEditor-win32/win_root/assistant
-cp -a packaging/manual/. MidiEditor-win32/win_root/assistant
-D=${PWD}
-cd MidiEditor-win32/win_root/assistant
-qcollectiongenerator midieditor-collection.qhcp -o midieditor-collection.qhc
-cd $D
 
 cp -R packaging/windows/windows-installer/. MidiEditor-win32
 

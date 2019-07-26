@@ -69,8 +69,7 @@ unix: {
 win32: {
     DEFINES += __WINDOWS_MM__
     LIBS += -lwinmm
-    CONFIG += release\
-	    assistant
+    CONFIG += release
     RC_FILE = midieditor.rc
     OBJECTS_DIR = .tmp
     MOC_DIR = .tmp
