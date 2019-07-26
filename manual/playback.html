@@ -1,0 +1,73 @@
+<h2>Playback</h2>
+
+<p>
+  MidiEditor allows you to play the song when you have selected an
+<a href="index.php?category=manual&subcategory=setup#io">output device</a>.
+</p>
+
+<p>
+  You can find buttons for the playback in the <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a> or in the toolbar. There are buttons
+  which allow you to start a playback (or a recording, please read <a href="index.php?category=manual&subcategory=record">Recording Midi data</a> for more details), to
+  stop and pause the playback, and to control the	<a href="#cursor">cursor</a>. Moreover, individual tracks and channels can be
+  muted and the <a href="#metronome">metronome</a> can be controlled from within the <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a>.
+</p>
+
+<h3 id="muting-tracks-channels">Muting Tracks and Channels</h3>
+<p>
+  Sometimes it makes sense to play only specific channels or tracks in order to listen to one or more instruments at a time.
+  Hence, specific tracks and channels can be muted. If either the track or the channels assigned to a Midi event is muted, the event
+  will be ignored during the playback. Hence, notes of muted tracks and channels will not be audible during the playback.
+</p>
+<p>
+   In order to mute a specific track or a channel, please press <img src="pages/manual/tools/loud.png" width="12px" height="12px"/> in the according list in the
+   <a href="index.php?category=manual&subcategory=editor-and-components#track_editor">track editor</a> or the <a href="index.php?category=manual&subcategory=editor-and-components#channel_editor">channel editor</a>.
+   Click again in order to make the channel or track audible again.
+</p>
+<p>
+  Moreover, there are actions which allow you to mute or make audible all tracks or channels at once. These buttons can be found in the
+  <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a> as well as in the
+  <a href="index.php?category=manual&subcategory=editor-and-components#track_editor">track editor</a> or the <a href="index.php?category=manual&subcategory=editor-and-components#channel_editor">channel editor</a>.
+</p>
+<p>
+  If you want to play one channel alone, the channel can be marked to be the &quot;solo channel&quot;. This will automatically mute all other channels
+  without having to mute them manually. The solo mode can be entered by clicking <img src="pages/manual/tools/solo.png" width="12px" height="12px"/> for the according
+  channel in the <a href="index.php?category=manual&subcategory=editor-and-components#channel_editor">channel editor</a>.
+</p>
+
+<h3 id="cursor">Setting the Cursor</h3>
+
+<img class="figure" src="pages/manual/screenshots/setting-cursor.png"  align="right" hspace="10" vspace="10" />
+
+<p>
+	You can specify the position in the song where the playback starts when pressing the play button. This can be done by double clicking
+	into the time line above the <a href="index.php?category=manual&subcategory=editor-and-components#event-view">event view</a>.
+</p>
+<p>
+  In the <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a> there
+	are additional actions which can move the cursor to the next or previous measure (<img src="pages/manual/tools/back.png" width="12px" height="12px"/> and
+	<img src="pages/manual/tools/forward.png" width="12px" height="12px"/>) or reset the cursor to start the playback at the beginning of the file (<img src="pages/manual/tools/back_to_begin.png" width="12px" height="12px"/>).
+</p>
+
+<h3 id="speed">Speed</h3>
+<p>
+  Sometimes it will be useful to slow done the playback speed (or to speed it up). This can be done by setting the playback speed in the
+  <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a>. Setting the playback speed to 1 (default) will play at normal speed, while setting it to 2 will result in
+  a two times faster playback speed. Playback speeds lower than 1 will slow down the playback.
+</p>
+
+
+<h3 id="metronome">Metronome</h3>
+<img src="pages/manual/tools/metronome.png" align="right" width="40" height="40" hspace="10" vspace="10"/>
+<p>
+  The metronome can be enabled or disabled in the <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a> or in the toolbar. Enabling the metronome will result in a
+  metronome sound at each beat during the playback.
+</p>
+ 
+
+<h3 id="lock">Locking the Screen</h3>
+<p>
+	When you play a song and there must not be any delays while playing you
+	may have to lock the screen by enabling  <img src="pages/manual/tools/screen_locked.png" width="12px" height="12px"/> in the <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a>. This mean
+	that the <a href="index.php?category=manual&subcategory=editor-and-components#event-view">	event view</a> does not follow the cursor while playing, because the
+	repainting of the window can cause a short delay on slower machines.
+</p>

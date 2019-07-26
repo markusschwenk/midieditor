@@ -1,0 +1,213 @@
+<h2>Tools Menu</h2>
+<table border="0" cellspacing="0" cellpadding="2">
+	<tr>
+		<td></td>
+		<td>
+			<i>Current tool...</i><br>
+			This menu contains a list of all available tools which can be selected
+			for editing the file's content inside the event view (see below for
+			details of the individual tools).
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/select.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Standard tool</i><br>
+		  The <a href="index.php?category=manual&subcategory=editing-midi-files#std_tool">standard tool</a> combines all tools and is able to perform most actions needed to edit Midi data.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/select_single.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Select single Events</i><br>
+      This tool can be used to <a href="index.php?category=manual&subcategory=editing-midi-files#selecting">select or deselect</a> single events.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/select_box.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Select Events (Box)</i><br>
+			This tool can be used to draw a box around events to <a href="index.php?category=manual&subcategory=editing-midi-files#selecting">select or deselect</a> them.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/select_left.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Select all Events on the left side</i><br>
+		  <a href="index.php?category=manual&subcategory=editing-midi-files#selecting">Select</a> all events occuring before a given time.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/select_right.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Select all Events on the left side</i><br>
+			<a href="index.php?category=manual&subcategory=editing-midi-files#selecting">Select</a> all events occuring after a given time.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/move_up_down_left_right.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Move Events (all directions)</i><br>
+			<a href="index.php?category=manual&subcategory=editing-midi-files#moving">Move</a> all selected events in both directions.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/move_left_right.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Move Events (Left and Right)</i><br>
+			<a href="index.php?category=manual&subcategory=editing-midi-files#moving">Move</a> all selected events left and right.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/move_up_down.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Move Events (Up and Down)</i><br>
+			<a href="index.php?category=manual&subcategory=editing-midi-files#moving">Move</a> all selected events up and down.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/change_size.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Change the duration of the selected event</i><br>
+      <a href="index.php?category=manual&subcategory=editing-midi-files#duration">Change the duration</a> of all selected notes.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/newnote.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Create new Events</i><br>
+      <a href="index.php?category=manual&subcategory=editing-midi-files#create_and_delete">Add new events</a> to the file.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/eraser.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Eraser (remove events)</i><br>
+      <a href="index.php?category=manual&subcategory=editing-midi-files#create_and_delete">Remove events</a> from the file.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/eraser.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Remove selected events</i><br>
+        <a href="index.php?category=manual&subcategory=editing-midi-files#create_and_delete">Remove</a> all currently selected events.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/align_left.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Align left</i><br>
+        Makes all selected events start at the same time. This time is equal to the
+        start time of the leftmost selected event.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/align_right.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Align right</i><br>
+        Makes all selected events end at the same time. This time is equal to the
+        end time of the rightmost selected event.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/equalize.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Equalize</i><br>
+        Makes all selected events have the same duration as well as the same start and end times.
+        The new duration is equal to the average duration of the selected events.
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"><img src="pages/manual/tools/quantize.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Quantify selection</i><br>
+        Quantifies all selected events. After quantization, the events will have exact notelengths
+        (quarters, 8ths etc.). Also their timing inside the measure will be exact. The smallest fraction (i.e. the smallest duration of the notes)
+        can be specified using the menu &quot;Quantization fractions&quot; (see below). <a href="index.php?category=manual&subcategory=editing-midi-files#quantization">Click here for details</a>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"></td>
+		<td>
+			<i>Quantization fractions</i><br>
+        Set the smallest note duration for the quantization. <a href="index.php?category=manual&subcategory=editing-midi-files#quantization">Click here for details</a>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"></td>
+		<td>
+			<i>Quantify tuplet...</i><br>
+        As tuplets cannot be quantified with the above explained tools, select the notes which belong
+        to the tuplet and click &quot;Quantify tuplet...&quot;. A dialog will popup which lets you enter
+        details for the tuplet quantization. <a href="index.php?category=manual&subcategory=editing-midi-files#quantization">Click here for details</a>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"></td>
+		<td>
+			<i>Repeat tuplet quantization</i><br>
+        Select the notes belonging to a tuplet. Click this menu item in order to quantify the tuplet
+        with the last entered properties (using the menu item above). <a href="index.php?category=manual&subcategory=editing-midi-files#quantization">Click here for details</a>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"></td>
+		<td>
+			<i>Add track</i><br>
+        Adds a new, empty track to the Midi file. <a href="index.php?category=manual&subcategory=editing-midi-files#tracks-and-channels">Click here for details</a>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"></td>
+		<td>
+			<i>Remove events from channel...</i><br>
+        Removes all events which are currently assigned to a specified channel.<a href="index.php?category=manual&subcategory=editing-midi-files#tracks-and-channels">Click here for details</a>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"></td>
+		<td>
+			<i>Move events to channel...</i><br>
+        Assigns all selected events to the specified channel. <a href="index.php?category=manual&subcategory=editing-midi-files#tracks-and-channels">Click here for details</a>
+		</td>
+	</tr>
+	<tr>
+		<td valign="top"></td>
+		<td>
+			<i>Move events to track...</i><br>
+        Assigns all selected events to the specified track. <a href="index.php?category=manual&subcategory=editing-midi-files#tracks-and-channels">Click here for details</a>
+		</td>
+	</tr>
+  <tr>
+		<td valign="top"></td>
+		<td>
+			<i>Transpose selection...</i><br>
+        Transposes selected events up or down, based on semitone numbers
+		    entered by the user in the opening dialog.
+		</td>
+	</tr>
+  <tr>
+		<td valign="top"></td>
+		<td>
+			<i>Set file duration</i><br>
+        Set the song's duration in milliseconds. If the entered
+		    duration is smaller then the current duration, everything
+		    beyond the new end of the file will be removed.
+		</td>
+	</tr>
+  <tr>
+		<td valign="top"></td>
+		<td>
+			<i>Scale events</i><br>
+        Scales the timing of all selected events.
+		</td>
+	</tr>
+  <tr>
+		<td valign="top"><img src="pages/manual/tools/magnet.png" width="20px" height="20px"/></td>
+		<td>
+			<i>Magnet</i><br>
+        Enables or disables the magnet. The magnet can be used to align moved, scaled, or newly created
+        events to the specified raster.  <a href="index.php?category=manual&subcategory=editing-midi-files#magnet">Click here for details</a>
+		</td>
+	</tr>
+</table>

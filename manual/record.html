@@ -1,0 +1,32 @@
+<h2>Recording Midi Data</h2>
+
+<p>
+  MidiEditor is able to record Midi data from an <a href="index.php?category=manual&subcategory=setup#io">input device</a>, e.g. a digital piano.
+</p>
+
+<p>
+  To start a recording, press the record button in the <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a> or in the toolbar.
+  MidiEditor will start a <a href="index.php?category=manual&subcategory=playback">playback</a> (which will allow you to hear any in advance entered Midi events) and listen to the
+  <a href="index.php?category=manual&subcategory=setup#io">input device</a> at the same time. Hence, played notes (and other events) which where entered using the
+  <a href="index.php?category=manual&subcategory=setup#io">input device</a> can be added to the currently loaded Midi file which will add the events at the time they were played.
+</p>
+
+<img class="figure" src="pages/manual/screenshots/record_window.png" align="right" hspace="10" vspace="10" />
+	
+<p>
+  After a recording has been finished, click the stop button in the  <a href="index.php?category=manual&subcategory=menu-playback">playback menu</a> or in the toolbar. If any events
+  have been recorded, a dialog will pop up which allows you to specify how to handle the recorded events.
+</p>
+
+<p>
+  You can ignore some event types. All events with this type will not be
+  added to the file, all other events will be added at the time they have
+  been played. You can specify the track and the channel of the recorded
+  events in the dialog. Pressing &quot;Ok&quot; will add the events
+  to the file.
+</p>
+
+<p>
+  After the events have been added, you may want to edit the events. This can include correcting wrong notes or adjusting the timing. Especially the
+  <a href="index.php?category=manual&subcategory=editing-midi-files#quantization">quantization function</a> will be useful in this context,
+</p>

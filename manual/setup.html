@@ -1,0 +1,82 @@
+<h2>Setting up MidiEditor</h2>
+
+<h3 id="io">Midi I/O</h3>
+<p>
+  MidiEditor has to be correctly configured in order to be able to send data to a
+  Midi device which is connected to the computer and (if required) to receive any data in order to
+  allow <a href="index.php?category=manual&subcategory=record">recording</a>. If not correctly configured, MidiEditor
+  can be used to edit Midi files; however, you won't be able to listen to the music.
+</p>
+
+<img class="figure" src="pages/manual/screenshots/setup-io.png" width="600"/>
+
+<p>
+	To select the input or output device click &quot;Settings..&quot; in the
+	<a href="index.php?category=manual&subcategory=menu-midi">midi menu in the menubar</a>. In the list on the left-hand side of the
+	upcoming dialog, please select the card &quot;Midi I/O&quot;. This will show
+	two lists which show all available input/output devices.
+</p>
+
+<p>
+	Select in-/and output from the lists and click &quot;Close&quot;.
+</p>
+
+<p>
+	On startup, MidiEditor will always try to connect to the devices which have been used during the last session.
+</p>
+
+<h3 id="connect">Making the Input Device audible</h3>
+
+<img src="pages/manual/tools/connection.png" align="left" width="40" height="40" hspace="10" vspace="10"/>
+
+<p>
+  A lot of Midi devices which allow you to input Midi data are not audible but need a connected computer to generate sounds (similar to MidiEditor).
+  When having chosen a valid output device, you can pass all notes played at the input device to the output device which makes the played notes audible.
+  Select the option &quot;Connect Midi In/Out&quot; in the <a href="index.php?category=manual&subcategory=menu-midi">midi menu in the menubar</a> or in the toolbar.
+</p>
+
+<h3 id="external">Starting Synthesizers along with MidiEditor</h3>
+
+<p>
+  There are a lot of synthesizers MidiEditor can use to produce its sound with. However, some of those synthesizers
+  have to be started each time you start MidiEditor, as they are not running by default.
+</p>
+
+<p>
+	To start a software each time when MidiEditor is started, you can set a start-command which is executed
+	at each startup of the editor.
+  To enter this command, click the menu entry &quot;Settings...&quot; in the
+	<a href="index.php?category=manual&subcategory=menu-midi">midi menu in the menubar</a>. Select the card &quot;Additional Midi Settings&quot;
+	and enter your start command in the according field. The output of the started component
+	will be visible (after the next startup) in the text area below this field.
+</p>
+
+<h3 id="updates">Automatic Updates</h3>
+
+<p>
+  MidiEditor connects to internet at each startup in order to check whether a new version of MidiEditor is available. If so, you will be notified and
+  asked to download the new version.
+</p>
+<p>
+  In order to make sure, that MidiEditor can connect to the internet configure your firewall accordingly. To disable the automatic update checker, please
+  open the settings dialog, chose the card &quot;Updates&quot; and deselect the checkbox.
+</p>
+
+<h3 id="old">Support for older Midi Devices</h3>
+
+<p>
+  Some old Midi devices may not support the full Midi instruction set. Hence, these devices may not stop the currently played
+  notes when you click the stop button. MidiEditor provides a solution for this, which can be activated in the
+  &quot;Additional Midi Settings&quot; card in the settings dialog. In order to activate it, check the checkbox
+  &quot;Manually stop notes&quot;. This should not be used when your Midi device does stop the playback whenever requested.
+</p>
+
+<h3 id="large_playback">Larger Playback Toolbar</h3>
+
+<p>
+  MidiEditor allows you to start with a larger playback toolbar. This is necessary when using the editor while beeing seated
+  at your digital piano. The editor has to be started along with the command-line argument --large-playback-toolbar.
+  On linux, use the command line to start MidiEditor. On windows, right-click on the desktop-shortcut and select &quot;Properties&quot;.
+  Add the argument --large-playback-toolbar to the target field as shown below.
+</p>
+<img class="figure" src="pages/manual/screenshots/command-line-windows.png" width="400"/>

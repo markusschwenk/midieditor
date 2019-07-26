@@ -1,0 +1,142 @@
+<h2>Midi - a Short Overview</h2>
+
+<p>
+	Midi (Musical Instrument Digital Interface) is a digital interface allowing
+	the user to control virtual music instruments on his computer or on other
+	hardware components. In general, the Midi protocol is used to exchange commands
+	like &quot;play note X with velocity Y on instrument Z&quot; or similar.
+</p>
+
+<p>
+	Those commands are usually stored and exchanged using so-called Midi events. They
+	can contain information about the notes which are currently played, the sounds
+	which belong to each (virtual) instrument, or general information about the song, e.g.
+	about the key, the meter, or the song's name. While the above mentioned commands are
+	definitely the most often used, there are many other commands, which can e.g. control
+	the sustain pedal of a piano or define an instrument's overall volume. The events
+	are presented below in more detail.
+</p>
+
+<h3 id="tracksandchannels">Tracks and Channels</h3>
+
+<p>
+	The different virtual instruments are organized in tracks, where each track refers to
+	one instrument or a group of instruments. Hence, each Midi event is assigned to a track.
+	Each note will be assigned to the track of the instrument which plays the note,
+	while events, which do not belong to a specific instrument (key, meter, etc.), are usually
+	assigned to a specific track (&quot;Tempo Track&quot;). Moreover, each note and other
+	instrument-specific events are assigned to a channel. There are 16 channels where each
+	channel has a defined sound (e.g. &quot;Piano&quot; or &quot;String Ensemble&quot;).
+	While it may sound redundant to have each note assigned to a track and a channel, the
+	concept makes sense. This is, because the information about the different tracks is only
+	known to the device requesting another device to play the note. The other device
+	will only receive information about the channel on which to play the note, which reduces
+	the traffic needed to exchange the information. Hence, the tracks are (mostly) for
+	a user's orientation when editing a file. Usually, all notes within a single track are also
+	assigned to one specific channel. However, there are exceptions, e.g. when a group
+	of strings is divided into two parts where one part plays pizzicato and the other part
+	plays legato; in this case both groups can be noted in the same track but they have
+	to use different channels, as each group has another sound.
+</p>
+
+<h3 id="events">Midi Events</h3>
+
+<p>
+	The following list shows the different Midi events and provides an overview of their
+	functionality.
+</p>
+
+<ul>
+	<li>
+		<i>Note On/Off Events</i>
+		<p>
+			Each note is represented by two events, where one event indicates the start
+			of a note and the other event is used to stop the note. The note height is represented
+			by a number from 0 (C0) to 127 (G10) and the note's velocity (loudness) has
+			a range from 0 to 127. The note is assigned to a channel, where the channel's
+			configuration specifies the voice of the note.
+		</p>
+	</li>
+	<li>
+		<i>Tempo Change Events</i>
+		<p>
+			A Tempo Change Events sets the current tempo. The tempo is set in beats per
+			minute (BPM). Higher values indicate a faster tempo.
+		</p>
+	</li>
+	<li>
+		<i>Time Signature Events</i>
+		<p>
+			Any meter change is represented by a Time Signature Event in Midi. The event
+			holds two parameters, the numerator and the denominator of the meter. E.g.,
+			in order to represent an <i>alla breve</i> meter, the numerator would be set
+			to 2 and the denominator would be set to half notes.
+		</p>
+	</li>
+	<li>
+		<i>Key Signature Events</i>
+		<p>
+			A Key Signature Event defines the song's key (<i>C major</i>, <i>G minor</i>, ...).
+		</p>
+	</li>
+	<li>
+		<i>Program Change Events</i>
+		<p>
+			In order to define the voice (or instrument) assigned to each channel, a
+			Program Change Event can be used. E.g., after the program <i>Church Organ</i>
+			has been set for channel 5, all notes played on channel 5 will be played
+			with an organ's voice.
+		</p>
+	</li>
+	<li>
+		<i>Control Change Events</i>
+		<p>
+			Besides the voice assigned to each channel, a lot of other properties
+			regarding a channel's sound can be controlled using Control Change Events.
+			Up to 128 different controls exist for each channel where a value between
+			0 and 127 can be assigned to each control. The available controls include
+			the sustain pedal of a piano, the channel's overall volume, and the
+			modulation wheel.
+		</p>
+	</li>
+	<li>
+		<i>Key/Channel Pressure Events</i>
+		<p>
+			These events control the pressure for each note (Key Pressure Events)
+			or for all notes played on a given channel (Channel Pressure Events).
+		</p>
+	</li>
+	<li>
+		<i>Pitch Bend Events</i>
+		<p>
+			The Pitch Bend Events are used to modify the pitch of a given channel.
+		</p>
+	</li>
+	<li>
+		<i>Text Events</i>
+		<p>
+			Lyrics, instrument/tracknames or general information (Copyright etc.) can
+			be stored in TextEvents.
+		</p>
+	</li>
+	<li>
+		<i>System Exclusive Events</i>
+		<p>
+			System Exclusive Events are used by manufacturers to provide a way
+			to send device-specific messages.
+		</p>
+	</li>
+</ul>
+
+<h3 id="io">Midi I/O</h3>
+
+<p>
+ 	While synthesizers can easily be installed and run on a computer, a lot
+	of hardware exists which can be used to play or record Midi data (e.g.
+	digital pianos or hardware synthesizers). Such additional hardware is usually connected
+	to the computer using a USB port. Whether or not a synthesizer or a keyboard
+	is running on a computer or an additional hardware which is connected to a computer
+	does not affect the way how the device is used within a Midi software
+	(e.g. MidiEditor). In both cases, a Midi port will be existing for each device
+	to allow the software to receive data from or to send data to the device.
+</p>
