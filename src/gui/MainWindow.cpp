@@ -2559,7 +2559,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     QAction* pauseAction = new QAction("Pause", this);
     pauseAction->setIcon(QIcon(":/run_environment/graphics/tool/pause.png"));
+#ifdef Q_OS_MAC
+    pauseAction->setShortcut(QKeySequence(Qt::Key_Space + Qt::META));
+#else
     pauseAction->setShortcut(QKeySequence(Qt::Key_Space + Qt::CTRL));
+#endif
     connect(pauseAction, SIGNAL(triggered()), this, SLOT(pause()));
     playbackMB->addAction(pauseAction);
 
