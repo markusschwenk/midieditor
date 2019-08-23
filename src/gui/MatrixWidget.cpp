@@ -1121,49 +1121,64 @@ int MatrixWidget::maxVisibleMidiTime()
 void MatrixWidget::wheelEvent(QWheelEvent* event)
 {
     Qt::KeyboardModifiers km = event->modifiers();
+    QPoint pixelDelta = event->pixelDelta();
+    int pixelDeltaX = pixelDelta.x();
+    int pixelDeltaY = pixelDelta.y();
+    int horScrollAmount = 0;
+    int verScrollAmount = 0;
+
     if (km) {
         if (km == Qt::ShiftModifier) {
-            if (event->pixelDelta().y() > 0)
-                zoomVerIn();
-            else
-                zoomVerOut();
-        } else if (km == Qt::ControlModifier) {
-            if (event->pixelDelta().x() > 0)
-                zoomHorIn();
-            else
-                zoomHorOut();
-        } else if (km == Qt::AltModifier) {
-            if (!file)
-                return;
-            int maxTimeInFile = file->maxTime();
-            int widgetRange = endTimeX - startTimeX;
+            // Fall back to pixelDeltaX not because we want to assign an action
+            // to horizontal scrolling here, but because that's how Qt reports
+            // vertical scrolling with a mouse wheel when shift is pressed.
 
-            // TODO: use pixelDelta
-            int scroll = -1 * event->delta() * widgetRange / 1000;
+            if (pixelDeltaY > 0) {
+                zoomVerIn();
+            } else if (pixelDeltaY < 0) {
+                zoomVerOut();
+            } else if (pixelDeltaX > 0) {
+                zoomVerIn();
+            } else if (pixelDeltaX < 0) {
+                zoomVerOut();
+            }
+        } else if (km == Qt::ControlModifier) {
+            if (pixelDeltaY > 0) {
+                zoomHorIn();
+            } else if (pixelDeltaY < 0) {
+                zoomHorOut();
+            }
+        } else if (km == Qt::AltModifier) {
+            horScrollAmount = pixelDeltaY;
+        }
+    } else {
+        horScrollAmount = pixelDeltaX;
+        verScrollAmount = pixelDeltaY;
+    }
+
+    if (file) {
+        int maxTimeInFile = file->maxTime();
+        int widgetRange = endTimeX - startTimeX;
+
+        if (horScrollAmount != 0) {
+            int scroll = -1 * horScrollAmount * widgetRange / 1000;
 
             int newStartTime = startTimeX + scroll;
 
             scrollXChanged(newStartTime);
             emit scrollChanged(startTimeX, maxTimeInFile - widgetRange, startLineY, NUM_LINES - (endLineY - startLineY));
         }
-    } else {
-        if (!file)
-            return;
-        int maxTimeInFile = file->maxTime();
-        int widgetRange = endTimeX - startTimeX;
 
-        int newStartLineY = startLineY;
-        if (event->pixelDelta().y() > 0)
-            newStartLineY -= 5;
-        else if (event->pixelDelta().y() < 0)
-            newStartLineY += 5;
+        if (verScrollAmount != 0) {
+            int newStartLineY = startLineY - (verScrollAmount / (scaleY * PIXEL_PER_LINE));
 
-        if (newStartLineY < 0)
-            newStartLineY = 0;
+            if (newStartLineY < 0)
+                newStartLineY = 0;
 
-        // endline too large handled in scrollYchanged()
-        scrollYChanged(newStartLineY);
-        emit scrollChanged(startTimeX, maxTimeInFile - widgetRange, startLineY, NUM_LINES - (endLineY - startLineY));
+            // endline too large handled in scrollYchanged()
+            scrollYChanged(newStartLineY);
+            emit scrollChanged(startTimeX, maxTimeInFile - widgetRange, startLineY, NUM_LINES - (endLineY - startLineY));
+        }
     }
 }
 
