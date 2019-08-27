@@ -60,6 +60,7 @@
 #include "SettingsDialog.h"
 #include "TrackListWidget.h"
 #include "TransposeDialog.h"
+#include "TweakTarget.h"
 
 #include "../tool/EraserTool.h"
 #include "../tool/EventMoveTool.h"
@@ -578,6 +579,16 @@ void MainWindow::setFile(MidiFile* file)
     mw_matrixWidget->update();
     _miscWidget->update();
     checkEnableActionsForSelection();
+}
+
+MidiFile* MainWindow::getFile()
+{
+    return file;
+}
+
+MatrixWidget* MainWindow::matrixWidget()
+{
+    return mw_matrixWidget;
 }
 
 void MainWindow::matrixSizeChanged(int maxScrollTime, int maxScrollLine,
@@ -2301,6 +2312,96 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     toolsMB->addMenu(toolsToolsMenu);
 
+    // Tweak
+
+    QMenu* tweakMenu = new QMenu("Tweak...", toolsMB);
+
+    QAction* tweakTimeAction = new QAction("Time", tweakMenu);
+    tweakTimeAction->setShortcut(Qt::Key_1);
+    tweakTimeAction->setCheckable(true);
+    connect(tweakTimeAction, SIGNAL(triggered()), this, SLOT(tweakTime()));
+    tweakMenu->addAction(tweakTimeAction);
+
+    QAction* tweakStartTimeAction = new QAction("Start time", tweakMenu);
+    tweakStartTimeAction->setShortcut(Qt::Key_2);
+    tweakStartTimeAction->setCheckable(true);
+    connect(tweakStartTimeAction, SIGNAL(triggered()), this, SLOT(tweakStartTime()));
+    tweakMenu->addAction(tweakStartTimeAction);
+
+    QAction* tweakEndTimeAction = new QAction("End time", tweakMenu);
+    tweakEndTimeAction->setShortcut(Qt::Key_3);
+    tweakEndTimeAction->setCheckable(true);
+    connect(tweakEndTimeAction, SIGNAL(triggered()), this, SLOT(tweakEndTime()));
+    tweakMenu->addAction(tweakEndTimeAction);
+
+    QAction* tweakNoteAction = new QAction("Note", tweakMenu);
+    tweakNoteAction->setShortcut(Qt::Key_4);
+    tweakNoteAction->setCheckable(true);
+    connect(tweakNoteAction, SIGNAL(triggered()), this, SLOT(tweakNote()));
+    tweakMenu->addAction(tweakNoteAction);
+
+    QAction* tweakValueAction = new QAction("Value", tweakMenu);
+    tweakValueAction->setShortcut(Qt::Key_5);
+    tweakValueAction->setCheckable(true);
+    connect(tweakValueAction, SIGNAL(triggered()), this, SLOT(tweakValue()));
+    tweakMenu->addAction(tweakValueAction);
+
+    QActionGroup* tweakTargetActionGroup = new QActionGroup(this);
+    tweakTargetActionGroup->setExclusive(true);
+    tweakTargetActionGroup->addAction(tweakTimeAction);
+    tweakTargetActionGroup->addAction(tweakStartTimeAction);
+    tweakTargetActionGroup->addAction(tweakEndTimeAction);
+    tweakTargetActionGroup->addAction(tweakNoteAction);
+    tweakTargetActionGroup->addAction(tweakValueAction);
+    currentTweakTarget = new TimeTweakTarget(this);
+    tweakTimeAction->setChecked(true);
+
+    tweakMenu->addSeparator();
+
+    QAction* tweakSmallDecreaseAction = new QAction("Small decrease", tweakMenu);
+    tweakSmallDecreaseAction->setShortcut(Qt::Key_BracketLeft);
+    connect(tweakSmallDecreaseAction, SIGNAL(triggered()), this, SLOT(tweakSmallDecrease()));
+    tweakMenu->addAction(tweakSmallDecreaseAction);
+
+    QAction* tweakSmallIncreaseAction = new QAction("Small increase", tweakMenu);
+    tweakSmallIncreaseAction->setShortcut(Qt::Key_BracketRight);
+    connect(tweakSmallIncreaseAction, SIGNAL(triggered()), this, SLOT(tweakSmallIncrease()));
+    tweakMenu->addAction(tweakSmallIncreaseAction);
+
+    QAction* tweakLargeDecreaseAction = new QAction("Large decrease", tweakMenu);
+    tweakLargeDecreaseAction->setShortcut(Qt::Key_BracketLeft + Qt::ALT);
+    connect(tweakLargeDecreaseAction, SIGNAL(triggered()), this, SLOT(tweakLargeDecrease()));
+    tweakMenu->addAction(tweakLargeDecreaseAction);
+
+    QAction* tweakLargeIncreaseAction = new QAction("Large increase", tweakMenu);
+    tweakLargeIncreaseAction->setShortcut(Qt::Key_BracketRight + Qt::ALT);
+    connect(tweakLargeIncreaseAction, SIGNAL(triggered()), this, SLOT(tweakLargeIncrease()));
+    tweakMenu->addAction(tweakLargeIncreaseAction);
+
+    tweakMenu->addSeparator();
+
+    QAction* tweakSelectionUpAction = new QAction("Selection up", tweakMenu);
+    tweakSelectionUpAction->setShortcut(Qt::Key_Up + Qt::ALT);
+    connect(tweakSelectionUpAction, SIGNAL(triggered()), this, SLOT(tweakSelectionUp()));
+    tweakMenu->addAction(tweakSelectionUpAction);
+
+    QAction* tweakSelectionDownAction = new QAction("Selection down", tweakMenu);
+    tweakSelectionDownAction->setShortcut(Qt::Key_Down + Qt::ALT);
+    connect(tweakSelectionDownAction, SIGNAL(triggered()), this, SLOT(tweakSelectionDown()));
+    tweakMenu->addAction(tweakSelectionDownAction);
+
+    QAction* tweakSelectionLeftAction = new QAction("Selection left", tweakMenu);
+    tweakSelectionLeftAction->setShortcut(Qt::Key_Left + Qt::ALT);
+    connect(tweakSelectionLeftAction, SIGNAL(triggered()), this, SLOT(tweakSelectionLeft()));
+    tweakMenu->addAction(tweakSelectionLeftAction);
+
+    QAction* tweakSelectionRightAction = new QAction("Selection right", tweakMenu);
+    tweakSelectionRightAction->setShortcut(Qt::Key_Right + Qt::ALT);
+    connect(tweakSelectionRightAction, SIGNAL(triggered()), this, SLOT(tweakSelectionRight()));
+    tweakMenu->addAction(tweakSelectionRightAction);
+
+    toolsMB->addMenu(tweakMenu);
+
     QAction* deleteAction = new QAction("Remove events", this);
     _activateWithSelections.append(deleteAction);
     deleteAction->setToolTip("Remove selected events");
@@ -3064,4 +3165,57 @@ void MainWindow::updateAll() {
     channelWidget->update();
     _trackWidget->update();
     _miscWidget->update();
+}
+
+void MainWindow::tweakTime() {
+    delete currentTweakTarget;
+    currentTweakTarget = new TimeTweakTarget(this);
+}
+
+void MainWindow::tweakStartTime() {
+    delete currentTweakTarget;
+    currentTweakTarget = new StartTimeTweakTarget(this);
+}
+
+void MainWindow::tweakEndTime() {
+    delete currentTweakTarget;
+    currentTweakTarget = new EndTimeTweakTarget(this);
+}
+
+void MainWindow::tweakNote() {
+    delete currentTweakTarget;
+    currentTweakTarget = new NoteTweakTarget(this);
+}
+
+void MainWindow::tweakValue() {
+    delete currentTweakTarget;
+    currentTweakTarget = new ValueTweakTarget(this);
+}
+
+void MainWindow::tweakSmallDecrease() {
+    currentTweakTarget->smallDecrease();
+}
+
+void MainWindow::tweakSmallIncrease() {
+    currentTweakTarget->smallIncrease();
+}
+
+void MainWindow::tweakLargeDecrease() {
+    currentTweakTarget->largeDecrease();
+}
+
+void MainWindow::tweakLargeIncrease() {
+    currentTweakTarget->largeIncrease();
+}
+
+void MainWindow::tweakSelectionUp() {
+}
+
+void MainWindow::tweakSelectionDown() {
+}
+
+void MainWindow::tweakSelectionLeft() {
+}
+
+void MainWindow::tweakSelectionRight() {
 }
