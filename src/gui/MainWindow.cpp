@@ -60,6 +60,7 @@
 #include "SettingsDialog.h"
 #include "TrackListWidget.h"
 #include "TransposeDialog.h"
+#include "TweakSelection.h"
 #include "TweakTarget.h"
 
 #include "../tool/EraserTool.h"
@@ -500,6 +501,10 @@ MainWindow::MainWindow(QString initFile)
     }
     copiedEventsChanged();
     setAcceptDrops(true);
+
+    currentTweakTarget = new TimeTweakTarget(this);
+    tweakSelection = new TweakSelection(this);
+
     QTimer::singleShot(200, this, SLOT(loadInitFile()));
     if (UpdateManager::autoCheckForUpdates()) {
         QTimer::singleShot(500, UpdateManager::instance(), SLOT(checkForUpdates()));
@@ -2353,7 +2358,6 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     tweakTargetActionGroup->addAction(tweakEndTimeAction);
     tweakTargetActionGroup->addAction(tweakNoteAction);
     tweakTargetActionGroup->addAction(tweakValueAction);
-    currentTweakTarget = new TimeTweakTarget(this);
     tweakTimeAction->setChecked(true);
 
     tweakMenu->addSeparator();
@@ -3209,13 +3213,17 @@ void MainWindow::tweakLargeIncrease() {
 }
 
 void MainWindow::tweakSelectionUp() {
+    tweakSelection->up();
 }
 
 void MainWindow::tweakSelectionDown() {
+    tweakSelection->down();
 }
 
 void MainWindow::tweakSelectionLeft() {
+    tweakSelection->left();
 }
 
 void MainWindow::tweakSelectionRight() {
+    tweakSelection->right();
 }

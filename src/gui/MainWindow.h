@@ -42,6 +42,7 @@ class QGridLayout;
 class MidiTrack;
 class QShowEvent;
 class Update;
+class TweakSelection;
 class TweakTarget;
 
 class MainWindow : public QMainWindow {
@@ -234,6 +235,7 @@ private:
     QList<QAction*> _activateWithSelections;
 
     TweakTarget* currentTweakTarget;
+    TweakSelection* tweakSelection;
 };
 
 #endif
