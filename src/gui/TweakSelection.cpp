@@ -21,21 +21,19 @@
 #include "MatrixWidget.h"
 #include "TweakSelection.h"
 #include "../MidiEvent/MidiEvent.h"
+#include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiTrack.h"
+#include "../protocol/Protocol.h"
 #include "../tool/EventTool.h"
 #include "../tool/Selection.h"
 
 /*
- * Moves the selection to the nearest appropriate event in the specified
- * direction on screen.  You can only move between events of the same type
- * (note to note, pitch bend to pitch bend, etc) with this mechanism.  Since
- * event types other than notes are displayed in a single line each, only left
- * and right movements are meaningful for them.
+ * Moves the selection to the nearest event of the same type in the specified
+ * direction on screen.
  */
-
 TweakSelection::TweakSelection(MainWindow* mainWindow)
 {
     this->mainWindow = mainWindow;
@@ -43,130 +41,57 @@ TweakSelection::TweakSelection(MainWindow* mainWindow)
 
 void TweakSelection::up()
 {
-    MidiEvent* selectedEvent = getFirstSelectedEvent();
-    if (!selectedEvent) return;
-    if (!selectedEvent->isOnEvent()) return;
-    MidiFile* file = selectedEvent->file();
-    MidiEvent* newSelectedEvent = NULL;
-
-    for (int channelNumber = 0; channelNumber < 19; channelNumber++) {
-        MidiChannel* channel = file->channel(channelNumber);
-        if (!channel->visible()) continue;
-
-        foreach (MidiEvent* channelEvent, channel->eventMap()->values()) {
-            if (channelEvent->track()->hidden()) continue;
-            if (!channelEvent->isOnEvent()) continue;
-            if (!(channelEvent->line() < selectedEvent->line())) continue;
-
-            if (!newSelectedEvent || getDisplayDistanceBetweenEvents(selectedEvent, channelEvent) <
-                    getDisplayDistanceBetweenEvents(selectedEvent, newSelectedEvent)) {
-                newSelectedEvent = channelEvent;
-            }
-        }
-    }
-
-    selectEvent(newSelectedEvent);
+    navigate(-M_PI_2);
 }
 
 void TweakSelection::down()
 {
-    MidiEvent* selectedEvent = getFirstSelectedEvent();
-    if (!selectedEvent) return;
-    if (!selectedEvent->isOnEvent()) return;
-    MidiFile* file = selectedEvent->file();
-    MidiEvent* newSelectedEvent = NULL;
-
-    for (int channelNumber = 0; channelNumber < 19; channelNumber++) {
-        MidiChannel* channel = file->channel(channelNumber);
-        if (!channel->visible()) continue;
-
-        foreach (MidiEvent* channelEvent, channel->eventMap()->values()) {
-            if (channelEvent->track()->hidden()) continue;
-            if (!channelEvent->isOnEvent()) continue;
-            if (!(channelEvent->line() > selectedEvent->line())) continue;
-
-            if (!newSelectedEvent || getDisplayDistanceBetweenEvents(selectedEvent, channelEvent) <
-                    getDisplayDistanceBetweenEvents(selectedEvent, newSelectedEvent)) {
-                newSelectedEvent = channelEvent;
-            }
-        }
-    }
-
-    selectEvent(newSelectedEvent);
+    navigate(M_PI_2);
 }
 
 void TweakSelection::left()
 {
-    MidiEvent* selectedEvent = getFirstSelectedEvent();
-    if (!selectedEvent) return;
-    bool selectedIsOnEvent = selectedEvent->isOnEvent();
-    MidiFile* file = selectedEvent->file();
-    MidiEvent* newSelectedEvent = NULL;
-
-    for (int channelNumber = 0; channelNumber < 19; channelNumber++) {
-        MidiChannel* channel = file->channel(channelNumber);
-        if (!channel->visible()) continue;
-
-        foreach (MidiEvent* channelEvent, channel->eventMap()->values()) {
-            if (channelEvent->track()->hidden()) continue;
-            if (!(channelEvent->midiTime() < selectedEvent->midiTime())) continue;
-            if (dynamic_cast<OffEvent*>(channelEvent)) continue;
-
-            if (selectedIsOnEvent) {
-                if (!channelEvent->isOnEvent()) continue;
-
-                if (!newSelectedEvent || getDisplayDistanceBetweenEvents(selectedEvent, channelEvent) <
-                        getDisplayDistanceBetweenEvents(selectedEvent, newSelectedEvent)) {
-                    newSelectedEvent = channelEvent;
-                }
-            } else {
-                if (channelEvent->line() != selectedEvent->line()) continue;
-
-                if (!newSelectedEvent || channelEvent->midiTime() > newSelectedEvent->midiTime()) {
-                    newSelectedEvent = channelEvent;
-                }
-            }
-        }
-    }
-
-    selectEvent(newSelectedEvent);
+    navigate(M_PI);
 }
 
 void TweakSelection::right()
 {
+    navigate(0.0);
+}
+
+void TweakSelection::navigate(qreal searchAngle)
+{
     MidiEvent* selectedEvent = getFirstSelectedEvent();
     if (!selectedEvent) return;
-    bool selectedIsOnEvent = selectedEvent->isOnEvent();
     MidiFile* file = selectedEvent->file();
     MidiEvent* newSelectedEvent = NULL;
+    qreal newSelectedEventDistance = -1.0;
 
     for (int channelNumber = 0; channelNumber < 19; channelNumber++) {
         MidiChannel* channel = file->channel(channelNumber);
         if (!channel->visible()) continue;
 
         foreach (MidiEvent* channelEvent, channel->eventMap()->values()) {
+            if (channelEvent == selectedEvent) continue;
+            if (!channelEvent->shown()) continue;
             if (channelEvent->track()->hidden()) continue;
-            if (!(channelEvent->midiTime() > selectedEvent->midiTime())) continue;
-            if (dynamic_cast<OffEvent*>(channelEvent)) continue;
+            if (!eventsAreSameType(selectedEvent, channelEvent)) continue;
+            qreal channelEventDistance = getDisplayDistanceWeightedByDirection(selectedEvent, channelEvent, searchAngle);
+            if (channelEventDistance < 0.0) continue;
 
-            if (selectedIsOnEvent) {
-                if (!channelEvent->isOnEvent()) continue;
-
-                if (!newSelectedEvent || getDisplayDistanceBetweenEvents(selectedEvent, channelEvent) <
-                        getDisplayDistanceBetweenEvents(selectedEvent, newSelectedEvent)) {
-                    newSelectedEvent = channelEvent;
-                }
-            } else {
-                if (channelEvent->line() != selectedEvent->line()) continue;
-
-                if (!newSelectedEvent || channelEvent->midiTime() < newSelectedEvent->midiTime()) {
-                    newSelectedEvent = channelEvent;
-                }
+            if (!newSelectedEvent || (channelEventDistance < newSelectedEventDistance)) {
+                newSelectedEvent = channelEvent;
+                newSelectedEventDistance = channelEventDistance;
             }
         }
     }
 
-    selectEvent(newSelectedEvent);
+    if (!newSelectedEvent) return;
+    Protocol* protocol = file->protocol();
+    protocol->startNewAction("Tweak selection");
+    EventTool::selectEvent(newSelectedEvent, true);
+    protocol->endAction();
+    mainWindow->updateAll();
 }
 
 MidiEvent* TweakSelection::getFirstSelectedEvent()
@@ -175,20 +100,44 @@ MidiEvent* TweakSelection::getFirstSelectedEvent()
     return selectedEvents.isEmpty() ? NULL : selectedEvents.first();
 }
 
-qreal TweakSelection::getDisplayDistanceBetweenEvents(MidiEvent* event1, MidiEvent* event2)
+bool TweakSelection::eventsAreSameType(MidiEvent* event1, MidiEvent* event2)
 {
-    MatrixWidget* matrixWidget = mainWindow->matrixWidget();
-    int x1 = matrixWidget->xPosOfMs(matrixWidget->msOfTick(event1->midiTime()));
-    int x2 = matrixWidget->xPosOfMs(matrixWidget->msOfTick(event2->midiTime()));
-    int y1 = matrixWidget->yPosOfLine(event1->line());
-    int y2 = matrixWidget->yPosOfLine(event2->line());
-    int deltaX = x2 - x1;
-    int deltaY = y2 - y1;
-    return qSqrt(((qreal)(deltaX) * (qreal)(deltaX)) + ((qreal)(deltaY) * (qreal)(deltaY)));
+    NoteOnEvent* noteOnEvent1 = dynamic_cast<NoteOnEvent*>(event1);
+    NoteOnEvent* noteOnEvent2 = dynamic_cast<NoteOnEvent*>(event2);
+    if (noteOnEvent1 || noteOnEvent2) return (noteOnEvent1 && noteOnEvent2);
+    OffEvent* offEvent1 = dynamic_cast<OffEvent*>(event1);
+    OffEvent* offEvent2 = dynamic_cast<OffEvent*>(event2);
+    if (offEvent1 || offEvent2) return (offEvent1 && offEvent2);
+    return (event1->line() == event2->line());
 }
 
-void TweakSelection::selectEvent(MidiEvent* event) {
-    if (!event) return;
-    EventTool::selectEvent(event, true);
-    mainWindow->updateAll();
+/*
+ * Compute the Euclidean distance between two events as measured in pixels for
+ * their display in the MatrixWidget, but weight it by how far off axis the
+ * target is from the search angle.  There must be a standard term for this
+ * when it's used to compute damage in shooter games.  Returns -1 when the
+ * target is more than 90 degrees off axis from the search direction, since
+ * that should never be considered a match.
+ */
+qreal TweakSelection::getDisplayDistanceWeightedByDirection(
+    MidiEvent* originEvent,
+    MidiEvent* targetEvent,
+    qreal searchAngle)
+{
+    MatrixWidget* matrixWidget = mainWindow->matrixWidget();
+    int originX = matrixWidget->xPosOfMs(matrixWidget->msOfTick(originEvent->midiTime()));
+    int originY = matrixWidget->yPosOfLine(originEvent->line());
+    int targetX = matrixWidget->xPosOfMs(matrixWidget->msOfTick(targetEvent->midiTime()));
+    int targetY = matrixWidget->yPosOfLine(targetEvent->line());
+    qreal distanceX = targetX - originX;
+    qreal distanceY = targetY - originY;
+    qreal distance = qSqrt((distanceX * distanceX) + (distanceY * distanceY));
+    qreal angle = qAtan2(distanceY, distanceX);
+
+    qreal angleDifferenceNaive = qFabs(angle - searchAngle);
+    qreal angleDifference = fmin(angleDifferenceNaive, (2 * M_PI) - angleDifferenceNaive);
+    if (angleDifference >= M_PI_2) return -1.0;
+    qreal offAxisDistance = qSin(angleDifference) * distance;
+
+    return distance + offAxisDistance;
 }

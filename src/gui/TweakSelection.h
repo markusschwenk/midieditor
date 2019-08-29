@@ -32,9 +32,10 @@ public:
 protected:
     MainWindow* mainWindow;
 
+    void navigate(qreal searchAngle);
     MidiEvent* getFirstSelectedEvent();
-    qreal getDisplayDistanceBetweenEvents(MidiEvent* event1, MidiEvent* event2);
-    void selectEvent(MidiEvent* event);
+    bool eventsAreSameType(MidiEvent* event1, MidiEvent* event2);
+    qreal getDisplayDistanceWeightedByDirection(MidiEvent* originEvent, MidiEvent* targetEvent, qreal searchAngle);
 };
 
 #endif
