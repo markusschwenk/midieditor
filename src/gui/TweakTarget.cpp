@@ -29,6 +29,7 @@
 #include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/OnEvent.h"
 #include "../MidiEvent/PitchBendEvent.h"
+#include "../MidiEvent/TempoChangeEvent.h"
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
 #include "../tool/Selection.h"
@@ -570,6 +571,12 @@ void ValueTweakTarget::smallDecrease()
                     int newValue = channelPressureEvent->value() - 1;
                     if (newValue >= 0) channelPressureEvent->setValue(newValue);
                 }
+
+                TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
+                if (tempoChangeEvent) {
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() - 1;
+                    if (newBeatsPerQuarter >= 0) tempoChangeEvent->setBeats(newBeatsPerQuarter);
+                }
             }
 
             protocol->endAction();
@@ -617,6 +624,12 @@ void ValueTweakTarget::smallIncrease()
                 if (channelPressureEvent) {
                     int newValue = channelPressureEvent->value() + 1;
                     if (newValue < 128) channelPressureEvent->setValue(newValue);
+                }
+
+                TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
+                if (tempoChangeEvent) {
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() + 1;
+                    tempoChangeEvent->setBeats(newBeatsPerQuarter);
                 }
             }
 
@@ -666,6 +679,12 @@ void ValueTweakTarget::largeDecrease()
                     int newValue = channelPressureEvent->value() - 10;
                     if (newValue >= 0) channelPressureEvent->setValue(newValue);
                 }
+
+                TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
+                if (tempoChangeEvent) {
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() - 10;
+                    if (newBeatsPerQuarter >= 0) tempoChangeEvent->setBeats(newBeatsPerQuarter);
+                }
             }
 
             protocol->endAction();
@@ -713,6 +732,12 @@ void ValueTweakTarget::largeIncrease()
                 if (channelPressureEvent) {
                     int newValue = channelPressureEvent->value() + 10;
                     if (newValue < 128) channelPressureEvent->setValue(newValue);
+                }
+
+                TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
+                if (tempoChangeEvent) {
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() + 10;
+                    tempoChangeEvent->setBeats(newBeatsPerQuarter);
                 }
             }
 
