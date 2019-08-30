@@ -69,6 +69,8 @@ public slots:
     void forward();
     void back();
     void backToBegin();
+    void forwardMarker();
+    void backMarker();
     void load();
     void loadFile(QString file);
     void openFile(QString filePath);
