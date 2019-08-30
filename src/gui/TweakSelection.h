@@ -34,6 +34,7 @@ protected:
 
     void navigate(qreal searchAngle);
     MidiEvent* getFirstSelectedEvent();
+    bool eventIsInVisibleTimeRange(MidiEvent* event);
     bool eventsAreSameType(MidiEvent* event1, MidiEvent* event2);
     qreal getDisplayDistanceWeightedByDirection(MidiEvent* originEvent, MidiEvent* targetEvent, qreal searchAngle);
 };

@@ -73,8 +73,8 @@ void TweakSelection::navigate(qreal searchAngle)
 
         foreach (MidiEvent* channelEvent, channel->eventMap()->values()) {
             if (channelEvent == selectedEvent) continue;
-            if (!channelEvent->shown()) continue;
             if (channelEvent->track()->hidden()) continue;
+            if (!eventIsInVisibleTimeRange(channelEvent)) continue;
             if (!eventsAreSameType(selectedEvent, channelEvent)) continue;
             qreal channelEventDistance = getDisplayDistanceWeightedByDirection(selectedEvent, channelEvent, searchAngle);
             if (channelEventDistance < 0.0) continue;
@@ -98,6 +98,13 @@ MidiEvent* TweakSelection::getFirstSelectedEvent()
 {
     QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
     return selectedEvents.isEmpty() ? NULL : selectedEvents.first();
+}
+
+bool TweakSelection::eventIsInVisibleTimeRange(MidiEvent* event)
+{
+    MatrixWidget* matrixWidget = mainWindow->matrixWidget();
+    int time = event->midiTime();
+    return (time >= matrixWidget->minVisibleMidiTime() && time < matrixWidget->maxVisibleMidiTime());
 }
 
 bool TweakSelection::eventsAreSameType(MidiEvent* event1, MidiEvent* event2)
