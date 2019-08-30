@@ -37,7 +37,8 @@ class SelectTool;
 #define PitchBendEditor 2
 #define KeyPressureEditor 3
 #define ChannelPressureEditor 4
-#define MiscModeEnd 5
+#define TempoEditor 5
+#define MiscModeEnd 6
 
 class MiscWidget : public PaintWidget {
 

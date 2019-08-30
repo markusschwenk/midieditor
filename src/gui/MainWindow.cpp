@@ -281,6 +281,7 @@ MainWindow::MainWindow(QString initFile)
     for (int i = 0; i < MiscModeEnd; i++) {
         _miscMode->addItem(MiscWidget::modeToString(i));
     }
+    _miscMode->view()->setMinimumWidth(_miscMode->minimumSizeHint().width());
     //_miscControlLayout->addWidget(new QLabel("Mode:", _miscWidgetControl), 0, 0, 1, 3);
     _miscControlLayout->addWidget(_miscMode, 1, 0, 1, 3);
     connect(_miscMode, SIGNAL(currentIndexChanged(int)), this, SLOT(changeMiscMode(int)));
@@ -290,6 +291,7 @@ MainWindow::MainWindow(QString initFile)
     for (int i = 0; i < 128; i++) {
         _miscController->addItem(MidiFile::controlChangeName(i));
     }
+    _miscController->view()->setMinimumWidth(_miscController->minimumSizeHint().width());
     _miscControlLayout->addWidget(_miscController, 3, 0, 1, 3);
     connect(_miscController, SIGNAL(currentIndexChanged(int)), _miscWidget, SLOT(setControl(int)));
 
@@ -298,6 +300,7 @@ MainWindow::MainWindow(QString initFile)
     for (int i = 0; i < 15; i++) {
         _miscChannel->addItem("Channel " + QString::number(i));
     }
+    _miscChannel->view()->setMinimumWidth(_miscChannel->minimumSizeHint().width());
     _miscControlLayout->addWidget(_miscChannel, 5, 0, 1, 3);
     connect(_miscChannel, SIGNAL(currentIndexChanged(int)), _miscWidget, SLOT(setChannel(int)));
     _miscControlLayout->setRowStretch(6, 1);
@@ -2065,7 +2068,7 @@ void MainWindow::manual()
 void MainWindow::changeMiscMode(int mode)
 {
     _miscWidget->setMode(mode);
-    if (mode == VelocityEditor) {
+    if (mode == VelocityEditor || mode == TempoEditor) {
         _miscChannel->setEnabled(false);
     } else {
         _miscChannel->setEnabled(true);
@@ -2083,6 +2086,8 @@ void MainWindow::changeMiscMode(int mode)
                 _miscController->addItem("Note: " + QString::number(i));
             }
         }
+
+        _miscController->view()->setMinimumWidth(_miscController->minimumSizeHint().width());
     } else {
         _miscController->setEnabled(false);
     }
