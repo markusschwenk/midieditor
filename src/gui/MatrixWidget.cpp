@@ -1120,8 +1120,26 @@ int MatrixWidget::maxVisibleMidiTime()
 
 void MatrixWidget::wheelEvent(QWheelEvent* event)
 {
+    /*
+     * Qt has some underdocumented behaviors for reporting wheel events, so the
+     * following were determined empirically:
+     *
+     * 1.  Some platforms use pixelDelta and some use angleDelta, but they
+     *     appear to have the same semantics for their contents.
+     *
+     * 2.  When a modifier key is held, the X and Y may be swapped in how
+     *     they're reported, but which modifiers these are differ by platform.
+     *     If you want to reserve the modifiers for your own use, you have to
+     *     counteract this explicitly.
+     *
+     * 3.  A single-dimensional scrolling device (mouse wheel) seems to be
+     *     reported in the Y dimension of the pixelDelta or angleDelta, but is
+     *     subject to the same X/Y swapping when modifiers are pressed.
+     */
+
     Qt::KeyboardModifiers km = event->modifiers();
     QPoint pixelDelta = event->pixelDelta();
+    if (pixelDelta.isNull()) pixelDelta = event->angleDelta();
     int pixelDeltaX = pixelDelta.x();
     int pixelDeltaY = pixelDelta.y();
     int horScrollAmount = 0;
@@ -1129,10 +1147,6 @@ void MatrixWidget::wheelEvent(QWheelEvent* event)
 
     if (km) {
         if (km == Qt::ShiftModifier) {
-            // Fall back to pixelDeltaX not because we want to assign an action
-            // to horizontal scrolling here, but because that's how Qt reports
-            // vertical scrolling with a mouse wheel when shift is pressed.
-
             if (pixelDeltaY > 0) {
                 zoomVerIn();
             } else if (pixelDeltaY < 0) {
@@ -1149,7 +1163,11 @@ void MatrixWidget::wheelEvent(QWheelEvent* event)
                 zoomHorOut();
             }
         } else if (km == Qt::AltModifier) {
-            horScrollAmount = pixelDeltaY;
+            if (pixelDeltaY == 0) {
+                horScrollAmount = pixelDeltaX;
+            } else {
+                horScrollAmount = pixelDeltaY;
+            }
         }
     } else {
         horScrollAmount = pixelDeltaX;
