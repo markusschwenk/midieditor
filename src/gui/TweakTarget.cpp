@@ -34,7 +34,7 @@
 #include "../protocol/Protocol.h"
 #include "../tool/Selection.h"
 
-static int getDivNumberForTime(QList<QPair<int, int>> divs, int time)
+static int getDivNumberForTime(QList<QPair<int, int> > divs, int time)
 {
     for (int divNumber = divs.size() - 1; divNumber >= 0; divNumber--) {
         if (divs.at(divNumber).second <= time) return divNumber;
@@ -43,7 +43,7 @@ static int getDivNumberForTime(QList<QPair<int, int>> divs, int time)
     return 0;
 }
 
-static int getTimeOneDivEarlier(QList<QPair<int, int>> divs, int time)
+static int getTimeOneDivEarlier(QList<QPair<int, int> > divs, int time)
 {
     int divNumber = getDivNumberForTime(divs, time);
     int divStartTime = divs.at(divNumber).second;
@@ -59,7 +59,7 @@ static int getTimeOneDivEarlier(QList<QPair<int, int>> divs, int time)
     return previousDivStartTime + (time - divStartTime);
 }
 
-static int getTimeOneDivLater(QList<QPair<int, int>> divs, int time)
+static int getTimeOneDivLater(QList<QPair<int, int> > divs, int time)
 {
     int divNumber = getDivNumberForTime(divs, time);
     int divStartTime = divs.at(divNumber).second;
@@ -146,7 +146,7 @@ void TimeTweakTarget::largeDecrease()
         if (selectedEvents.size() > 0) {
             Protocol* protocol = file->protocol();
             protocol->startNewAction("Tweak");
-            QList<QPair<int, int>> divs = mainWindow->matrixWidget()->divs();
+            QList<QPair<int, int> > divs = mainWindow->matrixWidget()->divs();
 
             foreach (MidiEvent* e, selectedEvents) {
                 int time = e->midiTime();
@@ -178,7 +178,7 @@ void TimeTweakTarget::largeIncrease()
         if (selectedEvents.size() > 0) {
             Protocol* protocol = file->protocol();
             protocol->startNewAction("Tweak");
-            QList<QPair<int, int>> divs = mainWindow->matrixWidget()->divs();
+            QList<QPair<int, int> > divs = mainWindow->matrixWidget()->divs();
 
             foreach (MidiEvent* e, selectedEvents) {
                 int time = e->midiTime();
@@ -261,7 +261,7 @@ void StartTimeTweakTarget::largeDecrease()
         if (selectedEvents.size() > 0) {
             Protocol* protocol = file->protocol();
             protocol->startNewAction("Tweak");
-            QList<QPair<int, int>> divs = mainWindow->matrixWidget()->divs();
+            QList<QPair<int, int> > divs = mainWindow->matrixWidget()->divs();
 
             foreach (MidiEvent* e, selectedEvents) {
                 int newTime = getTimeOneDivEarlier(divs, e->midiTime());
@@ -283,7 +283,7 @@ void StartTimeTweakTarget::largeIncrease()
         if (selectedEvents.size() > 0) {
             Protocol* protocol = file->protocol();
             protocol->startNewAction("Tweak");
-            QList<QPair<int, int>> divs = mainWindow->matrixWidget()->divs();
+            QList<QPair<int, int> > divs = mainWindow->matrixWidget()->divs();
 
             foreach (MidiEvent* e, selectedEvents) {
                 int newTime = getTimeOneDivLater(divs, e->midiTime());
@@ -373,7 +373,7 @@ void EndTimeTweakTarget::largeDecrease()
         if (selectedEvents.size() > 0) {
             Protocol* protocol = file->protocol();
             protocol->startNewAction("Tweak");
-            QList<QPair<int, int>> divs = mainWindow->matrixWidget()->divs();
+            QList<QPair<int, int> > divs = mainWindow->matrixWidget()->divs();
 
             foreach (MidiEvent* e, selectedEvents) {
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
@@ -405,7 +405,7 @@ void EndTimeTweakTarget::largeIncrease()
         if (selectedEvents.size() > 0) {
             Protocol* protocol = file->protocol();
             protocol->startNewAction("Tweak");
-            QList<QPair<int, int>> divs = mainWindow->matrixWidget()->divs();
+            QList<QPair<int, int> > divs = mainWindow->matrixWidget()->divs();
 
             foreach (MidiEvent* e, selectedEvents) {
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
