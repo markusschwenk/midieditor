@@ -134,7 +134,9 @@ bool MeasureTool::releaseKey(int key){
         _firstSelectedMeasure = -1;
         _secondSelectedMeasure = -1;
         file()->protocol()->endAction();
+        return true;
     }
+    return false;
 }
 
 bool MeasureTool::move(int mouseX, int mouseY){
