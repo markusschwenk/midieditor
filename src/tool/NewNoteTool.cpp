@@ -229,7 +229,7 @@ bool NewNoteTool::release()
                 event = new TextEvent(16, track);
                 TextEvent* textEvent = (TextEvent*)event;
                 textEvent->setText("New Text Event");
-                textEvent->setType(TextEvent::TEXT);
+                textEvent->setType(TextEvent::getTypeForNewEvents());
                 int startMs = matrixWidget->msOfXPos(xPos);
                 int startTick = file()->tick(startMs);
                 file()->channel(16)->insertEvent(event, startTick);

@@ -509,6 +509,7 @@ void EventWidgetDelegate::setModelData(QWidget* editor, QAbstractItemModel* mode
                 if ((newType == TextEvent::TRACKNAME) && (oldType != newType)) {
                     event->track()->setNameEvent(c);
                 }
+                TextEvent::setTypeForNewEvents(newType);
             }
         }
         break;

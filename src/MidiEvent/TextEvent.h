@@ -54,9 +54,13 @@ public:
     QString typeString();
     static QString textTypeString(int type);
 
+    static int getTypeForNewEvents();
+    static void setTypeForNewEvents(int type);
+
 private:
     int _type;
     QString _text;
+    static int typeForNewEvents;
 };
 
 #endif
