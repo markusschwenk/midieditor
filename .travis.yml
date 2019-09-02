@@ -6,9 +6,6 @@ branches:
     - master
     - /^\d+\.\d+\.\d+(\.\d+)?$/
 
-os:
-  - linux
-
 env:
   global:
     - CONFIG=Release
@@ -16,9 +13,15 @@ env:
     - MIDIEDITOR_RELEASE_VERSION_STRING=$TRAVIS_TAG
     - MIDIEDITOR_PACKAGE_VERSION=1
     - INSTALLJAMMER=installjammer/installjammer
-  matrix:
-    - BUILD_OS=LINUX MIDIEDITOR_BINARY=MidiEditor
-    - BUILD_OS=WINDOWS MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
+
+matrix:
+  include:
+    - os: linux
+      env: BUILD_OS=LINUX MIDIEDITOR_BINARY=MidiEditor
+    - os: linux
+      env: BUILD_OS=WINDOWS MXE=/usr/lib/mxe/ PATH=$MXE/usr/bin:$PATH MIDIEDITOR_BINARY_WINDOWS=windows32_build/.build/bin/MidiEditor.exe
+    - os: osx
+      env: BUILD_OS=MAC MIDIEDITOR_BINARY=MidiEditor.app
 
 before_install:
     - if [ "$BUILD_OS" = "LINUX" ]; then sudo add-apt-repository --yes ppa:ubuntu-sdk-team/ppa; fi
@@ -29,17 +32,22 @@ before_install:
     - if [ "$BUILD_OS" = "LINUX" ]; then sudo apt-get install fakeroot; fi
     - QT_VERSION_MM=59
     - QT_VERSION_FULL=591-trusty
+
     # For mxe.cc (see http://mxe.cc/#requirements)
     - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 86B72ED9; fi
     - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo add-apt-repository 'deb [arch=amd64] http://mirror.mxe.cc/repos/apt trusty main'; fi
     - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-get update; fi
     - if [ "$BUILD_OS" = "WINDOWS" ]; then sudo apt-get install mxe-i686-w64-mingw32.static-qtbase mxe-i686-w64-mingw32.static-qtmultimedia; fi
+
+    - if [ "$BUILD_OS" = "MAC" ]; then sudo brew install qt5; fi
+    - if [ "$BUILD_OS" = "MAC" ]; then sudo brew link qt5 --force; fi
     
 before_script:
 
 script:
    - if [ "$BUILD_OS" = "WINDOWS" ]; then sh building/build-windows.sh; fi
    - if [ "$BUILD_OS" = "LINUX" ]; then sh building/build-linux.sh; fi
+   - if [ "$BUILD_OS" = "MAC" ]; then sh building/build-mac.sh; fi
 
 before_deploy:
    - if [ "$BUILD_OS" = "WINDOWS" ]; then git clone https://github.com/damoncourtney/installjammer.git installjammer; fi
@@ -52,6 +60,9 @@ before_deploy:
    
    - if [ "$BUILD_OS" = "LINUX" ]; then sh packaging/unix/build_deb.sh; fi
    - if [ "$BUILD_OS" = "LINUX" ]; then DEPLOY_BINARIY=releases/midieditor_$MIDIEDITOR_RELEASE_VERSION_STRING-$MIDIEDITOR_PACKAGE_VERSION-amd64.deb; fi
+
+   - if [ "$BUILD_OS" = "MAC" ]; then DEPLOY_BINARIY=releases/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-mac.tar.gz; fi
+   - if [ "$BUILD_OS" = "MAC" ]; then tar cvzf $DEPLOY_BINARIY $MIDIEDITOR_BINARY fi
 
 deploy:
   provider: releases
