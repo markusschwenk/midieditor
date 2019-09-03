@@ -2677,14 +2677,14 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     playbackMB->addSeparator();
 
     QAction* backMarkerAction = new QAction("Previous marker", this);
-    backMarkerAction->setIcon(QIcon(":/run_environment/graphics/tool/back.png"));
+    backMarkerAction->setIcon(QIcon(":/run_environment/graphics/tool/back_marker.png"));
     QList<QKeySequence> backMarkerActionShortcuts;
     backMarkerAction->setShortcut(QKeySequence(Qt::Key_Comma + Qt::ALT));
     connect(backMarkerAction, SIGNAL(triggered()), this, SLOT(backMarker()));
     playbackMB->addAction(backMarkerAction);
 
     QAction* forwMarkerAction = new QAction("Next marker", this);
-    forwMarkerAction->setIcon(QIcon(":/run_environment/graphics/tool/forward.png"));
+    forwMarkerAction->setIcon(QIcon(":/run_environment/graphics/tool/forward_marker.png"));
     QList<QKeySequence> forwMarkerActionShortcuts;
     forwMarkerAction->setShortcut(QKeySequence(Qt::Key_Period + Qt::ALT));
     connect(forwMarkerAction, SIGNAL(triggered()), this, SLOT(forwardMarker()));
@@ -2812,12 +2812,14 @@ QWidget* MainWindow::setupActions(QWidget* parent)
         playTB->setIconSize(QSize(35, 35));
 
         playTB->addAction(backToBeginAction);
+        playTB->addAction(backMarkerAction);
         playTB->addAction(backAction);
         playTB->addAction(playAction);
         playTB->addAction(pauseAction);
         playTB->addAction(stopAction);
         playTB->addAction(recAction);
         playTB->addAction(forwAction);
+        playTB->addAction(forwMarkerAction);
         playTB->addSeparator();
 
         btnLayout->addWidget(playTB, 0, 1, 2, 1);
@@ -2860,12 +2862,14 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     if (!QApplication::arguments().contains("--large-playback-toolbar")) {
 
         lowerTB->addAction(backToBeginAction);
+        lowerTB->addAction(backMarkerAction);
         lowerTB->addAction(backAction);
         lowerTB->addAction(playAction);
         lowerTB->addAction(pauseAction);
         lowerTB->addAction(stopAction);
         lowerTB->addAction(recAction);
         lowerTB->addAction(forwAction);
+        lowerTB->addAction(forwMarkerAction);
         lowerTB->addSeparator();
     }
 

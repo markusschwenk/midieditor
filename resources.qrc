@@ -8,6 +8,7 @@
         <file>run_environment/graphics/tool/all_mute.png</file>
         <file>run_environment/graphics/tool/all_visible.png</file>
         <file>run_environment/graphics/tool/back.png</file>
+        <file>run_environment/graphics/tool/back_marker.png</file>
         <file>run_environment/graphics/tool/back_to_begin.png</file>
         <file>run_environment/graphics/tool/change_size.png</file>
         <file>run_environment/graphics/tool/config.png</file>
@@ -16,6 +17,7 @@
         <file>run_environment/graphics/tool/equalize.png</file>
         <file>run_environment/graphics/tool/eraser.png</file>
         <file>run_environment/graphics/tool/forward.png</file>
+        <file>run_environment/graphics/tool/forward_marker.png</file>
         <file>run_environment/graphics/tool/load.png</file>
         <file>run_environment/graphics/tool/magnet.png</file>
         <file>run_environment/graphics/tool/metronome.png</file>
