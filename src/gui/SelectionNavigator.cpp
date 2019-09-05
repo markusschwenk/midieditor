@@ -19,7 +19,7 @@
 #include <QtMath>
 #include "MainWindow.h"
 #include "MatrixWidget.h"
-#include "TweakSelection.h"
+#include "SelectionNavigator.h"
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
@@ -34,32 +34,32 @@
  * Moves the selection to the nearest event of the same type in the specified
  * direction on screen.
  */
-TweakSelection::TweakSelection(MainWindow* mainWindow)
+SelectionNavigator::SelectionNavigator(MainWindow* mainWindow)
 {
     this->mainWindow = mainWindow;
 }
 
-void TweakSelection::up()
+void SelectionNavigator::up()
 {
     navigate(-M_PI_2);
 }
 
-void TweakSelection::down()
+void SelectionNavigator::down()
 {
     navigate(M_PI_2);
 }
 
-void TweakSelection::left()
+void SelectionNavigator::left()
 {
     navigate(M_PI);
 }
 
-void TweakSelection::right()
+void SelectionNavigator::right()
 {
     navigate(0.0);
 }
 
-void TweakSelection::navigate(qreal searchAngle)
+void SelectionNavigator::navigate(qreal searchAngle)
 {
     MidiEvent* selectedEvent = getFirstSelectedEvent();
     if (!selectedEvent) return;
@@ -94,20 +94,20 @@ void TweakSelection::navigate(qreal searchAngle)
     mainWindow->updateAll();
 }
 
-MidiEvent* TweakSelection::getFirstSelectedEvent()
+MidiEvent* SelectionNavigator::getFirstSelectedEvent()
 {
     QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
     return selectedEvents.isEmpty() ? NULL : selectedEvents.first();
 }
 
-bool TweakSelection::eventIsInVisibleTimeRange(MidiEvent* event)
+bool SelectionNavigator::eventIsInVisibleTimeRange(MidiEvent* event)
 {
     MatrixWidget* matrixWidget = mainWindow->matrixWidget();
     int time = event->midiTime();
     return (time >= matrixWidget->minVisibleMidiTime() && time < matrixWidget->maxVisibleMidiTime());
 }
 
-bool TweakSelection::eventsAreSameType(MidiEvent* event1, MidiEvent* event2)
+bool SelectionNavigator::eventsAreSameType(MidiEvent* event1, MidiEvent* event2)
 {
     NoteOnEvent* noteOnEvent1 = dynamic_cast<NoteOnEvent*>(event1);
     NoteOnEvent* noteOnEvent2 = dynamic_cast<NoteOnEvent*>(event2);
@@ -126,7 +126,7 @@ bool TweakSelection::eventsAreSameType(MidiEvent* event1, MidiEvent* event2)
  * target is more than 90 degrees off axis from the search direction, since
  * that should never be considered a match.
  */
-qreal TweakSelection::getDisplayDistanceWeightedByDirection(
+qreal SelectionNavigator::getDisplayDistanceWeightedByDirection(
     MidiEvent* originEvent,
     MidiEvent* targetEvent,
     qreal searchAngle)

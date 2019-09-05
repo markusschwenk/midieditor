@@ -42,7 +42,7 @@ class QGridLayout;
 class MidiTrack;
 class QShowEvent;
 class Update;
-class TweakSelection;
+class SelectionNavigator;
 class TweakTarget;
 
 class MainWindow : public QMainWindow {
@@ -186,10 +186,11 @@ public slots:
     void tweakSmallIncrease();
     void tweakLargeDecrease();
     void tweakLargeIncrease();
-    void tweakSelectionUp();
-    void tweakSelectionDown();
-    void tweakSelectionLeft();
-    void tweakSelectionRight();
+
+    void navigateSelectionUp();
+    void navigateSelectionDown();
+    void navigateSelectionLeft();
+    void navigateSelectionRight();
 
 protected:
     void closeEvent(QCloseEvent* event);
@@ -235,7 +236,7 @@ private:
     QList<QAction*> _activateWithSelections;
 
     TweakTarget* currentTweakTarget;
-    TweakSelection* tweakSelection;
+    SelectionNavigator* selectionNavigator;
 };
 
 #endif

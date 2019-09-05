@@ -16,14 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TWEAKSELECTION_H_
-#define TWEAKSELECTION_H_
+#ifndef SELECTIONNAVIGATOR_H_
+#define SELECTIONNAVIGATOR_H_
 
 class MainWindow;
 
-class TweakSelection {
+class SelectionNavigator {
 public:
-    TweakSelection(MainWindow* mainWindow);
+    SelectionNavigator(MainWindow* mainWindow);
     void up();
     void down();
     void left();

@@ -57,10 +57,10 @@
 #include "NToleQuantizationDialog.h"
 #include "ProtocolWidget.h"
 #include "RecordDialog.h"
+#include "SelectionNavigator.h"
 #include "SettingsDialog.h"
 #include "TrackListWidget.h"
 #include "TransposeDialog.h"
-#include "TweakSelection.h"
 #include "TweakTarget.h"
 
 #include "../tool/EraserTool.h"
@@ -503,7 +503,7 @@ MainWindow::MainWindow(QString initFile)
     setAcceptDrops(true);
 
     currentTweakTarget = new TimeTweakTarget(this);
-    tweakSelection = new TweakSelection(this);
+    selectionNavigator = new SelectionNavigator(this);
 
     QTimer::singleShot(200, this, SLOT(loadInitFile()));
     if (UpdateManager::autoCheckForUpdates()) {
@@ -1573,7 +1573,6 @@ void MainWindow::updateTrackMenu()
         QVariant variant(i);
         QAction* moveToTrackAction = new QAction(QString::number(i) + " " + file->tracks()->at(i)->name(), this);
         moveToTrackAction->setData(variant);
-        moveToTrackAction->setShortcut(QKeySequence(Qt::Key_0 + i + Qt::ALT));
         _moveSelectedEventsToTrackMenu->addAction(moveToTrackAction);
     }
 
@@ -2216,6 +2215,28 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     editMB->addSeparator();
 
+    QAction* navigateSelectionUpAction = new QAction("Navigate selection up", editMB);
+    navigateSelectionUpAction->setShortcut(Qt::Key_Up);
+    connect(navigateSelectionUpAction, SIGNAL(triggered()), this, SLOT(navigateSelectionUp()));
+    editMB->addAction(navigateSelectionUpAction);
+
+    QAction* navigateSelectionDownAction = new QAction("Navigate selection down", editMB);
+    navigateSelectionDownAction->setShortcut(Qt::Key_Down);
+    connect(navigateSelectionDownAction, SIGNAL(triggered()), this, SLOT(navigateSelectionDown()));
+    editMB->addAction(navigateSelectionDownAction);
+
+    QAction* navigateSelectionLeftAction = new QAction("Navigate selection left", editMB);
+    navigateSelectionLeftAction->setShortcut(Qt::Key_Left);
+    connect(navigateSelectionLeftAction, SIGNAL(triggered()), this, SLOT(navigateSelectionLeft()));
+    editMB->addAction(navigateSelectionLeftAction);
+
+    QAction* navigateSelectionRightAction = new QAction("Navigate selection right", editMB);
+    navigateSelectionRightAction->setShortcut(Qt::Key_Right);
+    connect(navigateSelectionRightAction, SIGNAL(triggered()), this, SLOT(navigateSelectionRight()));
+    editMB->addAction(navigateSelectionRightAction);
+
+    editMB->addSeparator();
+
     QAction* copyAction = new QAction("Copy events", this);
     _activateWithSelections.append(copyAction);
     copyAction->setIcon(QIcon(":/run_environment/graphics/tool/copy.png"));
@@ -2363,46 +2384,24 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     tweakMenu->addSeparator();
 
     QAction* tweakSmallDecreaseAction = new QAction("Small decrease", tweakMenu);
-    tweakSmallDecreaseAction->setShortcut(Qt::Key_BracketLeft);
+    tweakSmallDecreaseAction->setShortcut(Qt::Key_9);
     connect(tweakSmallDecreaseAction, SIGNAL(triggered()), this, SLOT(tweakSmallDecrease()));
     tweakMenu->addAction(tweakSmallDecreaseAction);
 
     QAction* tweakSmallIncreaseAction = new QAction("Small increase", tweakMenu);
-    tweakSmallIncreaseAction->setShortcut(Qt::Key_BracketRight);
+    tweakSmallIncreaseAction->setShortcut(Qt::Key_0);
     connect(tweakSmallIncreaseAction, SIGNAL(triggered()), this, SLOT(tweakSmallIncrease()));
     tweakMenu->addAction(tweakSmallIncreaseAction);
 
     QAction* tweakLargeDecreaseAction = new QAction("Large decrease", tweakMenu);
-    tweakLargeDecreaseAction->setShortcut(Qt::Key_BracketLeft + Qt::ALT);
+    tweakLargeDecreaseAction->setShortcut(Qt::Key_9 + Qt::ALT);
     connect(tweakLargeDecreaseAction, SIGNAL(triggered()), this, SLOT(tweakLargeDecrease()));
     tweakMenu->addAction(tweakLargeDecreaseAction);
 
     QAction* tweakLargeIncreaseAction = new QAction("Large increase", tweakMenu);
-    tweakLargeIncreaseAction->setShortcut(Qt::Key_BracketRight + Qt::ALT);
+    tweakLargeIncreaseAction->setShortcut(Qt::Key_0 + Qt::ALT);
     connect(tweakLargeIncreaseAction, SIGNAL(triggered()), this, SLOT(tweakLargeIncrease()));
     tweakMenu->addAction(tweakLargeIncreaseAction);
-
-    tweakMenu->addSeparator();
-
-    QAction* tweakSelectionUpAction = new QAction("Selection up", tweakMenu);
-    tweakSelectionUpAction->setShortcut(Qt::Key_Up + Qt::ALT);
-    connect(tweakSelectionUpAction, SIGNAL(triggered()), this, SLOT(tweakSelectionUp()));
-    tweakMenu->addAction(tweakSelectionUpAction);
-
-    QAction* tweakSelectionDownAction = new QAction("Selection down", tweakMenu);
-    tweakSelectionDownAction->setShortcut(Qt::Key_Down + Qt::ALT);
-    connect(tweakSelectionDownAction, SIGNAL(triggered()), this, SLOT(tweakSelectionDown()));
-    tweakMenu->addAction(tweakSelectionDownAction);
-
-    QAction* tweakSelectionLeftAction = new QAction("Selection left", tweakMenu);
-    tweakSelectionLeftAction->setShortcut(Qt::Key_Left + Qt::ALT);
-    connect(tweakSelectionLeftAction, SIGNAL(triggered()), this, SLOT(tweakSelectionLeft()));
-    tweakMenu->addAction(tweakSelectionLeftAction);
-
-    QAction* tweakSelectionRightAction = new QAction("Selection right", tweakMenu);
-    tweakSelectionRightAction->setShortcut(Qt::Key_Right + Qt::ALT);
-    connect(tweakSelectionRightAction, SIGNAL(triggered()), this, SLOT(tweakSelectionRight()));
-    tweakMenu->addAction(tweakSelectionRightAction);
 
     toolsMB->addMenu(tweakMenu);
 
@@ -2684,9 +2683,9 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     QAction* backToBeginAction = new QAction("Back to begin", this);
     backToBeginAction->setIcon(QIcon(":/run_environment/graphics/tool/back_to_begin.png"));
     QList<QKeySequence> backToBeginActionShortcuts;
-    backToBeginActionShortcuts << QKeySequence(Qt::Key_Home)
-                               << QKeySequence(Qt::Key_J + Qt::SHIFT)
-                               << QKeySequence(Qt::Key_Left + Qt::SHIFT);
+    backToBeginActionShortcuts << QKeySequence(Qt::Key_Up + Qt::ALT)
+                               << QKeySequence(Qt::Key_Home + Qt::ALT)
+                               << QKeySequence(Qt::Key_J + Qt::SHIFT);
     backToBeginAction->setShortcuts(backToBeginActionShortcuts);
     connect(backToBeginAction, SIGNAL(triggered()), this, SLOT(backToBegin()));
     playbackMB->addAction(backToBeginAction);
@@ -2694,8 +2693,8 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     QAction* backAction = new QAction("Previous measure", this);
     backAction->setIcon(QIcon(":/run_environment/graphics/tool/back.png"));
     QList<QKeySequence> backActionShortcuts;
-    backActionShortcuts << QKeySequence(Qt::Key_J)
-                        << QKeySequence(Qt::Key_Left);
+    backActionShortcuts << QKeySequence(Qt::Key_Left + Qt::ALT)
+                        << QKeySequence(Qt::Key_J);
     backAction->setShortcuts(backActionShortcuts);
     connect(backAction, SIGNAL(triggered()), this, SLOT(back()));
     playbackMB->addAction(backAction);
@@ -2703,8 +2702,8 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     QAction* forwAction = new QAction("Next measure", this);
     forwAction->setIcon(QIcon(":/run_environment/graphics/tool/forward.png"));
     QList<QKeySequence> forwActionShortcuts;
-    forwActionShortcuts << QKeySequence(Qt::Key_L)
-                        << QKeySequence(Qt::Key_Right);
+    forwActionShortcuts << QKeySequence(Qt::Key_Right + Qt::ALT)
+                        << QKeySequence(Qt::Key_L);
     forwAction->setShortcuts(forwActionShortcuts);
     connect(forwAction, SIGNAL(triggered()), this, SLOT(forward()));
     playbackMB->addAction(forwAction);
@@ -3212,18 +3211,18 @@ void MainWindow::tweakLargeIncrease() {
     currentTweakTarget->largeIncrease();
 }
 
-void MainWindow::tweakSelectionUp() {
-    tweakSelection->up();
+void MainWindow::navigateSelectionUp() {
+    selectionNavigator->up();
 }
 
-void MainWindow::tweakSelectionDown() {
-    tweakSelection->down();
+void MainWindow::navigateSelectionDown() {
+    selectionNavigator->down();
 }
 
-void MainWindow::tweakSelectionLeft() {
-    tweakSelection->left();
+void MainWindow::navigateSelectionLeft() {
+    selectionNavigator->left();
 }
 
-void MainWindow::tweakSelectionRight() {
-    tweakSelection->right();
+void MainWindow::navigateSelectionRight() {
+    selectionNavigator->right();
 }
