@@ -61,7 +61,7 @@ isEmpty(MIDIEDITOR_RELEASE_DATE_QMAKE) {
 DEFINES += MIDIEDITOR_RELEASE_DATE_DEF=$$MIDIEDITOR_RELEASE_DATE_QMAKE
 message(Release date is set to $$MIDIEDITOR_RELEASE_DATE_QMAKE)
 
-unix: {
+unix:!macx {
     DEFINES += __LINUX_ALSASEQ__
     DEFINES += __LINUX_ALSA__
     LIBS += -lasound
@@ -78,4 +78,13 @@ win32: {
     OBJECTS_DIR = .tmp
     MOC_DIR = .tmp
     Release:DESTDIR = bin
+}
+
+macx: {
+    DEFINES += __MACOSX_CORE__
+    LIBS += -framework CoreMidi -framework CoreAudio -framework CoreFoundation
+    CONFIG += release
+    OBJECTS_DIR = .tmp
+    MOC_DIR = .tmp
+    ICON = midieditor.icns
 }
