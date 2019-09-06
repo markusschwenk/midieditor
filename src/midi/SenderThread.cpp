@@ -25,12 +25,17 @@ SenderThread::SenderThread()
 {
     _eventQueue = new QQueue<MidiEvent*>;
     _noteQueue = new QQueue<MidiEvent*>;
+    _mutex = new QMutex();
+    _waitCondition = new QWaitCondition();
 }
 
 void SenderThread::run()
 {
+    _mutex->lock();
 
     while (true) {
+        _waitCondition->wait(_mutex, 500);
+
         // First, send the misc events, such as control change and program change events.
         while (!_eventQueue->isEmpty()) {
             // send command
@@ -43,16 +48,22 @@ void SenderThread::run()
             MidiOutput::sendEnqueuedCommand(_noteQueue->head()->save());
             _noteQueue->pop_front();
         }
-        msleep(1);
     }
+
+    _mutex->unlock();
 }
 
 void SenderThread::enqueue(MidiEvent* event)
 {
+    _mutex->lock();
+
     // If it is a NoteOnEvent or an OffEvent, we put it in _noteQueue.
     if (dynamic_cast<NoteOnEvent*>(event) || dynamic_cast<OffEvent*>(event))
         _noteQueue->push_back(event);
     // Otherwise, it goes into _eventQueue.
     else
         _eventQueue->push_back(event);
+
+    _waitCondition->wakeOne();
+    _mutex->unlock();
 }
