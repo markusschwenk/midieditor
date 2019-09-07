@@ -19,24 +19,15 @@
 #ifndef TWEAKTARGET_H_
 #define TWEAKTARGET_H_
 
-#include <QElapsedTimer>
-
 class MainWindow;
 
 class TweakTarget {
 public:
-    TweakTarget();
     virtual ~TweakTarget() {};
     virtual void smallDecrease() = 0;
     virtual void smallIncrease() = 0;
     virtual void largeDecrease() = 0;
     virtual void largeIncrease() = 0;
-
-protected:
-    QElapsedTimer* firstActionTimer;
-    QElapsedTimer* lastActionTimer;
-
-    int getAccelleratedIncrement();
 };
 
 class TimeTweakTarget : public TweakTarget {

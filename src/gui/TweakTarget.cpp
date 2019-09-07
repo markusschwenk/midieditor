@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <QElapsedTimer>
 #include <QList>
 #include <QPair>
 #include "MainWindow.h"
@@ -76,29 +75,13 @@ static int getTimeOneDivLater(QList<QPair<int, int> > divs, int time)
     return nextDivStartTime + (time - divStartTime);
 }
 
-TweakTarget::TweakTarget()
-{
-    firstActionTimer = new QElapsedTimer();
-    firstActionTimer->start();
-    lastActionTimer = new QElapsedTimer();
-    lastActionTimer->start();
-}
-
-int TweakTarget::getAccelleratedIncrement()
-{
-    if (lastActionTimer->elapsed() > 100) firstActionTimer->restart();
-    lastActionTimer->restart();
-    return (firstActionTimer->elapsed() / 200) + 1;
-}
-
-TimeTweakTarget::TimeTweakTarget(MainWindow* mainWindow): TweakTarget()
+TimeTweakTarget::TimeTweakTarget(MainWindow* mainWindow)
 {
     this->mainWindow = mainWindow;
 }
 
 void TimeTweakTarget::smallDecrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement();
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -109,7 +92,7 @@ void TimeTweakTarget::smallDecrease()
             protocol->startNewAction("Tweak");
 
             foreach (MidiEvent* e, selectedEvents) {
-                int newTime = e->midiTime() - accelleratedIncrement;
+                int newTime = e->midiTime() - 1;
 
                 if (newTime >= 0) {
                     e->setMidiTime(newTime);
@@ -117,7 +100,7 @@ void TimeTweakTarget::smallDecrease()
                     OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
                     if (onEvent) {
                         MidiEvent* offEvent = onEvent->offEvent();
-                        offEvent->setMidiTime(offEvent->midiTime() - accelleratedIncrement);
+                        offEvent->setMidiTime(offEvent->midiTime() - 1);
                     }
                 }
             }
@@ -129,7 +112,6 @@ void TimeTweakTarget::smallDecrease()
 
 void TimeTweakTarget::smallIncrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement();
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -140,12 +122,12 @@ void TimeTweakTarget::smallIncrease()
             protocol->startNewAction("Tweak");
 
             foreach (MidiEvent* e, selectedEvents) {
-                e->setMidiTime(e->midiTime() + accelleratedIncrement);
+                e->setMidiTime(e->midiTime() + 1);
 
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
                 if (onEvent) {
                     MidiEvent* offEvent = onEvent->offEvent();
-                    offEvent->setMidiTime(offEvent->midiTime() + accelleratedIncrement);
+                    offEvent->setMidiTime(offEvent->midiTime() + 1);
                 }
             }
 
@@ -216,14 +198,13 @@ void TimeTweakTarget::largeIncrease()
     }
 }
 
-StartTimeTweakTarget::StartTimeTweakTarget(MainWindow* mainWindow): TweakTarget()
+StartTimeTweakTarget::StartTimeTweakTarget(MainWindow* mainWindow)
 {
     this->mainWindow = mainWindow;
 }
 
 void StartTimeTweakTarget::smallDecrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement();
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -234,7 +215,7 @@ void StartTimeTweakTarget::smallDecrease()
             protocol->startNewAction("Tweak");
 
             foreach (MidiEvent* e, selectedEvents) {
-                int newTime = e->midiTime() - accelleratedIncrement;
+                int newTime = e->midiTime() - 1;
                 if (newTime >= 0) e->setMidiTime(newTime);
             }
 
@@ -245,7 +226,6 @@ void StartTimeTweakTarget::smallDecrease()
 
 void StartTimeTweakTarget::smallIncrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement();
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -256,7 +236,7 @@ void StartTimeTweakTarget::smallIncrease()
             protocol->startNewAction("Tweak");
 
             foreach (MidiEvent* e, selectedEvents) {
-                int newTime = e->midiTime() + accelleratedIncrement;
+                int newTime = e->midiTime() + 1;
                 e->setMidiTime(newTime);
 
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
@@ -321,14 +301,13 @@ void StartTimeTweakTarget::largeIncrease()
     }
 }
 
-EndTimeTweakTarget::EndTimeTweakTarget(MainWindow* mainWindow): TweakTarget()
+EndTimeTweakTarget::EndTimeTweakTarget(MainWindow* mainWindow)
 {
     this->mainWindow = mainWindow;
 }
 
 void EndTimeTweakTarget::smallDecrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement();
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -342,13 +321,13 @@ void EndTimeTweakTarget::smallDecrease()
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
                 if (onEvent) {
                     MidiEvent* offEvent = onEvent->offEvent();
-                    int newTime = offEvent->midiTime() - accelleratedIncrement;
+                    int newTime = offEvent->midiTime() - 1;
                     if (newTime >= 0) {
                         offEvent->setMidiTime(newTime);
                         if (newTime < onEvent->midiTime()) onEvent->setMidiTime(newTime);
                     }
                 } else {
-                    int newTime = e->midiTime() - accelleratedIncrement;
+                    int newTime = e->midiTime() - 1;
                     if (newTime >= 0) e->setMidiTime(newTime);
                 }
             }
@@ -360,7 +339,6 @@ void EndTimeTweakTarget::smallDecrease()
 
 void EndTimeTweakTarget::smallIncrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement();
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -374,9 +352,9 @@ void EndTimeTweakTarget::smallIncrease()
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
                 if (onEvent) {
                     MidiEvent* offEvent = onEvent->offEvent();
-                    offEvent->setMidiTime(offEvent->midiTime() + accelleratedIncrement);
+                    offEvent->setMidiTime(offEvent->midiTime() + 1);
                 } else {
-                    e->setMidiTime(e->midiTime() + accelleratedIncrement);
+                    e->setMidiTime(e->midiTime() + 1);
                 }
             }
 
@@ -446,7 +424,7 @@ void EndTimeTweakTarget::largeIncrease()
     }
 }
 
-NoteTweakTarget::NoteTweakTarget(MainWindow* mainWindow): TweakTarget()
+NoteTweakTarget::NoteTweakTarget(MainWindow* mainWindow)
 {
     this->mainWindow = mainWindow;
 }
@@ -547,7 +525,7 @@ void NoteTweakTarget::largeIncrease()
     }
 }
 
-ValueTweakTarget::ValueTweakTarget(MainWindow* mainWindow): TweakTarget()
+ValueTweakTarget::ValueTweakTarget(MainWindow* mainWindow)
 {
     this->mainWindow = mainWindow;
 }
@@ -662,7 +640,6 @@ void ValueTweakTarget::smallIncrease()
 
 void ValueTweakTarget::largeDecrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement() * 10;
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -687,7 +664,7 @@ void ValueTweakTarget::largeDecrease()
 
                 PitchBendEvent* pitchBendEvent = dynamic_cast<PitchBendEvent*>(e);
                 if (pitchBendEvent) {
-                    int newValue = pitchBendEvent->value() - accelleratedIncrement;
+                    int newValue = pitchBendEvent->value() - 10;
                     if (newValue >= 0) pitchBendEvent->setValue(newValue);
                 }
 
@@ -705,7 +682,7 @@ void ValueTweakTarget::largeDecrease()
 
                 TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
                 if (tempoChangeEvent) {
-                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() - accelleratedIncrement;
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() - 10;
                     if (newBeatsPerQuarter >= 0) tempoChangeEvent->setBeats(newBeatsPerQuarter);
                 }
             }
@@ -717,7 +694,6 @@ void ValueTweakTarget::largeDecrease()
 
 void ValueTweakTarget::largeIncrease()
 {
-    int accelleratedIncrement = getAccelleratedIncrement() * 10;
     MidiFile* file = mainWindow->getFile();
 
     if (file) {
@@ -742,7 +718,7 @@ void ValueTweakTarget::largeIncrease()
 
                 PitchBendEvent* pitchBendEvent = dynamic_cast<PitchBendEvent*>(e);
                 if (pitchBendEvent) {
-                    int newValue = pitchBendEvent->value() + accelleratedIncrement;
+                    int newValue = pitchBendEvent->value() + 10;
                     if (newValue < (1 << 14)) pitchBendEvent->setValue(newValue);
                 }
 
@@ -760,7 +736,7 @@ void ValueTweakTarget::largeIncrease()
 
                 TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
                 if (tempoChangeEvent) {
-                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() + accelleratedIncrement;
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() + 10;
                     tempoChangeEvent->setBeats(newBeatsPerQuarter);
                 }
             }
