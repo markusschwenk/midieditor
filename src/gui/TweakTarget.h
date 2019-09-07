@@ -44,6 +44,7 @@ public:
 
 protected:
     MainWindow* mainWindow;
+    void offset(int amount);
 };
 
 class StartTimeTweakTarget : public TweakTarget {
@@ -58,6 +59,7 @@ public:
 
 protected:
     MainWindow* mainWindow;
+    void offset(int amount);
 };
 
 class EndTimeTweakTarget : public TweakTarget {
@@ -72,6 +74,7 @@ public:
 
 protected:
     MainWindow* mainWindow;
+    void offset(int amount);
 };
 
 class NoteTweakTarget : public TweakTarget {
@@ -86,6 +89,7 @@ public:
 
 protected:
     MainWindow* mainWindow;
+    void offset(int amount);
 };
 
 class ValueTweakTarget : public TweakTarget {
@@ -100,6 +104,7 @@ public:
 
 protected:
     MainWindow* mainWindow;
+    void offset(int amount, int pitchBendAmount, int tempoAmount);
 };
 
 #endif
