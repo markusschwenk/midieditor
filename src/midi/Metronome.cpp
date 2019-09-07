@@ -6,7 +6,7 @@
 #include <QFile>
 #include <QFileInfo>
 
-#include <QMediaPlayer>
+#include <QSoundEffect>
 
 Metronome *Metronome::_instance = new Metronome();
 bool Metronome::_enable = false;
@@ -15,9 +15,9 @@ Metronome::Metronome(QObject *parent) :	QObject(parent) {
     _file = 0;
     num = 4;
     denom = 2;
-    _player = new QMediaPlayer(this, QMediaPlayer::LowLatency);
-    _player->setVolume(100);
-    _player->setMedia(QUrl::fromLocalFile(QFileInfo("metronome/metronome-01.wav").absoluteFilePath()));
+    _player = new QSoundEffect(this);
+    _player->setVolume(1.0);
+    _player->setSource(QUrl("qrc:/run_environment/metronome/metronome-01.wav"));
 }
 
 void Metronome::setFile(MidiFile *file){
@@ -87,9 +87,9 @@ void Metronome::setEnabled(bool b){
 }
 
 void Metronome::setLoudness(int value){
-    _instance->_player->setVolume(value);
+    _instance->_player->setVolume(value / 100.0);
 }
 
 int Metronome::loudness(){
-    return _instance->_player->volume();
+    return (int)(_instance->_player->volume() * 100);
 }
