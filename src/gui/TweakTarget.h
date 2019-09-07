@@ -26,6 +26,8 @@ public:
     virtual ~TweakTarget() {};
     virtual void smallDecrease() = 0;
     virtual void smallIncrease() = 0;
+    virtual void mediumDecrease() = 0;
+    virtual void mediumIncrease() = 0;
     virtual void largeDecrease() = 0;
     virtual void largeIncrease() = 0;
 };
@@ -35,6 +37,8 @@ public:
     TimeTweakTarget(MainWindow* mainWindow);
     void smallDecrease();
     void smallIncrease();
+    void mediumDecrease();
+    void mediumIncrease();
     void largeDecrease();
     void largeIncrease();
 
@@ -47,6 +51,8 @@ public:
     StartTimeTweakTarget(MainWindow* mainWindow);
     void smallDecrease();
     void smallIncrease();
+    void mediumDecrease();
+    void mediumIncrease();
     void largeDecrease();
     void largeIncrease();
 
@@ -59,6 +65,8 @@ public:
     EndTimeTweakTarget(MainWindow* mainWindow);
     void smallDecrease();
     void smallIncrease();
+    void mediumDecrease();
+    void mediumIncrease();
     void largeDecrease();
     void largeIncrease();
 
@@ -71,6 +79,8 @@ public:
     NoteTweakTarget(MainWindow* mainWindow);
     void smallDecrease();
     void smallIncrease();
+    void mediumDecrease();
+    void mediumIncrease();
     void largeDecrease();
     void largeIncrease();
 
@@ -83,6 +93,8 @@ public:
     ValueTweakTarget(MainWindow* mainWindow);
     void smallDecrease();
     void smallIncrease();
+    void mediumDecrease();
+    void mediumIncrease();
     void largeDecrease();
     void largeIncrease();
 

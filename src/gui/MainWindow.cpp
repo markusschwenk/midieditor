@@ -2393,13 +2393,23 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     connect(tweakSmallIncreaseAction, SIGNAL(triggered()), this, SLOT(tweakSmallIncrease()));
     tweakMenu->addAction(tweakSmallIncreaseAction);
 
+    QAction* tweakMediumDecreaseAction = new QAction("Medium decrease", tweakMenu);
+    tweakMediumDecreaseAction->setShortcut(Qt::Key_9 + Qt::ALT);
+    connect(tweakMediumDecreaseAction, SIGNAL(triggered()), this, SLOT(tweakMediumDecrease()));
+    tweakMenu->addAction(tweakMediumDecreaseAction);
+
+    QAction* tweakMediumIncreaseAction = new QAction("Medium increase", tweakMenu);
+    tweakMediumIncreaseAction->setShortcut(Qt::Key_0 + Qt::ALT);
+    connect(tweakMediumIncreaseAction, SIGNAL(triggered()), this, SLOT(tweakMediumIncrease()));
+    tweakMenu->addAction(tweakMediumIncreaseAction);
+
     QAction* tweakLargeDecreaseAction = new QAction("Large decrease", tweakMenu);
-    tweakLargeDecreaseAction->setShortcut(Qt::Key_9 + Qt::ALT);
+    tweakLargeDecreaseAction->setShortcut(Qt::Key_9 + Qt::ALT + Qt::SHIFT);
     connect(tweakLargeDecreaseAction, SIGNAL(triggered()), this, SLOT(tweakLargeDecrease()));
     tweakMenu->addAction(tweakLargeDecreaseAction);
 
     QAction* tweakLargeIncreaseAction = new QAction("Large increase", tweakMenu);
-    tweakLargeIncreaseAction->setShortcut(Qt::Key_0 + Qt::ALT);
+    tweakLargeIncreaseAction->setShortcut(Qt::Key_0 + Qt::ALT + Qt::SHIFT);
     connect(tweakLargeIncreaseAction, SIGNAL(triggered()), this, SLOT(tweakLargeIncrease()));
     tweakMenu->addAction(tweakLargeIncreaseAction);
 
@@ -3201,6 +3211,14 @@ void MainWindow::tweakSmallDecrease() {
 
 void MainWindow::tweakSmallIncrease() {
     currentTweakTarget->smallIncrease();
+}
+
+void MainWindow::tweakMediumDecrease() {
+    currentTweakTarget->mediumDecrease();
+}
+
+void MainWindow::tweakMediumIncrease() {
+    currentTweakTarget->mediumIncrease();
 }
 
 void MainWindow::tweakLargeDecrease() {

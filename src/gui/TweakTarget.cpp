@@ -136,6 +136,62 @@ void TimeTweakTarget::smallIncrease()
     }
 }
 
+void TimeTweakTarget::mediumDecrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                int newTime = e->midiTime() - 10;
+
+                if (newTime >= 0) {
+                    e->setMidiTime(newTime);
+
+                    OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
+                    if (onEvent) {
+                        MidiEvent* offEvent = onEvent->offEvent();
+                        offEvent->setMidiTime(offEvent->midiTime() - 10);
+                    }
+                }
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
+void TimeTweakTarget::mediumIncrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                e->setMidiTime(e->midiTime() + 10);
+
+                OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
+                if (onEvent) {
+                    MidiEvent* offEvent = onEvent->offEvent();
+                    offEvent->setMidiTime(offEvent->midiTime() + 10);
+                }
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
 void TimeTweakTarget::largeDecrease()
 {
     MidiFile* file = mainWindow->getFile();
@@ -237,6 +293,54 @@ void StartTimeTweakTarget::smallIncrease()
 
             foreach (MidiEvent* e, selectedEvents) {
                 int newTime = e->midiTime() + 1;
+                e->setMidiTime(newTime);
+
+                OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
+                if (onEvent) {
+                    MidiEvent* offEvent = onEvent->offEvent();
+                    if (newTime > offEvent->midiTime()) offEvent->setMidiTime(newTime);
+                }
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
+void StartTimeTweakTarget::mediumDecrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                int newTime = e->midiTime() - 10;
+                if (newTime >= 0) e->setMidiTime(newTime);
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
+void StartTimeTweakTarget::mediumIncrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                int newTime = e->midiTime() + 10;
                 e->setMidiTime(newTime);
 
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
@@ -363,6 +467,63 @@ void EndTimeTweakTarget::smallIncrease()
     }
 }
 
+void EndTimeTweakTarget::mediumDecrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
+                if (onEvent) {
+                    MidiEvent* offEvent = onEvent->offEvent();
+                    int newTime = offEvent->midiTime() - 10;
+                    if (newTime >= 0) {
+                        offEvent->setMidiTime(newTime);
+                        if (newTime < onEvent->midiTime()) onEvent->setMidiTime(newTime);
+                    }
+                } else {
+                    int newTime = e->midiTime() - 10;
+                    if (newTime >= 0) e->setMidiTime(newTime);
+                }
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
+void EndTimeTweakTarget::mediumIncrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                OnEvent* onEvent = dynamic_cast<OnEvent*>(e);
+                if (onEvent) {
+                    MidiEvent* offEvent = onEvent->offEvent();
+                    offEvent->setMidiTime(offEvent->midiTime() + 10);
+                } else {
+                    e->setMidiTime(e->midiTime() + 10);
+                }
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
 void EndTimeTweakTarget::largeDecrease()
 {
     MidiFile* file = mainWindow->getFile();
@@ -475,6 +636,17 @@ void NoteTweakTarget::smallIncrease()
             protocol->endAction();
         }
     }
+}
+
+void NoteTweakTarget::mediumDecrease()
+{
+    largeDecrease();
+}
+
+
+void NoteTweakTarget::mediumIncrease()
+{
+    largeIncrease();
 }
 
 void NoteTweakTarget::largeDecrease()
@@ -638,6 +810,114 @@ void ValueTweakTarget::smallIncrease()
     }
 }
 
+void ValueTweakTarget::mediumDecrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                NoteOnEvent* noteOnEvent = dynamic_cast<NoteOnEvent*>(e);
+                if (noteOnEvent) {
+                    int newVelocity = noteOnEvent->velocity() - 10;
+                    if (newVelocity >= 0) noteOnEvent->setVelocity(newVelocity);
+                }
+
+                ControlChangeEvent* controlChangeEvent = dynamic_cast<ControlChangeEvent*>(e);
+                if (controlChangeEvent) {
+                    int newValue = controlChangeEvent->value() - 10;
+                    if (newValue >= 0) controlChangeEvent->setValue(newValue);
+                }
+
+                PitchBendEvent* pitchBendEvent = dynamic_cast<PitchBendEvent*>(e);
+                if (pitchBendEvent) {
+                    int newValue = pitchBendEvent->value() - 25;
+                    if (newValue >= 0) pitchBendEvent->setValue(newValue);
+                }
+
+                KeyPressureEvent* keyPressureEvent = dynamic_cast<KeyPressureEvent*>(e);
+                if (keyPressureEvent) {
+                    int newValue = keyPressureEvent->value() - 10;
+                    if (newValue >= 0) keyPressureEvent->setValue(newValue);
+                }
+
+                ChannelPressureEvent* channelPressureEvent = dynamic_cast<ChannelPressureEvent*>(e);
+                if (channelPressureEvent) {
+                    int newValue = channelPressureEvent->value() - 10;
+                    if (newValue >= 0) channelPressureEvent->setValue(newValue);
+                }
+
+                TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
+                if (tempoChangeEvent) {
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() - 10;
+                    if (newBeatsPerQuarter >= 0) tempoChangeEvent->setBeats(newBeatsPerQuarter);
+                }
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
+void ValueTweakTarget::mediumIncrease()
+{
+    MidiFile* file = mainWindow->getFile();
+
+    if (file) {
+        QList<MidiEvent*> selectedEvents = Selection::instance()->selectedEvents();
+
+        if (selectedEvents.size() > 0) {
+            Protocol* protocol = file->protocol();
+            protocol->startNewAction("Tweak");
+
+            foreach (MidiEvent* e, selectedEvents) {
+                NoteOnEvent* noteOnEvent = dynamic_cast<NoteOnEvent*>(e);
+                if (noteOnEvent) {
+                    int newVelocity = noteOnEvent->velocity() + 10;
+                    if (newVelocity < 128) noteOnEvent->setVelocity(newVelocity);
+                }
+
+                ControlChangeEvent* controlChangeEvent = dynamic_cast<ControlChangeEvent*>(e);
+                if (controlChangeEvent) {
+                    int newValue = controlChangeEvent->value() + 10;
+                    if (newValue < 128) controlChangeEvent->setValue(newValue);
+                }
+
+                PitchBendEvent* pitchBendEvent = dynamic_cast<PitchBendEvent*>(e);
+                if (pitchBendEvent) {
+                    int newValue = pitchBendEvent->value() + 25;
+                    if (newValue < (1 << 14)) pitchBendEvent->setValue(newValue);
+                }
+
+                KeyPressureEvent* keyPressureEvent = dynamic_cast<KeyPressureEvent*>(e);
+                if (keyPressureEvent) {
+                    int newValue = keyPressureEvent->value() + 10;
+                    if (newValue < 128) keyPressureEvent->setValue(newValue);
+                }
+
+                ChannelPressureEvent* channelPressureEvent = dynamic_cast<ChannelPressureEvent*>(e);
+                if (channelPressureEvent) {
+                    int newValue = channelPressureEvent->value() + 10;
+                    if (newValue < 128) channelPressureEvent->setValue(newValue);
+                }
+
+                TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
+                if (tempoChangeEvent) {
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() + 10;
+                    tempoChangeEvent->setBeats(newBeatsPerQuarter);
+                }
+            }
+
+            protocol->endAction();
+        }
+    }
+}
+
 void ValueTweakTarget::largeDecrease()
 {
     MidiFile* file = mainWindow->getFile();
@@ -664,7 +944,7 @@ void ValueTweakTarget::largeDecrease()
 
                 PitchBendEvent* pitchBendEvent = dynamic_cast<PitchBendEvent*>(e);
                 if (pitchBendEvent) {
-                    int newValue = pitchBendEvent->value() - 10;
+                    int newValue = pitchBendEvent->value() - 500;
                     if (newValue >= 0) pitchBendEvent->setValue(newValue);
                 }
 
@@ -682,7 +962,7 @@ void ValueTweakTarget::largeDecrease()
 
                 TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
                 if (tempoChangeEvent) {
-                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() - 10;
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() - 50;
                     if (newBeatsPerQuarter >= 0) tempoChangeEvent->setBeats(newBeatsPerQuarter);
                 }
             }
@@ -718,7 +998,7 @@ void ValueTweakTarget::largeIncrease()
 
                 PitchBendEvent* pitchBendEvent = dynamic_cast<PitchBendEvent*>(e);
                 if (pitchBendEvent) {
-                    int newValue = pitchBendEvent->value() + 10;
+                    int newValue = pitchBendEvent->value() + 500;
                     if (newValue < (1 << 14)) pitchBendEvent->setValue(newValue);
                 }
 
@@ -736,7 +1016,7 @@ void ValueTweakTarget::largeIncrease()
 
                 TempoChangeEvent* tempoChangeEvent = dynamic_cast<TempoChangeEvent*>(e);
                 if (tempoChangeEvent) {
-                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() + 10;
+                    int newBeatsPerQuarter = tempoChangeEvent->beatsPerQuarter() + 50;
                     tempoChangeEvent->setBeats(newBeatsPerQuarter);
                 }
             }

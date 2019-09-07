@@ -184,6 +184,8 @@ public slots:
     void tweakValue();
     void tweakSmallDecrease();
     void tweakSmallIncrease();
+    void tweakMediumDecrease();
+    void tweakMediumIncrease();
     void tweakLargeDecrease();
     void tweakLargeIncrease();
 
