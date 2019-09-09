@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QFileInfo>
 
+#include <QAudioDeviceInfo>
 #include <QSoundEffect>
 
 Metronome *Metronome::_instance = new Metronome();
@@ -15,7 +16,7 @@ Metronome::Metronome(QObject *parent) :	QObject(parent) {
     _file = 0;
     num = 4;
     denom = 2;
-    _player = new QSoundEffect(this);
+    _player = new QSoundEffect(QAudioDeviceInfo::defaultOutputDevice(), this);
     _player->setVolume(1.0);
     _player->setSource(QUrl("qrc:/run_environment/metronome/metronome-01.wav"));
 }
