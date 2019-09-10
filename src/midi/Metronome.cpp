@@ -8,6 +8,7 @@
 
 #include <QAudioDeviceInfo>
 #include <QSoundEffect>
+#include <QtGlobal>
 
 Metronome *Metronome::_instance = new Metronome();
 bool Metronome::_enable = false;
@@ -16,7 +17,11 @@ Metronome::Metronome(QObject *parent) :	QObject(parent) {
     _file = 0;
     num = 4;
     denom = 2;
+#if QT_VERSION >= 0x050D00
     _player = new QSoundEffect(QAudioDeviceInfo::defaultOutputDevice(), this);
+#else
+    _player = new QSoundEffect(this);
+#endif
     _player->setVolume(1.0);
     _player->setSource(QUrl("qrc:/run_environment/metronome/metronome-01.wav"));
 }
