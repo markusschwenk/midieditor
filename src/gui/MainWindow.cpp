@@ -440,7 +440,6 @@ MainWindow::MainWindow(QString initFile)
     Selection::_eventWidget = _eventWidget;
     lowerTabWidget->addTab(_eventWidget, "Event");
     MidiEvent::setEventWidget(_eventWidget);
-    connect(_eventWidget, SIGNAL(selectionChangedByTool(bool)), this, SLOT(showEventWidget(bool)));
 
     // below add two rows for choosing track/channel new events shall be assigned to
     QWidget* chooser = new QWidget(rightSplitter);
