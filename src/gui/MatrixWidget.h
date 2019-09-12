@@ -64,6 +64,8 @@ public:
     void setColorsByChannel();
     void setColorsByTracks();
     bool colorsByChannel();
+    void setColorsShadeByVelocity(bool shadeByVelocity);
+    bool colorsShadeByVelocity();
 
     int msOfTick(int tick);
     int xPosOfMs(int ms);
@@ -134,6 +136,7 @@ private:
     NoteOnEvent* pianoEvent;
 
     bool _colorsByChannels;
+    bool _colorsShadeByVelocity;
     int _div;
 
     QMap<int, QRect> pianoKeys;

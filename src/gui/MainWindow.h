@@ -134,6 +134,7 @@ public slots:
 
     void colorsByChannel();
     void colorsByTrack();
+    void colorsShadeByVelocity();
 
     void editChannel(int i, bool assign = true);
     void editTrack(int i, bool assign = true);
@@ -194,7 +195,7 @@ private:
         *_pasteToTrackMenu, *_pasteToChannelMenu, *_selectAllFromTrackMenu, *_selectAllFromChannelMenu;
 
     QTabWidget* lowerTabWidget;
-    QAction *_colorsByChannel, *_colorsByTracks;
+    QAction *_colorsByChannel, *_colorsByTracks, *_colorsShadeByVelocity;
 
     QComboBox *_chooseEditTrack, *_chooseEditChannel;
 
