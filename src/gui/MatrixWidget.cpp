@@ -598,7 +598,7 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
 
                     if (noteOnEvent) {
                         float scalingFactor = noteOnEvent->velocity() / 128.0;
-                        cC = QColor(cC.red() * scalingFactor, cC.green() * scalingFactor, cC.blue() * scalingFactor);
+                        cC = QColor(cC.red() * scalingFactor, cC.green() * scalingFactor, cC.blue() * scalingFactor, cC.alpha());
                     }
                 }
 
