@@ -2364,46 +2364,45 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     toolsToolsMenu->addAction(stdToolAction);
     tool->buttonClick();
 
-    QAction* selectSingleAction = new ToolButton(new SelectTool(SELECTION_TYPE_SINGLE), QKeySequence(Qt::Key_F2), toolsToolsMenu);
+    QAction* newNoteAction = new ToolButton(new NewNoteTool(), QKeySequence(Qt::Key_F2), toolsToolsMenu);
+    toolsToolsMenu->addAction(newNoteAction);
+    QAction* removeNotesAction = new ToolButton(new EraserTool(), QKeySequence(Qt::Key_F3), toolsToolsMenu);
+    toolsToolsMenu->addAction(removeNotesAction);
+
+    toolsToolsMenu->addSeparator();
+
+    QAction* selectSingleAction = new ToolButton(new SelectTool(SELECTION_TYPE_SINGLE), QKeySequence(Qt::Key_F4), toolsToolsMenu);
     toolsToolsMenu->addAction(selectSingleAction);
-    QAction* selectBoxAction = new ToolButton(new SelectTool(SELECTION_TYPE_BOX), QKeySequence(Qt::Key_F3), toolsToolsMenu);
+    QAction* selectBoxAction = new ToolButton(new SelectTool(SELECTION_TYPE_BOX), QKeySequence(Qt::Key_F5), toolsToolsMenu);
     toolsToolsMenu->addAction(selectBoxAction);
-    QAction* selectLeftAction = new ToolButton(new SelectTool(SELECTION_TYPE_LEFT), QKeySequence(Qt::Key_F4), toolsToolsMenu);
+    QAction* selectLeftAction = new ToolButton(new SelectTool(SELECTION_TYPE_LEFT), QKeySequence(Qt::Key_F6), toolsToolsMenu);
     toolsToolsMenu->addAction(selectLeftAction);
-    QAction* selectRightAction = new ToolButton(new SelectTool(SELECTION_TYPE_RIGHT), QKeySequence(Qt::Key_F5), toolsToolsMenu);
+    QAction* selectRightAction = new ToolButton(new SelectTool(SELECTION_TYPE_RIGHT), QKeySequence(Qt::Key_F7), toolsToolsMenu);
     toolsToolsMenu->addAction(selectRightAction);
 
     toolsToolsMenu->addSeparator();
 
-    QAction* timeSignatureAction= new ToolButton(new TimeSignatureTool(), QKeySequence(Qt::Key_F12), toolsToolsMenu);
-    toolsToolsMenu->addAction(timeSignatureAction);
-
-    QAction* measureAction= new ToolButton(new MeasureTool(), QKeySequence(Qt::Key_F14), toolsToolsMenu);
-    toolsToolsMenu->addAction(measureAction);
-
-    QAction* tempoAction= new ToolButton(new TempoTool(), QKeySequence(Qt::Key_F13), toolsToolsMenu);
-    toolsToolsMenu->addAction(tempoAction);
-
-    toolsToolsMenu->addSeparator();
-    QAction* moveAllAction = new ToolButton(new EventMoveTool(true, true), QKeySequence(Qt::Key_F6), toolsToolsMenu);
+    QAction* moveAllAction = new ToolButton(new EventMoveTool(true, true), QKeySequence(Qt::Key_F8), toolsToolsMenu);
     _activateWithSelections.append(moveAllAction);
     toolsToolsMenu->addAction(moveAllAction);
-    QAction* moveLRAction = new ToolButton(new EventMoveTool(false, true), QKeySequence(Qt::Key_F7), toolsToolsMenu);
+    QAction* moveLRAction = new ToolButton(new EventMoveTool(false, true), QKeySequence(Qt::Key_F9), toolsToolsMenu);
     _activateWithSelections.append(moveLRAction);
     toolsToolsMenu->addAction(moveLRAction);
-    QAction* moveUDAction = new ToolButton(new EventMoveTool(true, false), QKeySequence(Qt::Key_F8), toolsToolsMenu);
+    QAction* moveUDAction = new ToolButton(new EventMoveTool(true, false), QKeySequence(Qt::Key_F10), toolsToolsMenu);
     _activateWithSelections.append(moveUDAction);
     toolsToolsMenu->addAction(moveUDAction);
-    QAction* sizeChangeAction = new ToolButton(new SizeChangeTool(), QKeySequence(Qt::Key_F9), toolsToolsMenu);
+    QAction* sizeChangeAction = new ToolButton(new SizeChangeTool(), QKeySequence(Qt::Key_F11), toolsToolsMenu);
     _activateWithSelections.append(sizeChangeAction);
     toolsToolsMenu->addAction(sizeChangeAction);
 
     toolsToolsMenu->addSeparator();
 
-    QAction* newNoteAction = new ToolButton(new NewNoteTool(), QKeySequence(Qt::Key_F10), toolsToolsMenu);
-    toolsToolsMenu->addAction(newNoteAction);
-    QAction* removeNotesAction = new ToolButton(new EraserTool(), QKeySequence(Qt::Key_F11), toolsToolsMenu);
-    toolsToolsMenu->addAction(removeNotesAction);
+    QAction* measureAction= new ToolButton(new MeasureTool(), QKeySequence(Qt::Key_F12), toolsToolsMenu);
+    toolsToolsMenu->addAction(measureAction);
+    QAction* timeSignatureAction= new ToolButton(new TimeSignatureTool(), QKeySequence(Qt::Key_F13), toolsToolsMenu);
+    toolsToolsMenu->addAction(timeSignatureAction);
+    QAction* tempoAction= new ToolButton(new TempoTool(), QKeySequence(Qt::Key_F14), toolsToolsMenu);
+    toolsToolsMenu->addAction(tempoAction);
 
     toolsMB->addMenu(toolsToolsMenu);
 
@@ -2874,6 +2873,8 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     midiMB->addSeparator();
 
     QAction* panicAction = new QAction("Midi panic", this);
+    panicAction->setIcon(QIcon(":/run_environment/graphics/tool/panic.png"));
+    panicAction->setShortcut(QKeySequence(Qt::Key_Escape));
     connect(panicAction, SIGNAL(triggered()), this, SLOT(panic()));
     midiMB->addAction(panicAction);
 
@@ -2991,46 +2992,33 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     }
 
     lowerTB->addAction(lockAction);
+    lowerTB->addAction(metronomeAction);
+    lowerTB->addAction(thruAction);
+    lowerTB->addAction(panicAction);
 
     upperTB->addAction(stdToolAction);
+    upperTB->addAction(newNoteAction);
+    upperTB->addAction(removeNotesAction);
+    upperTB->addSeparator();
     upperTB->addAction(selectSingleAction);
     upperTB->addAction(selectBoxAction);
     upperTB->addAction(selectLeftAction);
     upperTB->addAction(selectRightAction);
-
     upperTB->addSeparator();
     upperTB->addAction(moveAllAction);
     upperTB->addAction(moveLRAction);
     upperTB->addAction(moveUDAction);
     upperTB->addAction(sizeChangeAction);
-
     upperTB->addSeparator();
-    upperTB->addAction(timeSignatureAction);
     upperTB->addAction(measureAction);
+    upperTB->addAction(timeSignatureAction);
     upperTB->addAction(tempoAction);
     upperTB->addSeparator();
-
-
     upperTB->addAction(alignLeftAction);
     upperTB->addAction(alignRightAction);
     upperTB->addAction(equalizeAction);
-
-    upperTB->addSeparator();
-
     upperTB->addAction(quantizeAction);
-
-    upperTB->addSeparator();
-
-    upperTB->addAction(newNoteAction);
-    upperTB->addAction(removeNotesAction);
-
-    upperTB->addSeparator();
     upperTB->addAction(magnetAction);
-
-    lowerTB->addSeparator();
-    lowerTB->addAction(metronomeAction);
-    lowerTB->addSeparator();
-    lowerTB->addAction(thruAction);
 
     btnLayout->setColumnStretch(4, 1);
 
