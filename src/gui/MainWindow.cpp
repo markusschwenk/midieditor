@@ -88,6 +88,7 @@
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/OnEvent.h"
+#include "../MidiEvent/TextEvent.h"
 #include "../MidiEvent/TimeSignatureEvent.h"
 #include "../midi/Metronome.h"
 #include "../midi/MidiChannel.h"
@@ -835,6 +836,75 @@ void MainWindow::backToBegin()
     file->setPauseTick(0);
     file->setCursorTick(0);
 
+    mw_matrixWidget->update();
+}
+
+void MainWindow::forwardMarker()
+{
+    if (!file)
+        return;
+
+    int oldTick = file->cursorTick();
+    if (file->pauseTick() >= 0) {
+        oldTick = file->pauseTick();
+    }
+    if (MidiPlayer::isPlaying() && !MidiInput::recording()) {
+        oldTick = file->tick(MidiPlayer::timeMs());
+        stop(true);
+    }
+
+    int newTick = -1;
+
+    foreach (MidiEvent* event, file->channel(16)->eventMap()->values()) {
+        int eventTick = event->midiTime();
+        if (eventTick <= oldTick) continue;
+        TextEvent* textEvent = dynamic_cast<TextEvent*>(event);
+
+        if (textEvent && textEvent->type() == TextEvent::MARKER) {
+            newTick = eventTick;
+            break;
+        }
+    }
+
+    if (newTick < 0) return;
+    file->setPauseTick(newTick);
+    file->setCursorTick(newTick);
+    mw_matrixWidget->timeMsChanged(file->msOfTick(newTick), true);
+    mw_matrixWidget->update();
+}
+
+void MainWindow::backMarker()
+{
+    if (!file)
+        return;
+
+    int oldTick = file->cursorTick();
+    if (file->pauseTick() >= 0) {
+        oldTick = file->pauseTick();
+    }
+    if (MidiPlayer::isPlaying() && !MidiInput::recording()) {
+        oldTick = file->tick(MidiPlayer::timeMs());
+        stop(true);
+    }
+
+    int newTick = 0;
+    QList<MidiEvent*> events = file->channel(16)->eventMap()->values();
+
+    for (int eventNumber = events.size() - 1; eventNumber >= 0; eventNumber--) {
+        MidiEvent* event = events.at(eventNumber);
+        int eventTick = event->midiTime();
+        if (eventTick >= oldTick) continue;
+        TextEvent* textEvent = dynamic_cast<TextEvent*>(event);
+
+        if (textEvent && textEvent->type() == TextEvent::MARKER) {
+            newTick = eventTick;
+            break;
+        }
+    }
+
+    file->setPauseTick(newTick);
+    file->setCursorTick(newTick);
+    mw_matrixWidget->timeMsChanged(file->msOfTick(newTick), true);
     mw_matrixWidget->update();
 }
 
@@ -2723,6 +2793,22 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     playbackMB->addSeparator();
 
+    QAction* backMarkerAction = new QAction("Previous marker", this);
+    backMarkerAction->setIcon(QIcon(":/run_environment/graphics/tool/back_marker.png"));
+    QList<QKeySequence> backMarkerActionShortcuts;
+    backMarkerAction->setShortcut(QKeySequence(Qt::Key_Comma + Qt::ALT));
+    connect(backMarkerAction, SIGNAL(triggered()), this, SLOT(backMarker()));
+    playbackMB->addAction(backMarkerAction);
+
+    QAction* forwMarkerAction = new QAction("Next marker", this);
+    forwMarkerAction->setIcon(QIcon(":/run_environment/graphics/tool/forward_marker.png"));
+    QList<QKeySequence> forwMarkerActionShortcuts;
+    forwMarkerAction->setShortcut(QKeySequence(Qt::Key_Period + Qt::ALT));
+    connect(forwMarkerAction, SIGNAL(triggered()), this, SLOT(forwardMarker()));
+    playbackMB->addAction(forwMarkerAction);
+
+    playbackMB->addSeparator();
+
     QMenu* speedMenu = new QMenu("Playback speed...");
     connect(speedMenu, SIGNAL(triggered(QAction*)), this, SLOT(setSpeed(QAction*)));
 
@@ -2843,12 +2929,14 @@ QWidget* MainWindow::setupActions(QWidget* parent)
         playTB->setIconSize(QSize(35, 35));
 
         playTB->addAction(backToBeginAction);
+        playTB->addAction(backMarkerAction);
         playTB->addAction(backAction);
         playTB->addAction(playAction);
         playTB->addAction(pauseAction);
         playTB->addAction(stopAction);
         playTB->addAction(recAction);
         playTB->addAction(forwAction);
+        playTB->addAction(forwMarkerAction);
         playTB->addSeparator();
 
         btnLayout->addWidget(playTB, 0, 1, 2, 1);
@@ -2891,12 +2979,14 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     if (!QApplication::arguments().contains("--large-playback-toolbar")) {
 
         lowerTB->addAction(backToBeginAction);
+        lowerTB->addAction(backMarkerAction);
         lowerTB->addAction(backAction);
         lowerTB->addAction(playAction);
         lowerTB->addAction(pauseAction);
         lowerTB->addAction(stopAction);
         lowerTB->addAction(recAction);
         lowerTB->addAction(forwAction);
+        lowerTB->addAction(forwMarkerAction);
         lowerTB->addSeparator();
     }
 
