@@ -45,6 +45,9 @@
   When pressing CTRL+A, all visible events will be selected. Moreover, events from a specific track or from a specific channel
   can be selected using the according actions in the <a href="index.php?category=manual&subcategory=menu-edit">edit menu in the menubar</a>.
 </p>
+<p>
+  Once an event has been selected, you can navigate the selection to nearby events using the arrow keys on the keyboard.
+</p>
 
 <h3 id="moving">Moving events</h3>
 <p>
@@ -262,3 +265,30 @@ Events changing the channel's instrument. To prevent this, you can select
 &quot;Remove other Program Change Events&quot; before accepting the
 dialog. All other Program Change Events of the channel will be removed.
 </p>
+
+<h3 id="tweaking-event-properties">Tweaking Event Properties</h3>
+
+<p>
+You can finely tweak the properties of selected events using the keyboard.  First choose which property to tweak:
+</p>
+
+<ul>
+<li>Time, preserving duration = 1</li>
+<li>Start time = 2</li>
+<li>End time = 3</li>
+<li>Note = 4</li>
+<li>Note velocity, controller value, or tempo = 5</li>
+</ul>
+
+<p>
+Then choose how you'd like that property of the respective selected events to be modified:
+</p>
+
+<ul>
+<li>Small decrease = 9</li>
+<li>Small increase = 0</li>
+<li>Medium decrease = Alt + 9</li>
+<li>Medium increase = Alt + 0</li>
+<li>Large decrease = Alt + Shift + 9</li>
+<li>Large increase = Alt + Shift + 0</li>
+</ul>
