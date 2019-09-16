@@ -612,6 +612,8 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                             if (event) {
                                 if (v > _max)
                                     v = _max;
+                                if (v < 1)
+                                    v = 1;
                                 event->setBeats(v);
                             }
                             break;
@@ -663,6 +665,8 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                         case TempoEditor: {
                             if (v > _max)
                                 v = _max;
+                            if (v < 1)
+                                v = 1;
                             TempoChangeEvent* event = new TempoChangeEvent(channelToUse, 60000000 / v, track);
                             matrixWidget->midiFile()->channel(channelToUse)->insertEvent(event, tick);
                             break;
@@ -747,6 +751,8 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                 case TempoEditor: {
                     if (v > _max)
                         v = _max;
+                    if (v < 1)
+                        v = 1;
                     TempoChangeEvent* event = new TempoChangeEvent(channelToUse, 60000000 / v, track);
                     matrixWidget->midiFile()->channel(channelToUse)->insertEvent(event, tick);
                     break;
@@ -926,6 +932,8 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                         break;
                     }
                     case TempoEditor: {
+                        if (v < 1)
+                            v = 1;
                         TempoChangeEvent* event = new TempoChangeEvent(channelToUse, 60000000 / v, track);
                         matrixWidget->midiFile()->channel(channelToUse)->insertEvent(event, tick);
                         break;
