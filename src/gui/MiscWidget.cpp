@@ -953,30 +953,29 @@ int MiscWidget::value(double y)
     if (v > _max) {
         v = _max;
     }
+    if (v < 0) {
+        v = 0;
+    }
     return v;
 }
 
 double MiscWidget::interpolate(QList<QPair<int, int> > track, int x)
 {
+    if (track.size() == 0) return 0;
+    int rightIndex = 0;
 
-    for (int i = 0; i < track.size(); i++) {
-
-        if (track.at(i).first == x) {
-            return (double)track.at(i).second;
-        }
-
-        if (track.at(i).first > x) {
-
-            if (i == 0) {
-                return (double)track.at(i).second;
-            } else {
-
-                return (double)track.at(i - 1).second + (double)(track.at(i).second - track.at(i - 1).second) * (double)(x - track.at(i - 1).first) / (double)(track.at(i).first - track.at(i - 1).first);
-            }
-        }
+    for (rightIndex = 0; rightIndex < track.size(); rightIndex++) {
+        if (track.at(rightIndex).first >= x) break;
     }
 
-    return 0;
+    if (rightIndex == track.size()) rightIndex = track.size() - 1;
+    if (rightIndex == 0) return (double)track.at(0).second;
+    int leftIndex = rightIndex - 1;
+    double leftX = track.at(leftIndex).first;
+    double leftY = track.at(leftIndex).second;
+    double rightX = track.at(rightIndex).first;
+    double rightY = track.at(rightIndex).second;
+    return leftY + (rightY - leftY) * (x - leftX) / (rightX - leftX);
 }
 
 void MiscWidget::leaveEvent(QEvent* event)
