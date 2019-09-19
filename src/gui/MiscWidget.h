@@ -80,6 +80,8 @@ private:
     void computeMinMax();
     QPair<int, int> processEvent(MidiEvent* e, bool* ok);
     double interpolate(QList<QPair<int, int> > track, int x);
+    int tickOfXPos(int x);
+    int xPosOfTick(int tick);
     int value(double y);
     bool filter(MidiEvent* e);
 

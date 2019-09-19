@@ -682,7 +682,7 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
             } else {
 
                 // insert new event
-                int tick = matrixWidget->midiFile()->tick(matrixWidget->msOfXPos(mouseX + LEFT_BORDER_MATRIX_WIDGET));
+                int tick = tickOfXPos(mouseX);
                 int v = value(mouseY);
 
                 QString text = "";
@@ -792,8 +792,8 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
 
         if (toAlign.size() > 0) {
 
-            int minTick = matrixWidget->midiFile()->tick(matrixWidget->msOfXPos(toAlign.first().first + LEFT_BORDER_MATRIX_WIDGET));
-            int maxTick = matrixWidget->midiFile()->tick(matrixWidget->msOfXPos(toAlign.last().first + LEFT_BORDER_MATRIX_WIDGET));
+            int minTick = tickOfXPos(toAlign.first().first);
+            int maxTick = tickOfXPos(toAlign.last().first);
 
             // process data
             if (mode == VelocityEditor) {
@@ -842,7 +842,7 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                         if (noteOn) {
 
                             int tick = noteOn->midiTime();
-                            int x = matrixWidget->xPosOfMs(matrixWidget->midiFile()->msOfTick(tick)) - LEFT_BORDER_MATRIX_WIDGET;
+                            int x = xPosOfTick(tick);
                             double y = interpolate(toAlign, x);
 
                             int v = 127 * (height() - y) / height();
@@ -897,9 +897,8 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                 int stepSize = 10;
 
                 int lastValue = -1;
-                for (int tick = minTick; tick <= maxTick; tick += stepSize) {
+                for (int x = toAlign.first().first, tick = tickOfXPos(x); x <= toAlign.last().first; tick += stepSize, x = xPosOfTick(tick)) {
 
-                    int x = matrixWidget->xPosOfMs(matrixWidget->midiFile()->msOfTick(tick)) - LEFT_BORDER_MATRIX_WIDGET;
                     double y = interpolate(toAlign, x);
                     int v = value(y);
                     if ((lastValue != -1) && (lastValue == v)) {
@@ -947,6 +946,16 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
     }
 }
 
+int MiscWidget::tickOfXPos(int x)
+{
+    return matrixWidget->midiFile()->tick(matrixWidget->msOfXPos(x + LEFT_BORDER_MATRIX_WIDGET));
+}
+
+int MiscWidget::xPosOfTick(int tick)
+{
+    return matrixWidget->xPosOfMs(matrixWidget->midiFile()->msOfTick(tick)) - LEFT_BORDER_MATRIX_WIDGET;
+}
+
 int MiscWidget::value(double y)
 {
     int v = _max * (height() - y) / height();
@@ -961,21 +970,25 @@ int MiscWidget::value(double y)
 
 double MiscWidget::interpolate(QList<QPair<int, int> > track, int x)
 {
-    if (track.size() == 0) return 0;
-    int rightIndex = 0;
 
-    for (rightIndex = 0; rightIndex < track.size(); rightIndex++) {
-        if (track.at(rightIndex).first >= x) break;
+    for (int i = 0; i < track.size(); i++) {
+
+        if (track.at(i).first == x) {
+            return (double)track.at(i).second;
+        }
+
+        if (track.at(i).first > x) {
+
+            if (i == 0) {
+                return (double)track.at(i).second;
+            } else {
+
+                return (double)track.at(i - 1).second + (double)(track.at(i).second - track.at(i - 1).second) * (double)(x - track.at(i - 1).first) / (double)(track.at(i).first - track.at(i - 1).first);
+            }
+        }
     }
 
-    if (rightIndex == track.size()) rightIndex = track.size() - 1;
-    if (rightIndex == 0) return (double)track.at(0).second;
-    int leftIndex = rightIndex - 1;
-    double leftX = track.at(leftIndex).first;
-    double leftY = track.at(leftIndex).second;
-    double rightX = track.at(rightIndex).first;
-    double rightY = track.at(rightIndex).second;
-    return leftY + (rightY - leftY) * (x - leftX) / (rightX - leftX);
+    return 0;
 }
 
 void MiscWidget::leaveEvent(QEvent* event)
