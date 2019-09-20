@@ -883,6 +883,11 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
 
                 matrixWidget->midiFile()->protocol()->startNewAction(text);
 
+                QList<QPair<int, int>> toAlignByTick;
+                for (int i = 0; i < toAlign.size(); i++) {
+                    toAlignByTick.append(QPair<int, int>(tickOfXPos(toAlign.at(i).first), toAlign.at(i).second));
+                }
+
                 // remove old events
                 QList<MidiEvent*>* list = matrixWidget->velocityEvents();
                 for (int i = 0; i < list->size(); i++) {
@@ -897,9 +902,9 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                 int stepSize = 10;
 
                 int lastValue = -1;
-                for (int x = toAlign.first().first, tick = tickOfXPos(x); x <= toAlign.last().first; tick += stepSize, x = xPosOfTick(tick)) {
+                for (int tick = toAlignByTick.first().first; tick <= toAlignByTick.last().first; tick += stepSize) {
 
-                    double y = interpolate(toAlign, x);
+                    double y = interpolate(toAlignByTick, tick);
                     int v = value(y);
                     if ((lastValue != -1) && (lastValue == v)) {
                         continue;

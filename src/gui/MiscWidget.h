@@ -82,6 +82,10 @@ private:
     double interpolate(QList<QPair<int, int> > track, int x);
     int tickOfXPos(int x);
     int xPosOfTick(int tick);
+    int tickOfMs(int ms);
+    int msOfTick(int tick);
+    int msOfXPos(int x);
+    int xPosOfMs(int ms);
     int value(double y);
     bool filter(MidiEvent* e);
 
