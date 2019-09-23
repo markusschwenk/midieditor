@@ -577,6 +577,7 @@ void MainWindow::setFile(MidiFile* file)
     connect(file, SIGNAL(recalcWidgetSize()), mw_matrixWidget, SLOT(calcSizes()));
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(markEdited()));
     connect(file->protocol(), SIGNAL(actionFinished()), eventWidget(), SLOT(reload()));
+    connect(eventWidget(), SIGNAL(selectionChangedByTool(bool)), eventWidget(), SLOT(reload()));
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(checkEnableActionsForSelection()));
     mw_matrixWidget->setFile(file);
     updateChannelMenu();
