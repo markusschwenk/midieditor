@@ -212,14 +212,10 @@ MainWindow::MainWindow(QString initFile)
     mainSplitter->setStretchFactor(1, 0);
     mainSplitter->setContentsMargins(0, 0, 0, 0);
 
-    // the channelWidget and the trackWidget are tabbed
-    QTabWidget* upperTabWidget = new QTabWidget(rightSplitter);
-    rightSplitter->addWidget(upperTabWidget);
+    // the eventWidget, protocolWidget, channelWidget, and trackWidget are tabbed
+    QTabWidget* tabWidget = new QTabWidget(rightSplitter);
+    rightSplitter->addWidget(tabWidget);
     rightSplitter->setContentsMargins(0, 0, 0, 0);
-
-    // protocolList and EventWidget are tabbed
-    lowerTabWidget = new QTabWidget(rightSplitter);
-    rightSplitter->addWidget(lowerTabWidget);
 
     // MatrixArea
     QWidget* matrixArea = new QWidget(leftSplitter);
@@ -335,8 +331,18 @@ MainWindow::MainWindow(QString initFile)
     leftSplitter->setStretchFactor(0, 8);
     leftSplitter->setStretchFactor(1, 1);
 
+    // EventWidget
+    _eventWidget = new EventWidget(tabWidget);
+    Selection::_eventWidget = _eventWidget;
+    tabWidget->addTab(_eventWidget, "Event");
+    MidiEvent::setEventWidget(_eventWidget);
+
+    // Protocollist
+    protocolWidget = new ProtocolWidget(tabWidget);
+    tabWidget->addTab(protocolWidget, "Protocol");
+
     // Track
-    QWidget* tracks = new QWidget(upperTabWidget);
+    QWidget* tracks = new QWidget(tabWidget);
     QGridLayout* tracksLayout = new QGridLayout(tracks);
     tracks->setLayout(tracksLayout);
     QToolBar* tracksTB = new QToolBar(tracks);
@@ -383,10 +389,10 @@ MainWindow::MainWindow(QString initFile)
     connect(_trackWidget, SIGNAL(trackClicked(MidiTrack*)), this, SLOT(editTrackAndChannel(MidiTrack*)), Qt::QueuedConnection);
 
     tracksLayout->addWidget(_trackWidget, 1, 0, 1, 1);
-    upperTabWidget->addTab(tracks, "Tracks");
+    tabWidget->addTab(tracks, "Tracks");
 
     // Channels
-    QWidget* channels = new QWidget(upperTabWidget);
+    QWidget* channels = new QWidget(tabWidget);
     QGridLayout* channelsLayout = new QGridLayout(channels);
     channels->setLayout(channelsLayout);
     QToolBar* channelsTB = new QToolBar(channels);
@@ -423,24 +429,14 @@ MainWindow::MainWindow(QString initFile)
     connect(channelWidget, SIGNAL(channelStateChanged()), this, SLOT(updateChannelMenu()), Qt::QueuedConnection);
     connect(channelWidget, SIGNAL(selectInstrumentClicked(int)), this, SLOT(setInstrumentForChannel(int)), Qt::QueuedConnection);
     channelsLayout->addWidget(channelWidget, 1, 0, 1, 1);
-    upperTabWidget->addTab(channels, "Channels");
+    tabWidget->addTab(channels, "Channels");
 
     // terminal
     Terminal::initTerminal(_settings->value("start_cmd", "").toString(),
         _settings->value("in_port", "").toString(),
         _settings->value("out_port", "").toString());
-    //upperTabWidget->addTab(Terminal::terminal()->console(), "Terminal");
-
-    // Protocollist
-    protocolWidget = new ProtocolWidget(lowerTabWidget);
-    lowerTabWidget->addTab(protocolWidget, "Protocol");
-
-    // EventWidget
-    _eventWidget = new EventWidget(lowerTabWidget);
-    Selection::_eventWidget = _eventWidget;
-    lowerTabWidget->addTab(_eventWidget, "Event");
-    MidiEvent::setEventWidget(_eventWidget);
-    connect(_eventWidget, SIGNAL(selectionChangedByTool(bool)), this, SLOT(showEventWidget(bool)));
+    if (_settings->value("show_terminal", false).toBool())
+        tabWidget->addTab(Terminal::terminal()->console(), "Terminal");
 
     // below add two rows for choosing track/channel new events shall be assigned to
     QWidget* chooser = new QWidget(rightSplitter);
@@ -482,8 +478,8 @@ MainWindow::MainWindow(QString initFile)
 
     QWidget* buttons = setupActions(central);
 
-    rightSplitter->setStretchFactor(0, 5);
-    rightSplitter->setStretchFactor(1, 5);
+    rightSplitter->setStretchFactor(0, 8);
+    rightSplitter->setStretchFactor(1, 1);
 
     // Add the Widgets to the central Layout
     centralLayout->setSpacing(0);
@@ -1652,15 +1648,6 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
 void MainWindow::keyReleaseEvent(QKeyEvent* event)
 {
     mw_matrixWidget->takeKeyReleaseEvent(event);
-}
-
-void MainWindow::showEventWidget(bool show)
-{
-    if (show) {
-        lowerTabWidget->setCurrentIndex(1);
-    } else {
-        lowerTabWidget->setCurrentIndex(0);
-    }
 }
 
 void MainWindow::renameTrackMenuClicked(QAction* action)
