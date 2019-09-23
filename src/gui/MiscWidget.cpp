@@ -883,7 +883,7 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
 
                 matrixWidget->midiFile()->protocol()->startNewAction(text);
 
-                QList<QPair<int, int>> toAlignByTick;
+                QList<QPair<int, int> > toAlignByTick;
                 for (int i = 0; i < toAlign.size(); i++) {
                     toAlignByTick.append(QPair<int, int>(tickOfXPos(toAlign.at(i).first), toAlign.at(i).second));
                 }
