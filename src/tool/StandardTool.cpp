@@ -165,14 +165,13 @@ bool StandardTool::press(bool leftClick)
                     protocol(toCopy, this);
                     file()->protocol()->endAction();
                 }
-                /* TODO reenable
-					if(altGrPressed){
+					if(QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)){
 						moveTool->setDirections(true, false);
-					} else if(spacePressed){
+					} else if(QApplication::keyboardModifiers().testFlag(Qt::AltModifier)){
 						moveTool->setDirections(false, true);
 					} else {
 						moveTool->setDirections(true, true);
-					} */
+					}
                 Tool::setCurrentTool(moveTool);
                 moveTool->move(mouseX, mouseY);
                 moveTool->press(leftClick);
