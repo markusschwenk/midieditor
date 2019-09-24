@@ -77,10 +77,14 @@ public:
 
     enum EditorField {
         MidiEventTick,
+        MidiEventMeasuresBeats,
+        MidiEventHoursMinutesSeconds,
         MidiEventTrack,
         MidiEventChannel,
         MidiEventNote,
         NoteEventOffTick,
+        NoteEventOffMeasuresBeats,
+        NoteEventOffHoursMinutesSeconds,
         NoteEventVelocity,
         NoteEventDuration,
         MidiEventValue,

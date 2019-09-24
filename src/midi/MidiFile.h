@@ -104,6 +104,15 @@ public:
 
     int startTickOfMeasure(int measure);
 
+    void measuresBeatsOfTick(int tick, int* measures, float* beats);
+    int tickOfMeasuresBeats(int measures, float beats);
+    QString measuresBeatsStringOfTick(int tick);
+    int tickOfMeasuresBeatsString(QString measuresBeatsString);
+    void hoursMinutesSecondsOfMs(int ms, int* hours, int* minutes, float* seconds);
+    int msOfHoursMinutesSeconds(int hours, int minutes, float seconds);
+    QString hoursMinutesSecondsStringOfMs(int ms);
+    int msOfHoursMinutesSecondsString(QString hoursMinutesSecondsString);
+
 signals:
     void cursorPositionChanged();
     void recalcWidgetSize();
