@@ -62,7 +62,7 @@ before_deploy:
    - if [ "$BUILD_OS" = "LINUX" ]; then DEPLOY_BINARIY=releases/midieditor_$MIDIEDITOR_RELEASE_VERSION_STRING-$MIDIEDITOR_PACKAGE_VERSION-amd64.deb; fi
 
    - if [ "$BUILD_OS" = "MAC" ]; then DEPLOY_BINARIY=releases/MidiEditor-$MIDIEDITOR_RELEASE_VERSION_STRING-mac.tar.gz; fi
-   - if [ "$BUILD_OS" = "MAC" ]; then tar cvzf $DEPLOY_BINARIY $MIDIEDITOR_BINARY fi
+   - if [ "$BUILD_OS" = "MAC" ]; then tar cvzf $DEPLOY_BINARIY $MIDIEDITOR_BINARY; fi
 
 deploy:
   provider: releases
