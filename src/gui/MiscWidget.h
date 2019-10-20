@@ -37,7 +37,8 @@ class SelectTool;
 #define PitchBendEditor 2
 #define KeyPressureEditor 3
 #define ChannelPressureEditor 4
-#define MiscModeEnd 5
+#define TempoEditor 5
+#define MiscModeEnd 6
 
 class MiscWidget : public PaintWidget {
 
@@ -79,6 +80,12 @@ private:
     void computeMinMax();
     QPair<int, int> processEvent(MidiEvent* e, bool* ok);
     double interpolate(QList<QPair<int, int> > track, int x);
+    int tickOfXPos(int x);
+    int xPosOfTick(int tick);
+    int tickOfMs(int ms);
+    int msOfTick(int tick);
+    int msOfXPos(int x);
+    int xPosOfMs(int ms);
     int value(double y);
     bool filter(MidiEvent* e);
 

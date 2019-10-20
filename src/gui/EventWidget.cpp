@@ -800,7 +800,7 @@ QString EventWidget::eventType()
         return "Sysex Event";
     }
     case TempoChangeEventType: {
-        return "Temo Change Event";
+        return "Tempo Change Event";
     }
     case TextEventType: {
         return "Text Event";
