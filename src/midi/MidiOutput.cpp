@@ -61,7 +61,7 @@ void MidiOutput::sendCommand(QByteArray array)
 void MidiOutput::sendCommand(MidiEvent* e)
 {
 
-    if (e->channel() >= 0 && e->channel() < 16) {
+    if (e->channel() >= 0 && e->channel() < 16 || e->line() == MidiEvent::SYSEX_LINE) {
         _sender->enqueue(e);
 
         if (isAlternativePlayer) {

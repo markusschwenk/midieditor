@@ -38,6 +38,7 @@
 #include "../MidiEvent/TempoChangeEvent.h"
 #include "../MidiEvent/TextEvent.h"
 #include "../MidiEvent/TimeSignatureEvent.h"
+#include "../MidiEvent/SysExEvent.h"
 #include "../MidiEvent/UnknownEvent.h"
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
@@ -201,6 +202,11 @@ void RecordDialog::enter()
 
             TextEvent* text = dynamic_cast<TextEvent*>(toCheck);
             if (text) {
+                currentChannel = 16;
+            }
+
+            SysExEvent *sysEx = dynamic_cast<SysExEvent*>(toCheck);
+            if (sysEx) {
                 currentChannel = 16;
             }
 
