@@ -230,11 +230,12 @@ void MatrixWidget::paintEvent(QPaintEvent* event)
                 pianoKeys * lineHeight(), Qt::white);
         }
 
+
         // draw lines, pianokeys and linenames
         for (int i = startLineY; i <= endLineY; i++) {
             int startLine = yPosOfLine(i);
             QColor c(194, 230, 255);
-            if (i % 2 == 0) {
+            if ( !( (1 << (i % 12)) & sharp_strip_mask ) ){
                 c = QColor(234, 246, 255);
             }
 
