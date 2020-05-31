@@ -17,7 +17,7 @@ Metronome::Metronome(QObject *parent) :	QObject(parent) {
     denom = 2;
     _player = new QMediaPlayer(this, QMediaPlayer::LowLatency);
     _player->setVolume(100);
-    _player->setMedia(QUrl::fromLocalFile(QFileInfo("metronome/metronome-01.wav").absoluteFilePath()));
+    _player->setMedia(QUrl("qrc:/run_environment/metronome/metronome-01.wav"));
 }
 
 void Metronome::setFile(MidiFile *file){
