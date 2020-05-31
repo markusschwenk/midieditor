@@ -137,6 +137,9 @@ private:
     int _div;
 
     QMap<int, QRect> pianoKeys;
+
+    static const unsigned sharp_strip_mask = (1 << 4) | (1 << 6) | (1 << 9) | (1 << 11) | (1 << 1);
+
 };
 
 #endif
