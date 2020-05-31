@@ -1,7 +1,7 @@
 #!/bin/sh
-qmake -qt=qt5 -project -v
-qmake -qt=qt5 midieditor.pro
-make
+qmake -project -v -qt=qt5
+qmake -makefile midieditor.pro
+make -j $(nproc)
 status=$?
 if [ $status -eq 0 ]; then
 echo "build was successful"
