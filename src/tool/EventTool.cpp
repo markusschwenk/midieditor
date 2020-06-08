@@ -323,24 +323,19 @@ int EventTool::pasteChannel()
 
 int EventTool::rasteredX(int x, int* tick)
 {
+    int t = _currentFile->tick(matrixWidget->msOfXPos(x));
     if (!_magnet) {
         if (tick) {
-            *tick = _currentFile->tick(matrixWidget->msOfXPos(x));
+            *tick = t;
         }
         return x;
-    }
-    typedef QPair<int, int> TMPPair;
-    foreach (TMPPair p, matrixWidget->divs()) {
-        int xt = p.first;
-        if (qAbs(xt - x) <= 5) {
-            if (tick) {
-                *tick = p.second;
-            }
-            return xt;
+    }else{
+        int tickdiv = _currentFile->ticksPerQuarter()*4/(int)qPow(2,matrixWidget->div());
+        t = ((int)(t/tickdiv)) * tickdiv;
+        if (tick){
+            *tick = t;
         }
-    }
-    if (tick) {
-        *tick = _currentFile->tick(matrixWidget->msOfXPos(x));
+        x = matrixWidget->xPosOfMs(matrixWidget->msOfTick(t));
     }
     return x;
 }
