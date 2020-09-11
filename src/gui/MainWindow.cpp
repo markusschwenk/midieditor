@@ -502,6 +502,9 @@ MainWindow::MainWindow(QString initFile)
     } else {
         colorsByTrack();
     }
+
+    _colorsShadeByVelocity->setChecked(_settings->value("colors_shade_by_velocity", false).toBool());
+
     copiedEventsChanged();
     setAcceptDrops(true);
 
@@ -1230,6 +1233,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
     _settings->setValue("div", mw_matrixWidget->div());
     _settings->setValue("colors_from_channel", mw_matrixWidget->colorsByChannel());
+    _settings->setValue("colors_shade_by_velocity", mw_matrixWidget->colorsShadeByVelocity());
 
     _settings->setValue("metronome", Metronome::enabled());
     _settings->setValue("metronome_loudness", Metronome::loudness());
@@ -2004,11 +2008,20 @@ void MainWindow::colorsByChannel()
     mw_matrixWidget->update();
     _miscWidget->update();
 }
+
 void MainWindow::colorsByTrack()
 {
     mw_matrixWidget->setColorsByTracks();
     _colorsByChannel->setChecked(false);
     _colorsByTracks->setChecked(true);
+    mw_matrixWidget->registerRelayout();
+    mw_matrixWidget->update();
+    _miscWidget->update();
+}
+
+void MainWindow::colorsShadeByVelocity()
+{
+    mw_matrixWidget->setColorsShadeByVelocity(_colorsShadeByVelocity->isChecked());
     mw_matrixWidget->registerRelayout();
     mw_matrixWidget->update();
     _miscWidget->update();
@@ -2698,6 +2711,13 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     _colorsByTracks->setCheckable(true);
     connect(_colorsByTracks, SIGNAL(triggered()), this, SLOT(colorsByTrack()));
     colorMenu->addAction(_colorsByTracks);
+
+    colorMenu->addSeparator();
+
+    _colorsShadeByVelocity = new QAction("Shade by velocity", this);
+    _colorsShadeByVelocity->setCheckable(true);
+    connect(_colorsShadeByVelocity, SIGNAL(changed()), this, SLOT(colorsShadeByVelocity()));
+    colorMenu->addAction(_colorsShadeByVelocity);
 
     viewMB->addMenu(colorMenu);
 

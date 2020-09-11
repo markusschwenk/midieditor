@@ -541,7 +541,6 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
     if (!file->channel(channel)->visible()) {
         return;
     }
-    QColor cC = *file->channel(channel)->color();
 
     // filter events
     QMultiMap<int, MidiEvent*>* map = file->channelEvents(channel);
@@ -587,9 +586,23 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
             event->setHeight(height);
 
             if (!(event->track()->hidden())) {
-                if (!_colorsByChannels) {
+                QColor cC;
+
+                if (_colorsByChannels) {
+                    cC = *file->channel(channel)->color();
+                } else {
                     cC = *event->track()->color();
                 }
+
+                if (_colorsShadeByVelocity) {
+                    NoteOnEvent* noteOnEvent = dynamic_cast<NoteOnEvent*>(event);
+
+                    if (noteOnEvent) {
+                        float scalingFactor = noteOnEvent->velocity() / 128.0;
+                        cC = QColor(cC.red() * scalingFactor, cC.green() * scalingFactor, cC.blue() * scalingFactor, cC.alpha());
+                    }
+                }
+
                 event->draw(painter, cC);
 
                 if (Selection::instance()->selectedEvents().contains(event)) {
@@ -1222,6 +1235,7 @@ void MatrixWidget::setColorsByChannel()
 {
     _colorsByChannels = true;
 }
+
 void MatrixWidget::setColorsByTracks()
 {
     _colorsByChannels = false;
@@ -1230,6 +1244,16 @@ void MatrixWidget::setColorsByTracks()
 bool MatrixWidget::colorsByChannel()
 {
     return _colorsByChannels;
+}
+
+void MatrixWidget::setColorsShadeByVelocity(bool shadeByVelocity)
+{
+    _colorsShadeByVelocity = shadeByVelocity;
+}
+
+bool MatrixWidget::colorsShadeByVelocity()
+{
+    return _colorsShadeByVelocity;
 }
 
 void MatrixWidget::setDiv(int div)
