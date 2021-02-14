@@ -21,7 +21,6 @@
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiFile.h"
-#include "../protocol/Protocol.h"
 #include "StandardTool.h"
 
 SelectTool::SelectTool(int type)
@@ -99,7 +98,6 @@ bool SelectTool::release()
     if (!file()) {
         return false;
     }
-    file()->protocol()->startNewAction("Selection changed", image());
     ProtocolEntry* toCopy = copy();
 
     if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
@@ -153,7 +151,6 @@ bool SelectTool::release()
     y_rect = 0;
 
     protocol(toCopy, this);
-    file()->protocol()->endAction();
     if (_standardTool) {
         Tool::setCurrentTool(_standardTool);
         _standardTool->move(mouseX, mouseY);

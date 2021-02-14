@@ -580,6 +580,7 @@ void MainWindow::setFile(MidiFile* file)
     connect(file, SIGNAL(recalcWidgetSize()), mw_matrixWidget, SLOT(calcSizes()));
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(markEdited()));
     connect(file->protocol(), SIGNAL(actionFinished()), eventWidget(), SLOT(reload()));
+    connect(eventWidget(), SIGNAL(selectionChangedByTool(bool)), eventWidget(), SLOT(reload()));
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(checkEnableActionsForSelection()));
     mw_matrixWidget->setFile(file);
     updateChannelMenu();
@@ -1903,7 +1904,6 @@ void MainWindow::selectAllFromChannel(QAction* action)
         return;
     }
     int channel = action->data().toInt();
-    file->protocol()->startNewAction("Select all events from channel " + QString::number(channel));
     EventTool::clearSelection();
     file->channel(channel)->setVisible(true);
     foreach (MidiEvent* e, file->channel(channel)->eventMap()->values()) {
@@ -1912,8 +1912,6 @@ void MainWindow::selectAllFromChannel(QAction* action)
         }
         EventTool::selectEvent(e, false);
     }
-
-    file->protocol()->endAction();
 }
 
 void MainWindow::selectAllFromTrack(QAction* action)
@@ -1924,7 +1922,6 @@ void MainWindow::selectAllFromTrack(QAction* action)
     }
 
     int track = action->data().toInt();
-    file->protocol()->startNewAction("Select all events from track " + QString::number(track));
     EventTool::clearSelection();
     file->track(track)->setHidden(false);
     for (int channel = 0; channel < 16; channel++) {
@@ -1935,7 +1932,6 @@ void MainWindow::selectAllFromTrack(QAction* action)
             }
         }
     }
-    file->protocol()->endAction();
 }
 
 void MainWindow::selectAll()
@@ -1945,15 +1941,13 @@ void MainWindow::selectAll()
         return;
     }
 
-    file->protocol()->startNewAction("Select all");
-
     for (int i = 0; i < 16; i++) {
         foreach (MidiEvent* event, file->channel(i)->eventMap()->values()) {
             EventTool::selectEvent(event, false, true);
         }
     }
 
-    file->protocol()->endAction();
+    updateAll();
 }
 
 void MainWindow::transposeNSemitones()
