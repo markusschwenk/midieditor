@@ -74,6 +74,12 @@ QWidget* EventWidgetDelegate::createEditor(QWidget* parent, const QStyleOptionVi
     case EventWidget::MidiEventTick: {
         return new QSpinBox(parent);
     }
+    case EventWidget::MidiEventMeasuresBeats: {
+        return new QLineEdit(parent);
+    }
+    case EventWidget::MidiEventHoursMinutesSeconds: {
+        return new QLineEdit(parent);
+    }
     case EventWidget::MidiEventTrack: {
         return new QComboBox(parent);
     }
@@ -82,6 +88,12 @@ QWidget* EventWidgetDelegate::createEditor(QWidget* parent, const QStyleOptionVi
     }
     case EventWidget::NoteEventOffTick: {
         return new QSpinBox(parent);
+    }
+    case EventWidget::NoteEventOffMeasuresBeats: {
+        return new QLineEdit(parent);
+    }
+    case EventWidget::NoteEventOffHoursMinutesSeconds: {
+        return new QLineEdit(parent);
     }
     case EventWidget::NoteEventVelocity: {
         return new QSpinBox(parent);
@@ -140,6 +152,20 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         }
         break;
     }
+    case EventWidget::MidiEventMeasuresBeats: {
+        QLineEdit* edit = dynamic_cast<QLineEdit*>(editor);
+        if (index.data().canConvert(QVariant::String)) {
+            edit->setText(index.data().toString());
+        }
+        break;
+    }
+    case EventWidget::MidiEventHoursMinutesSeconds: {
+        QLineEdit* edit = dynamic_cast<QLineEdit*>(editor);
+        if (index.data().canConvert(QVariant::String)) {
+            edit->setText(index.data().toString());
+        }
+        break;
+    }
     case EventWidget::MidiEventTrack: {
         QComboBox* box = dynamic_cast<QComboBox*>(editor);
         int i = 0;
@@ -168,6 +194,20 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         spin->setMaximum(INT_MAX);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
+        }
+        break;
+    }
+    case EventWidget::NoteEventOffMeasuresBeats: {
+        QLineEdit* edit = dynamic_cast<QLineEdit*>(editor);
+        if (index.data().canConvert(QVariant::String)) {
+            edit->setText(index.data().toString());
+        }
+        break;
+    }
+    case EventWidget::NoteEventOffHoursMinutesSeconds: {
+        QLineEdit* edit = dynamic_cast<QLineEdit*>(editor);
+        if (index.data().canConvert(QVariant::String)) {
+            edit->setText(index.data().toString());
         }
         break;
     }
@@ -342,6 +382,34 @@ void EventWidgetDelegate::setModelData(QWidget* editor, QAbstractItemModel* mode
 
         break;
     }
+    case EventWidget::MidiEventMeasuresBeats: {
+        QLineEdit* ed = dynamic_cast<QLineEdit*>(editor);
+        int newMidiTime = eventWidget->file()->tickOfMeasuresBeatsString(ed->text());
+        foreach (MidiEvent* event, eventWidget->events()) {
+            NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
+            if (noteOn) {
+                if (newMidiTime >= noteOn->offEvent()->midiTime()) {
+                    noteOn->offEvent()->setMidiTime(newMidiTime + 10);
+                }
+            }
+            event->setMidiTime(newMidiTime);
+        }
+        break;
+    }
+    case EventWidget::MidiEventHoursMinutesSeconds: {
+        QLineEdit* ed = dynamic_cast<QLineEdit*>(editor);
+        int newMidiTime = eventWidget->file()->tick(eventWidget->file()->msOfHoursMinutesSecondsString(ed->text()));
+        foreach (MidiEvent* event, eventWidget->events()) {
+            NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
+            if (noteOn) {
+                if (newMidiTime >= noteOn->offEvent()->midiTime()) {
+                    noteOn->offEvent()->setMidiTime(newMidiTime + 10);
+                }
+            }
+            event->setMidiTime(newMidiTime);
+        }
+        break;
+    }
     case EventWidget::MidiEventTrack: {
         QComboBox* box = dynamic_cast<QComboBox*>(editor);
         MidiTrack* track = eventWidget->file()->track(box->currentIndex());
@@ -383,6 +451,28 @@ void EventWidgetDelegate::setModelData(QWidget* editor, QAbstractItemModel* mode
             NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
             if (noteOn) {
                 noteOn->offEvent()->setMidiTime(spin->value());
+            }
+        }
+        break;
+    }
+    case EventWidget::NoteEventOffMeasuresBeats: {
+        QLineEdit* ed = dynamic_cast<QLineEdit*>(editor);
+        int newMidiTime = eventWidget->file()->tickOfMeasuresBeatsString(ed->text());
+        foreach (MidiEvent* event, eventWidget->events()) {
+            NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
+            if (noteOn) {
+                noteOn->offEvent()->setMidiTime(newMidiTime);
+            }
+        }
+        break;
+    }
+    case EventWidget::NoteEventOffHoursMinutesSeconds: {
+        QLineEdit* ed = dynamic_cast<QLineEdit*>(editor);
+        int newMidiTime = eventWidget->file()->tick(eventWidget->file()->msOfHoursMinutesSecondsString(ed->text()));
+        foreach (MidiEvent* event, eventWidget->events()) {
+            NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
+            if (noteOn) {
+                noteOn->offEvent()->setMidiTime(newMidiTime);
             }
         }
         break;
@@ -821,6 +911,8 @@ QList<QPair<QString, EventWidget::EditorField> > EventWidget::getFields()
 
     QList<QPair<QString, EditorField> > fields;
     fields.append(QPair<QString, EditorField>("On Tick", MidiEventTick));
+    fields.append(QPair<QString, EditorField>("On M:B", MidiEventMeasuresBeats));
+    fields.append(QPair<QString, EditorField>("On H:M:S", MidiEventHoursMinutesSeconds));
 
     switch (_currentType) {
     case ChannelPressureEventType: {
@@ -846,6 +938,8 @@ QList<QPair<QString, EventWidget::EditorField> > EventWidget::getFields()
     }
     case NoteEventType: {
         fields.append(QPair<QString, EditorField>("Off Tick", NoteEventOffTick));
+        fields.append(QPair<QString, EditorField>("Off M:B", NoteEventOffMeasuresBeats));
+        fields.append(QPair<QString, EditorField>("Off H:M:S", NoteEventOffHoursMinutesSeconds));
         fields.append(QPair<QString, EditorField>("Duration", NoteEventDuration));
         fields.append(QPair<QString, EditorField>("Note", MidiEventNote));
         fields.append(QPair<QString, EditorField>("Velocity", NoteEventVelocity));
@@ -905,6 +999,28 @@ QVariant EventWidget::fieldContent(EditorField field)
         }
         return QVariant(tick);
     }
+    case MidiEventMeasuresBeats: {
+        int tick = -1;
+        foreach (MidiEvent* event, _events) {
+            if (tick == -1) {
+                tick = event->midiTime();
+            } else if (tick != event->midiTime()) {
+                return QVariant("");
+            }
+        }
+        return QVariant(file()->measuresBeatsStringOfTick(tick));
+    }
+    case MidiEventHoursMinutesSeconds: {
+        int tick = -1;
+        foreach (MidiEvent* event, _events) {
+            if (tick == -1) {
+                tick = event->midiTime();
+            } else if (tick != event->midiTime()) {
+                return QVariant("");
+            }
+        }
+        return QVariant(file()->hoursMinutesSecondsStringOfMs(file()->msOfTick(tick)));
+    }
     case MidiEventTrack: {
         MidiTrack* track = 0;
         foreach (MidiEvent* event, _events) {
@@ -961,6 +1077,42 @@ QVariant EventWidget::fieldContent(EditorField field)
             return QVariant("");
         }
         return QVariant(off);
+    }
+    case NoteEventOffMeasuresBeats: {
+        int off = -1;
+        foreach (MidiEvent* event, _events) {
+            NoteOnEvent* onEvent = dynamic_cast<NoteOnEvent*>(event);
+            if (!onEvent) {
+                continue;
+            }
+            if (off == -1) {
+                off = onEvent->offEvent()->midiTime();
+            } else if (off != onEvent->offEvent()->midiTime()) {
+                return QVariant("");
+            }
+        }
+        if (off < 0) {
+            return QVariant("");
+        }
+        return QVariant(file()->measuresBeatsStringOfTick(off));
+    }
+    case NoteEventOffHoursMinutesSeconds: {
+        int off = -1;
+        foreach (MidiEvent* event, _events) {
+            NoteOnEvent* onEvent = dynamic_cast<NoteOnEvent*>(event);
+            if (!onEvent) {
+                continue;
+            }
+            if (off == -1) {
+                off = onEvent->offEvent()->midiTime();
+            } else if (off != onEvent->offEvent()->midiTime()) {
+                return QVariant("");
+            }
+        }
+        if (off < 0) {
+            return QVariant("");
+        }
+        return QVariant(file()->hoursMinutesSecondsStringOfMs(file()->msOfTick(off)));
     }
     case NoteEventVelocity: {
         int velocity = -1;

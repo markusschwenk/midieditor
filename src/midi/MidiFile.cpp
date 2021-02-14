@@ -1977,3 +1977,77 @@ void MidiFile::insertMeasures(int after, int numMeasures){
     calcMaxTime();
     ProtocolEntry::protocol(toCopy, this);
 }
+
+void MidiFile::measuresBeatsOfTick(int tick, int* measures, float* beats)
+{
+    int startTickOfMeasure, endTickOfMeasure, num, denom;
+    *measures = measure(tick, &startTickOfMeasure, &endTickOfMeasure);
+    meterAt(startTickOfMeasure, &num, &denom, NULL);
+    float ticksPerBeat = ticksPerQuarter() * denom / 4.0;
+    *beats = (tick - startTickOfMeasure) / ticksPerBeat;
+}
+
+int MidiFile::tickOfMeasuresBeats(int measures, float beats)
+{
+    int tick = startTickOfMeasure(measures);
+    int num, denom;
+    meterAt(tick, &num, &denom, NULL);
+    float ticksPerBeat = ticksPerQuarter() * denom / 4.0;
+    return tick + (int)(beats * ticksPerBeat);
+}
+
+QString MidiFile::measuresBeatsStringOfTick(int tick)
+{
+    int measures;
+    float beats;
+    measuresBeatsOfTick(tick, &measures, &beats);
+    return QString("%1:%2")
+        .arg(measures)
+        .arg(beats, 6, 'f', 3, QChar('0'));
+}
+
+int MidiFile::tickOfMeasuresBeatsString(QString measuresBeatsString)
+{
+    int measures = 0;
+    float beats = 0;
+    QStringList parts = measuresBeatsString.split(":");
+    if (parts.size() > 0) measures = parts[0].toInt();
+    if (parts.size() > 1) beats = parts[1].toFloat();
+    return tickOfMeasuresBeats(measures, beats);
+}
+
+void MidiFile::hoursMinutesSecondsOfMs(int ms, int* hours, int* minutes, float* seconds)
+{
+    *hours = ms / (60000 * 60);
+    ms -= (60000 * 60) * *hours;
+    *minutes = ms / (60000);
+    ms -= 60000 * *minutes;
+    *seconds = ms / 1000.0;
+}
+
+int MidiFile::msOfHoursMinutesSeconds(int hours, int minutes, float seconds)
+{
+    return (int)(((((hours * 60) + minutes) * 60) + seconds) * 1000);
+}
+
+QString MidiFile::hoursMinutesSecondsStringOfMs(int ms)
+{
+    int hours, minutes;
+    float seconds;
+    hoursMinutesSecondsOfMs(ms, &hours, &minutes, &seconds);
+    return QString("%1:%2:%3")
+        .arg(hours)
+        .arg(minutes, 2, 10, QChar('0'))
+        .arg(seconds, 6, 'f', 3, QChar('0'));
+}
+
+int MidiFile::msOfHoursMinutesSecondsString(QString hoursMinutesSecondsString)
+{
+    int hours = 0, minutes = 0;
+    float seconds = 0;
+    QStringList parts = hoursMinutesSecondsString.split(":");
+    if (parts.size() > 0) hours = parts[0].toInt();
+    if (parts.size() > 1) minutes = parts[1].toInt();
+    if (parts.size() > 2) seconds = parts[2].toFloat();
+    return msOfHoursMinutesSeconds(hours, minutes, seconds);
+}
