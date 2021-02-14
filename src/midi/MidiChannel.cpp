@@ -31,6 +31,7 @@
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/ProgChangeEvent.h"
+#include "../MidiEvent/ControlChangeEvent.h"
 #include "../MidiEvent/TempoChangeEvent.h"
 #include "../MidiEvent/TimeSignatureEvent.h"
 #include "../gui/EventWidget.h"
@@ -226,3 +227,45 @@ int MidiChannel::progAtTick(int tick)
     }
     return 0;
 }
+
+int MidiChannel::progBankAtTick(int tick, int *bank)
+{
+    int _bank=0;
+
+    // search for the last ProgChangeEvent in the channel
+    QMultiMap<int, MidiEvent*>::iterator it = _events->upperBound(tick);
+    if (it == _events->end()) {
+        it--;
+    }
+    if (_events->size()) {
+        while (it != _events->begin()) {
+            ProgChangeEvent* ev = dynamic_cast<ProgChangeEvent*>(it.value());
+            ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(it.value());
+            if (ctrl && ctrl->control()==0x0 && it.key() <= tick) {
+                _bank= ctrl->value();
+            }
+            if (ev && it.key() <= tick) {
+                if(bank) *bank = _bank;
+                return ev->program();
+            }
+            it--;
+        }
+    }
+
+    // default: first
+    foreach (MidiEvent* event, *_events) {
+        ProgChangeEvent* ev = dynamic_cast<ProgChangeEvent*>(event);
+        ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
+        if (ctrl && ctrl->control()==0x0) {
+            _bank= ctrl->value();
+        }
+        if (ev) {
+            if(bank) *bank = _bank;
+            return ev->program();
+        }
+    }
+
+    if(bank) *bank = _bank;
+    return 0;
+}
+

@@ -11,7 +11,7 @@ public:
 
     void draw(QPainter* painter);
 
-    bool press(bool leftClick);
+    bool press(bool /*leftClick*/);
     bool release();
     bool releaseOnly();
     bool releaseKey(int key);

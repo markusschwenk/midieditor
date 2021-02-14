@@ -23,6 +23,7 @@
 #include "../MidiEvent/NoteOnEvent.h"
 #include "MidiOutput.h"
 #include <QTimer>
+#include "../midi/MidiFile.h"
 
 SingleNotePlayer::SingleNotePlayer()
 {
@@ -40,6 +41,30 @@ void SingleNotePlayer::play(NoteOnEvent* event)
         MidiOutput::sendCommand(offMessage);
         timer->stop();
     }
+
+    QByteArray array, array2;
+
+    array2 = event->save();
+
+    int i= array2[0] & 0xf;
+
+    array.clear();
+    array.append(0xB0 | i);
+    array.append(char(0)); // bank 0
+    array.append(char(Bank_MIDI[i]));
+    MidiOutput::sendCommand(array);
+
+    array.clear();
+    array.append(0xC0 | i);
+    array.append(char(Prog_MIDI[i])); // program
+    MidiOutput::sendCommand(array);
+
+    array.clear();
+    array.append(0xE0 | i); //pitch bend
+    array.append(char(0xff));
+    array.append(char(0x3f));
+    MidiOutput::sendCommand(array);
+
     offMessage = event->saveOffEvent();
     MidiOutput::sendCommand(event);
     playing = true;

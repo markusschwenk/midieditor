@@ -21,7 +21,7 @@ public slots:
     void colorChanged(QColor color);
 
 protected:
-    void mousePressEvent(QMouseEvent* event);
+    void mousePressEvent(QMouseEvent* /*event*/);
 
 private:
     int _number;

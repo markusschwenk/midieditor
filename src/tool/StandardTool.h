@@ -44,6 +44,7 @@ public:
 private:
     EventMoveTool* moveTool;
     SelectTool* selectTool;
+    SelectTool* selectTool2;
     SizeChangeTool* sizeChangeTool;
     NewNoteTool* newNoteTool;
 };

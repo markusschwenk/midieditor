@@ -112,6 +112,7 @@ public:
 		 * \brief returns the program number of the midi program at tick.
 		 */
     int progAtTick(int tick);
+    int progBankAtTick(int tick, int *bank);
 
     /**
 		 * \brief returns whether the channel is visible in the MatrixWidget.

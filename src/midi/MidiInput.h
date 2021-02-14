@@ -47,9 +47,10 @@ public:
     static void startInput();
     static QMultiMap<int, MidiEvent*> endInput(MidiTrack* track);
 
-    static void receiveMessage(double deltatime,
-        std::vector<unsigned char>* message, void* userData = 0);
-
+    static void receiveMessage(double /*deltatime*/,
+        std::vector<unsigned char>* message, void* /*userData = 0*/);
+    static void send_thru(int is_effect, std::vector<unsigned char>* message);
+    static void cleanKeyMaps();
     static void setTime(int ms);
 
     static bool recording();
@@ -57,10 +58,10 @@ public:
     static bool thru();
 
     static bool isConnected();
-
+    static RtMidiIn* _midiIn;
 private:
     static QString _inPort;
-    static RtMidiIn* _midiIn;
+
     static QMultiMap<int, std::vector<unsigned char> >* _messages;
     static int _currentTime;
     static bool _recording;

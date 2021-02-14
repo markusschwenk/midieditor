@@ -29,6 +29,11 @@
 #include <QMultiMap>
 #include <QResource>
 
+#ifdef USE_FLUIDSYNTH
+    #include "fluid/fluidsynth_proc.h"
+    fluidsynth_proc *fluid_output=NULL;
+#endif
+
 #ifdef NO_CONSOLE_MODE
 #include <tchar.h>
 #include <windows.h>
@@ -76,10 +81,24 @@ int main(int argc, char* argv[])
     a.setProperty("arch", "64");
 #else
     a.setProperty("arch", "32");
+
+
+#endif
+
+#ifdef USE_FLUIDSYNTH
+    fluid_output = new fluidsynth_proc();
+    if(!fluid_output) {
+        qWarning("Error creating fluid_output from main.c");
+        exit(-1);
+    }
 #endif
 
     MidiOutput::init();
     MidiInput::init();
+
+#ifdef USE_FLUIDSYNTH
+    fluid_output->MidiClean();
+#endif
 
     MainWindow* w;
     if (argc == 2)
@@ -87,5 +106,8 @@ int main(int argc, char* argv[])
     else
         w = new MainWindow();
     w->showMaximized();
-    return a.exec();
+
+    int ret = a.exec();
+    delete w;
+    return ret;
 }

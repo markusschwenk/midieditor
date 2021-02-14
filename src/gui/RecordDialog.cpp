@@ -44,6 +44,7 @@
 #include "../midi/MidiFile.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiTrack.h"
+#include "../midi/MidiInControl.h"
 #include "../protocol/Protocol.h"
 #include "../tool/NewNoteTool.h"
 
@@ -83,7 +84,11 @@ RecordDialog::RecordDialog(MidiFile* file, QMultiMap<int, MidiEvent*> data, QSet
     for (int i = 0; i < 16; i++) {
         _channelBox->addItem("Channel " + QString::number(i));
     }
-    _channelBox->setCurrentIndex(_settings->value("record_channel_index", 0).toInt());
+
+    if(MidiInControl::split_enable())
+        _channelBox->setCurrentIndex(1);
+    else
+        _channelBox->setCurrentIndex(_settings->value("record_channel_index", 0).toInt());
 
     layout->addWidget(_channelBox, 2, 1, 1, 3);
 

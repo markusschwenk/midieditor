@@ -30,7 +30,7 @@ void TempoTool::draw(QPainter* painter){
     }
 }
 
-bool TempoTool::press(bool leftClick){
+bool TempoTool::press(bool /*leftClick*/){
     _startX = rasteredX(mouseX);
     return true;
 }

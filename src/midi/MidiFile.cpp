@@ -22,6 +22,7 @@
 #include <QFile>
 
 #include "../MidiEvent/ControlChangeEvent.h"
+#include "../MidiEvent/PitchBendEvent.h"
 #include "../MidiEvent/KeySignatureEvent.h"
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/OffEvent.h"
@@ -32,6 +33,7 @@
 #include "../MidiEvent/TimeSignatureEvent.h"
 #include "../MidiEvent/UnknownEvent.h"
 #include "../protocol/Protocol.h"
+#include "../gui/MainWindow.h"
 #include "MidiChannel.h"
 #include "MidiTrack.h"
 #include "math.h"
@@ -39,6 +41,9 @@
 #include <QtCore/qmath.h>
 
 int MidiFile::defaultTimePerQuarter = 192;
+
+int Bank_MIDI[17];
+int Prog_MIDI[17];
 
 MidiFile::MidiFile()
 {
@@ -49,6 +54,7 @@ MidiFile::MidiFile()
     prot->addEmptyAction("New file");
     _path = "";
     _pauseTick = -1;
+    for (int i = 0; i < 17; i++) Bank_MIDI[i]=Prog_MIDI[i]=0;
     for (int i = 0; i < 19; i++) {
         channels[i] = new MidiChannel(this, i);
     }
@@ -110,6 +116,7 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
         return;
     }
 
+    for (int i = 0; i < 17; i++) Bank_MIDI[i]=Prog_MIDI[i]=0;
     for (int i = 0; i < 19; i++) {
         channels[i] = new MidiChannel(this, i);
     }
@@ -126,6 +133,25 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
     playerMap = new QMultiMap<int, MidiEvent*>;
     calcMaxTime();
     printLog(log);
+
+    // get banks from file
+    for (int i = 0; i < 16; i++) {
+        int fctrl = 1, fprg = 1;
+
+        foreach (MidiEvent* event, channels[i]->eventMap()->values()) {
+            ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
+            ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
+            if (fctrl && ctrl && ctrl->control()==0x0) { // bank selected
+                Bank_MIDI[i]=ctrl->value(); fctrl=0;
+            }
+            if (fprg && prg) {
+                Prog_MIDI[i]=prg->program(); fprg=0;
+            }
+        }
+    }
+
+
+
 }
 
 MidiFile::MidiFile(int ticks, Protocol* p)
@@ -683,395 +709,442 @@ MidiChannel* MidiFile::channel(int i)
     return channels[i];
 }
 
-QString MidiFile::instrumentName(int prog)
+extern int itHaveInstrumentList;
+extern int itHaveDrumList;
+
+QString MidiFile::drumName(int prog)
 {
+    QString text = QString::asprintf("%3.3u - ",prog);
+    if(prog<0 || prog>127) return text+"undefined";
+    if(itHaveDrumList) {
+        text+= InstrumentList[128].name[prog];
+        return text;
+    }
     switch (prog + 1) {
     case 1: {
-        return "Acoustic Grand Piano";
-    }
-    case 2: {
-        return "Bright Acoustic Piano";
-    }
-    case 3: {
-        return "Electric Grand Piano";
-    }
-    case 4: {
-        return "Honky-tonk Piano";
-    }
-    case 5: {
-        return " Electric Piano 1";
-    }
-    case 6: {
-        return "Electric Piano 2";
-    }
-    case 7: {
-        return "Harpsichord";
-    }
-    case 8: {
-        return "Clavinet (Clavi)";
+        return text+"Standard Drum Kit";
     }
     case 9: {
-        return "Celesta";
-    }
-    case 10: {
-        return "Glockenspiel";
-    }
-    case 11: {
-        return "Music Box";
-    }
-    case 12: {
-        return "Vibraphone";
-    }
-    case 13: {
-        return "Marimba";
-    }
-    case 14: {
-        return "Xylophone";
-    }
-    case 15: {
-        return "Tubular Bells";
-    }
-    case 16: {
-        return "Dulcimer";
+        return text+"Room Drum Kit";
     }
     case 17: {
-        return "Drawbar Organ";
-    }
-    case 18: {
-        return "Percussive Organ";
-    }
-    case 19: {
-        return "Rock Organ";
-    }
-    case 20: {
-        return "Church Organ";
-    }
-    case 21: {
-        return "Reed Organ";
-    }
-    case 22: {
-        return "Accordion";
-    }
-    case 23: {
-        return "Harmonica";
-    }
-    case 24: {
-        return "Tango Accordion";
+        return text+"Power Drum Kit";
     }
     case 25: {
-        return "Acoustic Guitar (nylon)";
+        return text+"Electric Drum Kit";
     }
     case 26: {
-        return "Acoustic Guitar (steel)";
-    }
-    case 27: {
-        return "Electric Guitar (jazz)";
-    }
-    case 28: {
-        return "Electric Guitar (clean)";
-    }
-    case 29: {
-        return "Electric Guitar (muted)";
-    }
-    case 30: {
-        return "Overdriven Guitar";
-    }
-    case 31: {
-        return "Distortion Guitar";
-    }
-    case 32: {
-        return "Guitar harmonics";
+        return text+"Rap TR808 Drums";
     }
     case 33: {
-        return "Acoustic Bass";
-    }
-    case 34: {
-        return "Electric Bass (finger)";
-    }
-    case 35: {
-        return "Electric Bass (pick)";
-    }
-    case 36: {
-        return "Fretless Bass";
-    }
-    case 37: {
-        return "Slap Bass 1";
-    }
-    case 38: {
-        return "Slap Bass 2";
-    }
-    case 39: {
-        return "Synth Bass 1";
-    }
-    case 40: {
-        return "Synth Bass 2";
+        return text+"Jazz Drum Kit";
     }
     case 41: {
-        return "Violin";
+        return text+"Brush Kit";
+    }
+    }
+
+    return text+"undefined";
+}
+
+
+QString MidiFile::instrumentName(int bank, int prog)
+{
+    QString text = QString::asprintf("%3.3u - ",prog);
+    if(prog<0 || prog>127 || bank<0 || bank>127) return text+"out of range";
+    if(itHaveInstrumentList) {
+        text+= InstrumentList[bank].name[prog];
+        return text;
+    }
+
+
+    switch (prog + 1) {
+    case 1: {
+        return text+"Acoustic Grand Piano";
+    }
+    case 2: {
+        return text+"Bright Acoustic Piano";
+    }
+    case 3: {
+        return text+"Electric Grand Piano";
+    }
+    case 4: {
+        return text+"Honky-tonk Piano";
+    }
+    case 5: {
+        return text+" Electric Piano 1";
+    }
+    case 6: {
+        return text+"Electric Piano 2";
+    }
+    case 7: {
+        return text+"Harpsichord";
+    }
+    case 8: {
+        return text+"Clavinet (Clavi)";
+    }
+    case 9: {
+        return text+"Celesta";
+    }
+    case 10: {
+        return text+"Glockenspiel";
+    }
+    case 11: {
+        return text+"Music Box";
+    }
+    case 12: {
+        return text+"Vibraphone";
+    }
+    case 13: {
+        return text+"Marimba";
+    }
+    case 14: {
+        return text+"Xylophone";
+    }
+    case 15: {
+        return text+"Tubular Bells";
+    }
+    case 16: {
+        return text+"Dulcimer";
+    }
+    case 17: {
+        return text+"Drawbar Organ";
+    }
+    case 18: {
+        return text+"Percussive Organ";
+    }
+    case 19: {
+        return text+"Rock Organ";
+    }
+    case 20: {
+        return text+"Church Organ";
+    }
+    case 21: {
+        return text+"Reed Organ";
+    }
+    case 22: {
+        return text+"Accordion";
+    }
+    case 23: {
+        return text+"Harmonica";
+    }
+    case 24: {
+        return text+"Tango Accordion";
+    }
+    case 25: {
+        return text+"Acoustic Guitar (nylon)";
+    }
+    case 26: {
+        return text+"Acoustic Guitar (steel)";
+    }
+    case 27: {
+        return text+"Electric Guitar (jazz)";
+    }
+    case 28: {
+        return text+"Electric Guitar (clean)";
+    }
+    case 29: {
+        return text+"Electric Guitar (muted)";
+    }
+    case 30: {
+        return text+"Overdriven Guitar";
+    }
+    case 31: {
+        return text+"Distortion Guitar";
+    }
+    case 32: {
+        return text+"Guitar harmonics";
+    }
+    case 33: {
+        return text+"Acoustic Bass";
+    }
+    case 34: {
+        return text+"Electric Bass (finger)";
+    }
+    case 35: {
+        return text+"Electric Bass (pick)";
+    }
+    case 36: {
+        return text+"Fretless Bass";
+    }
+    case 37: {
+        return text+"Slap Bass 1";
+    }
+    case 38: {
+        return text+"Slap Bass 2";
+    }
+    case 39: {
+        return text+"Synth Bass 1";
+    }
+    case 40: {
+        return text+"Synth Bass 2";
+    }
+    case 41: {
+        return text+"Violin";
     }
     case 42: {
-        return "Viola";
+        return text+"Viola";
     }
     case 43: {
-        return "Cello";
+        return text+"Cello";
     }
     case 44: {
-        return "Contrabass";
+        return text+"Contrabass";
     }
     case 45: {
-        return "Tremolo Strings";
+        return text+"Tremolo Strings";
     }
     case 46: {
-        return "Pizzicato Strings";
+        return text+"Pizzicato Strings";
     }
     case 47: {
-        return "Orchestral Harp";
+        return text+"Orchestral Harp";
     }
     case 48: {
-        return "Timpani";
+        return text+"Timpani";
     }
     case 49: {
-        return "String Ensemble 1";
+        return text+"String Ensemble 1";
     }
     case 50: {
-        return "String Ensemble 2";
+        return text+"String Ensemble 2";
     }
     case 51: {
-        return "Synth Strings 1";
+        return text+"Synth Strings 1";
     }
     case 52: {
-        return "Synth Strings 2";
+        return text+"Synth Strings 2";
     }
     case 53: {
-        return "Choir Aahs";
+        return text+"Choir Aahs";
     }
     case 54: {
-        return "Voice Oohs";
+        return text+"Voice Oohs";
     }
     case 55: {
-        return "Synth Choir";
+        return text+"Synth Choir";
     }
     case 56: {
-        return "Orchestra Hit";
+        return text+"Orchestra Hit";
     }
     case 57: {
-        return "Trumpet";
+        return text+"Trumpet";
     }
     case 58: {
-        return "Trombone";
+        return text+"Trombone";
     }
     case 59: {
-        return "Tuba";
+        return text+"Tuba";
     }
     case 60: {
-        return "Muted Trumpet";
+        return text+"Muted Trumpet";
     }
     case 61: {
-        return "French Horn";
+        return text+"French Horn";
     }
     case 62: {
-        return "Brass Section";
+        return text+"Brass Section";
     }
     case 63: {
-        return "Synth Brass 1";
+        return text+"Synth Brass 1";
     }
     case 64: {
-        return "Synth Brass 2";
+        return text+"Synth Brass 2";
     }
     case 65: {
-        return "Soprano Sax";
+        return text+"Soprano Sax";
     }
     case 66: {
-        return "Alto Sax";
+        return text+"Alto Sax";
     }
     case 67: {
-        return "Tenor Sax";
+        return text+"Tenor Sax";
     }
     case 68: {
-        return "Baritone Sax";
+        return text+"Baritone Sax";
     }
     case 69: {
-        return "Oboe";
+        return text+"Oboe";
     }
     case 70: {
-        return "English Horn";
+        return text+"English Horn";
     }
     case 71: {
-        return "Bassoon";
+        return text+"Bassoon";
     }
     case 72: {
-        return "Clarinet";
+        return text+"Clarinet";
     }
     case 73: {
-        return "Piccolo";
+        return text+"Piccolo";
     }
     case 74: {
-        return "Flute";
+        return text+"Flute";
     }
     case 75: {
-        return "Recorder";
+        return text+"Recorder";
     }
     case 76: {
-        return "Pan Flute";
+        return text+"Pan Flute";
     }
     case 77: {
-        return "Blown Bottle";
+        return text+"Blown Bottle";
     }
     case 78: {
-        return "Shakuhachi";
+        return text+"Shakuhachi";
     }
     case 79: {
-        return "Whistle";
+        return text+"Whistle";
     }
     case 80: {
-        return "Ocarina";
+        return text+"Ocarina";
     }
     case 81: {
-        return "Lead 1 (square)";
+        return text+"Lead 1 (square)";
     }
     case 82: {
-        return "Lead 2 (sawtooth)";
+        return text+"Lead 2 (sawtooth)";
     }
     case 83: {
-        return "Lead 3 (calliope)";
+        return text+"Lead 3 (calliope)";
     }
     case 84: {
-        return "Lead 4 (chiff)";
+        return text+"Lead 4 (chiff)";
     }
     case 85: {
-        return "Lead 5 (charang)";
+        return text+"Lead 5 (charang)";
     }
     case 86: {
-        return "Lead 6 (voice)";
+        return text+"Lead 6 (voice)";
     }
     case 87: {
-        return "Lead 7 (fifths)";
+        return text+"Lead 7 (fifths)";
     }
     case 88: {
-        return "Lead 8 (bass + lead)";
+        return text+"Lead 8 (bass + lead)";
     }
     case 89: {
-        return "Pad 1 (new age)";
+        return text+"Pad 1 (new age)";
     }
     case 90: {
-        return "Pad 2 (warm)";
+        return text+"Pad 2 (warm)";
     }
     case 91: {
-        return "Pad 3 (polysynth)";
+        return text+"Pad 3 (polysynth)";
     }
     case 92: {
-        return "Pad 4 (choir)";
+        return text+"Pad 4 (choir)";
     }
     case 93: {
-        return "Pad 5 (bowed)";
+        return text+"Pad 5 (bowed)";
     }
     case 94: {
-        return "Pad 6 (metallic)";
+        return text+"Pad 6 (metallic)";
     }
     case 95: {
-        return "Pad 7 (halo)";
+        return text+"Pad 7 (halo)";
     }
     case 96: {
-        return "Pad 8 (sweep)";
+        return text+"Pad 8 (sweep)";
     }
     case 97: {
-        return "FX 1 (rain)";
+        return text+"FX 1 (rain)";
     }
     case 98: {
-        return "FX 2 (soundtrack)";
+        return text+"FX 2 (soundtrack)";
     }
     case 99: {
-        return "FX 3 (crystal)";
+        return text+"FX 3 (crystal)";
     }
     case 100: {
-        return "FX 4 (atmosphere)";
+        return text+"FX 4 (atmosphere)";
     }
     case 101: {
-        return "FX 5 (brightness)";
+        return text+"FX 5 (brightness)";
     }
     case 102: {
-        return "FX 6 (goblins)";
+        return text+"FX 6 (goblins)";
     }
     case 103: {
-        return "FX 7 (echoes)";
+        return text+"FX 7 (echoes)";
     }
     case 104: {
-        return "FX 8 (sci-fi)";
+        return text+"FX 8 (sci-fi)";
     }
     case 105: {
-        return "Sitar";
+        return text+"Sitar";
     }
     case 106: {
-        return "Banjo";
+        return text+"Banjo";
     }
     case 107: {
-        return "Shamisen";
+        return text+"Shamisen";
     }
     case 108: {
-        return "Koto";
+        return text+"Koto";
     }
     case 109: {
-        return "Kalimba";
+        return text+"Kalimba";
     }
     case 110: {
-        return "Bag pipe";
+        return text+"Bag pipe";
     }
     case 111: {
-        return "Fiddle";
+        return text+"Fiddle";
     }
     case 112: {
-        return "Shanai";
+        return text+"Shanai";
     }
     case 113: {
-        return "Tinkle Bell";
+        return text+"Tinkle Bell";
     }
     case 114: {
-        return "Agogo";
+        return text+"Agogo";
     }
     case 115: {
-        return "Steel Drums";
+        return text+"Steel Drums";
     }
     case 116: {
-        return "Woodblock";
+        return text+"Woodblock";
     }
     case 117: {
-        return "Taiko Drum";
+        return text+"Taiko Drum";
     }
     case 118: {
-        return "Melodic Tom";
+        return text+"Melodic Tom";
     }
     case 119: {
-        return "Synth Drum";
+        return text+"Synth Drum";
     }
     case 120: {
-        return "Reverse Cymbal";
+        return text+"Reverse Cymbal";
     }
     case 121: {
-        return "Guitar Fret Noise";
+        return text+"Guitar Fret Noise";
     }
     case 122: {
-        return "Breath Noise";
+        return text+"Breath Noise";
     }
     case 123: {
-        return "Seashore";
+        return text+"Seashore";
     }
     case 124: {
-        return "Bird Tweet";
+        return text+"Bird Tweet";
     }
     case 125: {
-        return "Telephone Ring";
+        return text+"Telephone Ring";
     }
     case 126: {
-        return "Helicopter";
+        return text+"Helicopter";
     }
     case 127: {
-        return "Applause";
+        return text+"Applause";
     }
     case 128: {
-        return "Gunshot";
+        return text+"Gunshot";
     }
     }
-    return "out of range";
+    return text+"out of range";
 }
 
 QString MidiFile::controlChangeName(int control)
@@ -1311,6 +1384,8 @@ QString MidiFile::controlChangeName(int control)
 
 QList<MidiEvent*>* MidiFile::eventsBetween(int start, int end)
 {
+    if(start<0) start=0;
+
     QList<MidiEvent*>* eventList = new QList<MidiEvent*>;
     for (int i = 0; i < 19; i++) {
         QMultiMap<int, MidiEvent*>* events = channels[i]->eventMap();
@@ -1366,6 +1441,7 @@ void MidiFile::preparePlayerData(int tickFrom)
         while (it != channelEvents->end()) {
             int tick = it.key();
             MidiEvent* event = it.value();
+
             if (tick >= tickFrom) {
                 // all Events after cursorTick are added
                 int ms = msOfTick(tick);
@@ -1373,17 +1449,23 @@ void MidiFile::preparePlayerData(int tickFrom)
                     playerMap->insert(ms, event);
                 }
             } else {
+                ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
+                if (ctrl) {
+                    // insert all ControlChanges //on first position
+                     playerMap->insert(msOfTick(tick)-1, ctrl);
+                }
+                PitchBendEvent* pitch = dynamic_cast<PitchBendEvent*>(event);
+                if (pitch) {
+                    // insert all ControlChanges //on first position
+                     playerMap->insert(msOfTick(tick)-1, pitch);
+                }
                 ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
                 if (prg) {
                     // save ProgramChenges in the list, the last will be added
                     // to the playerMap later
                     prgList->append(prg);
                 }
-                ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
-                if (ctrl) {
-                    // insert all ControlChanges on first position
-                    // playerMap->insert(msOfTick(cursorTick())-1, ctrl);
-                }
+
             }
             it++;
         }

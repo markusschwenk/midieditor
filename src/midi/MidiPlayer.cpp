@@ -23,6 +23,7 @@
 #include "MidiOutput.h"
 #include "PlayerThread.h"
 #include "SingleNotePlayer.h"
+#include "../midi/MidiInControl.h"
 
 #include "Metronome.h"
 
@@ -31,7 +32,7 @@ bool MidiPlayer::playing = false;
 SingleNotePlayer* MidiPlayer::singleNotePlayer = new SingleNotePlayer();
 double MidiPlayer::_speed = 1;
 
-void MidiPlayer::play(MidiFile* file)
+void MidiPlayer::play(MidiFile* file, int mode)
 {
 
     if (isPlaying()) {
@@ -60,6 +61,12 @@ void MidiPlayer::play(MidiFile* file)
     }
     file->preparePlayerData(tickFrom);
     filePlayer->setFile(file);
+    if(!mode) {
+        filePlayer->start(QThread::TimeCriticalPriority);
+        playing = true;
+    }
+}
+void MidiPlayer::start() {
     filePlayer->start(QThread::TimeCriticalPriority);
     playing = true;
 }
@@ -93,22 +100,103 @@ PlayerThread* MidiPlayer::playerThread()
 void MidiPlayer::panic()
 {
 
-    // set all cannels note off / sounds off
+    // set all channels note off / sounds off
     for (int i = 0; i < 16; i++) {
         // value (third number) should be 0, but doesnt work
         QByteArray array;
+
+        array.clear();
         array.append(0xB0 | i);
-        array.append(char(123));
+        array.append(char(121)); // RESET
+        array.append(char(0));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(123)); // all notes off
         array.append(char(127));
 
         MidiOutput::sendCommand(array);
 
         array.clear();
         array.append(0xB0 | i);
-        array.append(char(120));
+        array.append(char(0)); // bank 0
+        array.append(char(0x0));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xC0 | i);
+        array.append(char(0x0)); // program
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xE0 | i); //pitch bend
+        array.append(char(0xff));
+        array.append(char(0x3f));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(1)); // MODULATION
+        array.append(char(0x0));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(11)); // EXPRESION
+        array.append(char(127));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(7)); // VOLUME
+        array.append(char(100));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(10)); // PAN
+        array.append(char(64));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(73)); // ATTACK
+        array.append(char(64));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(72)); // RELEASE
+        array.append(char(64));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(75)); // DECAY
+        array.append(char(64));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(91)); // REVERB
         array.append(char(0));
         MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(93)); // CHORUS
+        array.append(char(0));
+        MidiOutput::sendCommand(array);
+
+        array.clear();
+        array.append(0xB0 | i);
+        array.append(char(120)); // all sounds off
+        array.append(char(0));
+        MidiOutput::sendCommand(array);
+
     }
+
     if (MidiOutput::isAlternativePlayer) {
         foreach (int channel, MidiOutput::playedNotes.keys()) {
             foreach (int note, MidiOutput::playedNotes.value(channel)) {
@@ -120,6 +208,7 @@ void MidiPlayer::panic()
             }
         }
     }
+
 }
 
 double MidiPlayer::speedScale()

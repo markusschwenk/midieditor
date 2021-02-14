@@ -47,6 +47,9 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     colored = new ColoredWidget(*(Appearance::channelColor(channel)), this);
     layout->addWidget(colored, 0, 0, 2, 1);
     QString text = "Channel " + QString::number(channel);
+
+    if (channel == 9) text+=" - Drums";
+    else
     if (channel == 16) {
         text = "General Events";
     }
@@ -61,7 +64,7 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     QToolBar* toolBar = new QToolBar(this);
     toolBar->setIconSize(QSize(12, 12));
     QPalette palette = toolBar->palette();
-    palette.setColor(QPalette::Background, Qt::white);
+    palette.setColor(QPalette::Window, Qt::white);
     toolBar->setPalette(palette);
 
     // visibility
@@ -88,10 +91,18 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
 
         toolBar->addSeparator();
 
+
         // instrument
         QAction* instrumentAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/instrument.png"), "Select instrument", toolBar);
         toolBar->addAction(instrumentAction);
         connect(instrumentAction, SIGNAL(triggered()), this, SLOT(instrument()));
+
+
+        // SoundEffect
+        QAction* SoundEffectAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/sound_effect.png"), "Select SoundEffect", toolBar);
+        toolBar->addAction( SoundEffectAction);
+        connect( SoundEffectAction, SIGNAL(triggered()), this, SLOT(SoundEffect()));
+
     }
 
     layout->addWidget(toolBar, 2, 1, 1, 1);
@@ -139,16 +150,36 @@ void ChannelListItem::toggleSolo(bool solo)
 
 void ChannelListItem::instrument()
 {
+    if(visibleAction->isChecked())
     emit selectInstrumentClicked(channel);
+}
+
+void ChannelListItem::SoundEffect()
+{
+    if(visibleAction->isChecked())
+    emit selectSoundEffectClicked(channel);
 }
 
 void ChannelListItem::onBeforeUpdate()
 {
 
-    QString text = MidiFile::instrumentName(channelList->midiFile()->channel(channel)->progAtTick(channelList->midiFile()->cursorTick()));
+    QString text;
+
+    int bank =0;
+    int prog =channelList->midiFile()->channel(channel)->progBankAtTick(channelList->midiFile()->cursorTick(), &bank);
+    if(channel >=0 && channel <16 && channel!=9)
+        {Bank_MIDI[channel]=bank;Prog_MIDI[channel]=prog;}
+
+    if(channel != 9) text= MidiFile::instrumentName(bank, prog);
+    else text= MidiFile::drumName(prog);
+
     if (channel == 16) {
         text = "Events affecting all channels";
+    } else {
+        if (channel != 9)
+            text +=" / Bank "+ QString::asprintf("%3.3u", Bank_MIDI[channel]);
     }
+
     instrumentLabel->setText(text);
 
     if (channelList->midiFile()->channel(channel)->eventMap()->isEmpty()) {
@@ -196,6 +227,8 @@ ChannelListWidget::ChannelListWidget(QWidget* parent)
 
         connect(widget, SIGNAL(channelStateChanged()), this, SIGNAL(channelStateChanged()));
         connect(widget, SIGNAL(selectInstrumentClicked(int)), this, SIGNAL(selectInstrumentClicked(int)));
+        connect(widget, SIGNAL(selectSoundEffectClicked(int)), this, SIGNAL(selectSoundEffectClicked(int)));
+
     }
 
     file = 0;
