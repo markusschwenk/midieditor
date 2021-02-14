@@ -63,6 +63,8 @@ private:
     QTime* time;
 
     int measure, posInMeasure;
+
+    int text_tim;
 };
 
 #endif

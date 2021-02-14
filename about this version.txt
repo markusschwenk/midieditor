@@ -1,0 +1,83 @@
+This version is an unofficial version of Midieditor.
+
+Original version is from https://github.com/markusschwenk/midieditor
+and the official page of the original author: https://midieditor.org
+
+Who are you?:
+
+Hi, my name is Francisco, I'm Spanish, I'm 51 years old and I've been programming
+all kinds of hobbyist machines for many years, from the ZX Spectrum to the PS3 console,
+where I was known with the nickname 'Estwald'. My native language is spanish and this
+has been translated from google translator... so sorry if it is not spelled correctly and
+you have some difficult to understand to me :(.
+
+I like music and I learned to play a keyboard in a self-taught way and I'm not a good
+interpreter (xD), but I like to compose small songs from MidiEditor :D
+
+Why an unofficial version of Midieditor?
+
+My initial idea was to add small improvements to the application, for private use.
+
+I had been retired from programming for several years and I want to maintain that
+'retired status' and simply provide this source code to the original author of
+Midieditor and his collaborators, or to anyone who may be interested in
+improving or adding things in the future. I don't know if these additions will
+be accepted or rejected officially. Also, I have some some difficulty speaking english...
+In any case, my contribution is here, for all people :D
+
+** This version is working ONLY for Windows (32 and 64 bits) **
+
+What's new here:
+
+- Fluid Synth (2.1.7) support and integration, with low latency buffer (Output buffer can be
+from 512 bytes, to 2048 bytes. For low latency use 512). Output Sound support for 16bits
+signed or 32 bits (float), 96Khz. Fluid Synth is added as 'virtual' (internal) Midi Output device
+
+- Fluid Synth Control, with mixer for 16 stereo channels, with volume control,
+output gain, balance, distortion, low and high pass filters. Presets can be saved
+in the MIDI file using a custom SysEx event. Here you can select the SoundFont file
+(.sf2 .sf3) necessary and other Audio Output parameters from the Config tab.
+
+- Support to export WAV files at 16 bits (signed int) / 32 bits (float) (only from fluidsynth)
+
+- Midi In Control: to play at living or record from a MIDI keyboard splitting the keyboard
+in two parts (with 2 instruments), or playing at duo two instruments, transposing notes
+(-24 to +24) selecting channels, skipping events, programming keys (up to 4) to play effects
+(for example, pressing a C2 to enable sustain effect), autochord (power chord, CM or
+CM progression actually. You can programming a key to enable/disable this).
+
+Programming key is very easy: when you select 'Get It' you have a time to press a key from
+the MIDI Keyboard. It have support to use the sustain pedal (if you have one) to apply other
+effect as 'Modulation Wheel' for example, in same way of programming keys from 'Note Effect1'
+
+- Support for Banks & Instruments and multiple instruments on the same channel. You can now import
+a list (instrumentlist.txt, in the same midieditor.exe directory) with the names or these are imported
+automatically if you use Fluid Synth.
+
+- Some effects as sustain, reverb, volume, pan, can be added through a new box from channel tab->instrument.
+and can be edited from one 'flag' in the measures line (from here you can edit instruments/banks, Mixer SysEx,
+effects and some text events)
+
+- Added a new menu 'Notes' to scale velocity, creating chord notes from single, correcting overlapped
+notes, ecc
+
+- Added some new selection tools from/to play cursor and using lines or to move only notes from channel.
+
+- Added a new piano keyboard to play it from the PC keyboard, with recording, transpose notes, select instrument, etcc
+
+- In same way support for Drum, playing from the PC keyboard
+
+- And the jewel in the crown in my opinion :D : Added a rhythm box editor, easy to use,
+with examples (too many thanks to Felipe AG, for his drum lessons from his youtube channel)
+
+- Support for Marker text events (tools) and Karaoke files (.kar) and and its text events with
+supporting to autodetecting UTF8 format (by default is Local8bit) and avoid strange character conversions
+
+NOTE: many controls present an explanation of their function or how it work pointing at them with the
+mouse cursor (ToolTip)
+
+NOTE2: To compile, Fluid Synth support is added with 'DEFINES += USE_FLUIDSYNTH' only
+
+- Estwald -
+
+

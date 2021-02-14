@@ -74,6 +74,9 @@ win32: {
     DEFINES += __WINDOWS_MM__
     LIBS += -lwinmm
     CONFIG += release
+    DEFINES += USE_FLUIDSYNTH
+    LIBS += ../midieditor/lib64/windows/libfluidsynth.dll.a
+    LIBS += ../midieditor/lib/windows/fluidsynth.lib
     RC_FILE = midieditor.rc
     OBJECTS_DIR = .tmp
     MOC_DIR = .tmp

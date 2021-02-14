@@ -86,6 +86,9 @@ AboutDialog::AboutDialog(QWidget* parent)
         "<p>"
         "RtMidi (Copyright (c) 2003-2014 Gary P. Scavone)"
         "</p>"
+        "<p>"
+        "Fluidsynth (soundfont synthesizer): <a href=\"http://www.fluidsynth.org\">www.fluidsynth.org</a>"
+        "</p>"
         "</body>"
         "</html>");
     a->setWidgetResizable(true);

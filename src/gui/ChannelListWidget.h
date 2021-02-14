@@ -43,6 +43,8 @@ public:
 
 signals:
     void selectInstrumentClicked(int channel);
+    void selectBankClicked(int channel);
+    void selectSoundEffectClicked(int channel);
     void channelStateChanged();
 
 public slots:
@@ -50,6 +52,8 @@ public slots:
     void toggleAudibility(bool audible);
     void toggleSolo(bool solo);
     void instrument();
+    void SoundEffect();
+
 
 private:
     QLabel* instrumentLabel;
@@ -71,6 +75,7 @@ public:
 signals:
     void channelStateChanged();
     void selectInstrumentClicked(int channel);
+    void selectSoundEffectClicked(int channel);
 
 public slots:
     void update();

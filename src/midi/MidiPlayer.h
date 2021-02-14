@@ -31,8 +31,9 @@ class MidiPlayer : public QObject {
     Q_OBJECT
 
 public:
-    static void play(MidiFile* file);
+    static void play(MidiFile* file, int mode = 0);
     static void play(NoteOnEvent* event);
+    static void start();
     static void stop();
     static bool isPlaying();
     static int timeMs();

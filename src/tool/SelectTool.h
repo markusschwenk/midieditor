@@ -25,6 +25,9 @@
 #define SELECTION_TYPE_LEFT 1
 #define SELECTION_TYPE_BOX 2
 #define SELECTION_TYPE_SINGLE 3
+#define SELECTION_TYPE_CURSOR 4
+#define SELECTION_TYPE_BOX2 5
+#define SELECTION_TYPE_BOX3 6
 
 class MidiEvent;
 
@@ -51,6 +54,7 @@ public:
 protected:
     int stool_type;
     int x_rect, y_rect;
+    int x_rect2, y_rect2;
 };
 
 #endif

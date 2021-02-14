@@ -239,7 +239,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         QComboBox* box = dynamic_cast<QComboBox*>(editor);
         int current = 0;
         for (int i = 0; i < 128; i++) {
-            QString text = QString::number(i) + ": " + MidiFile::instrumentName(i);
+            QString text = QString::number(i) + ": " + MidiFile::instrumentName(0,i);
             box->addItem(text);
             if (!text.compare(index.data().toString())) {
                 current = i;
@@ -1104,7 +1104,7 @@ QVariant EventWidget::fieldContent(EditorField field)
         if (program < 0) {
             return QVariant("");
         }
-        return QVariant(QString::number(program) + ": " + MidiFile::instrumentName(program));
+        return QVariant(QString::number(program) + ": " + MidiFile::instrumentName(0, program));
     }
     case KeySignatureKey: {
         int key = -1;

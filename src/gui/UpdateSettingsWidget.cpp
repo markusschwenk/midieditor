@@ -36,7 +36,7 @@ UpdateSettingsWidget::UpdateSettingsWidget(QSettings *settings, QWidget *parent)
   _auto = new QCheckBox("Automatically check for Updates", this);
   _auto->setChecked(UpdateManager::autoCheckForUpdates());
 
-  connect(_auto, SIGNAL(toggled(bool)), this, SLOT(enableAutoUpdates(bool)));
+ // connect(_auto, SIGNAL(toggled(bool)), this, SLOT(enableAutoUpdates(bool)));
   layout->addWidget(_auto, 1, 0, 1, 6);
 
   layout->setRowStretch(6, 1);

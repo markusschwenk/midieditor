@@ -20,6 +20,18 @@
 
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
+
+#include "../MidiEvent/TempoChangeEvent.h"
+#include "../MidiEvent/TimeSignatureEvent.h"
+#include "../MidiEvent/KeySignatureEvent.h"
+#include "../MidiEvent/ProgChangeEvent.h"
+#include "../MidiEvent/ControlChangeEvent.h"
+#include "../MidiEvent/KeyPressureEvent.h"
+#include "../MidiEvent/ChannelPressureEvent.h"
+#include "../MidiEvent/TextEvent.h"
+#include "../MidiEvent/PitchBendEvent.h"
+#include "../MidiEvent/SysExEvent.h"
+
 #include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/OnEvent.h"
 #include "../gui/EventWidget.h"
@@ -34,6 +46,8 @@
 #include "Selection.h"
 
 #include <QtCore/qmath.h>
+
+#define build_eventp(a,b,c) a* b = dynamic_cast<a*>(c)
 
 QList<MidiEvent*>* EventTool::copiedEvents = new QList<MidiEvent*>;
 
@@ -79,12 +93,34 @@ void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
     }
     if (!selected.contains(event) && (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier) || ignoreStr)) {
         selected.append(event);
+        build_eventp(TempoChangeEvent, ev1, event);
+        build_eventp(TimeSignatureEvent, ev2, event);
+        build_eventp(KeySignatureEvent, ev3, event);
+        build_eventp(ProgChangeEvent, ev4, event);
+        build_eventp(ControlChangeEvent, ev5, event);
+        build_eventp(KeyPressureEvent, ev6, event);
+        build_eventp(ChannelPressureEvent, ev7, event);
+        build_eventp(TextEvent, ev8, event);
+        build_eventp(PitchBendEvent, ev9, event);
+        build_eventp(SysExEvent, ev10, event);
+
+        if(ev1 || ev2 || ev3 || ev4 || ev5
+            || ev6  || ev7 || ev8 || ev9 || ev10) {
+            if(_mainWindow->rightSplitterMode)
+                _mainWindow->upperTabWidget->setCurrentIndex(_mainWindow->EventSplitterTabPos);
+            else
+                _mainWindow->lowerTabWidget->setCurrentIndex(_mainWindow->EventSplitterTabPos);
+        }
     } else if (QApplication::keyboardModifiers().testFlag(Qt::ControlModifier) && !ignoreStr) {
         selected.removeAll(event);
     }
+    if (!selected.contains(event)){
 
+    }
     Selection::instance()->setSelection(selected);
+
     _mainWindow->eventWidget()->reportSelectionChangedByTool();
+
 }
 
 void EventTool::deselectEvent(MidiEvent* event)

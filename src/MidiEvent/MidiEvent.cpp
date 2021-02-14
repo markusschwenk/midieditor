@@ -301,6 +301,7 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                     TextEvent* textEvent = new TextEvent(channel, track);
                     textEvent->setType(tempByte);
                     int length = MidiFile::variableLengthvalue(content);
+#if 0
                     // use wchar_t because some files use Unicode.
                     wchar_t str[128] = L"";
                     for (int i = 0; i < length; i++) {
@@ -309,6 +310,46 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                         wcsncat(str, temp, 1);
                     }
                     textEvent->setText(QString::fromWCharArray(str));
+#else
+ // Modified by Estwald:
+
+                    QString str;
+                    char text[length + 1];
+                    int counter =0;
+                    int is_utf8 = 0;
+                    for (int i = 0; i < length; i++) {
+                        (*content) >> tempByte;
+                        text[i] = tempByte;
+                        if(tempByte & 128) {// UTF8 autodetecting decoding chars
+                            if(counter == 0) {
+                               if((tempByte & ~7) == 0xF0) counter = 3;
+                               else if((tempByte & ~15) == 0xE0) counter = 2;
+                               else if((tempByte & ~31) == 0xC0) counter = 1;
+                            } else if((tempByte & 0xC0) == 0x80) {
+                                counter--;
+                                if(!counter) is_utf8 = 1;
+                            } else counter = 0;
+                        } else counter = 0;
+                    }
+/*
+   NOTE: files can use ASCII (and derivates) or UTF8.
+   MIDI Editor asumes UTF8 format and because it, is very easy one
+   bad conversion/encoding of the text from olds MIDIs, ecc.
+
+   ASCII section (0 to 127 ch) is the same thing, but 128+ in
+   UTF8 characters is codified as 2 to 4 bytes lenght and you
+   can try to detect this encode method to import correctly
+   UTF8 characters, assuming Local8Bit (i have some .kar/.mid
+   in this format and works fine) as alternative.
+
+*/
+
+                    if(!is_utf8)
+                        str = QString::fromLocal8Bit((const char *) text, length);
+                    else
+                        str = QString::fromUtf8((const char *) text, length);
+                    textEvent->setText(str);
+#endif
                     *ok = true;
                     return textEvent;
 

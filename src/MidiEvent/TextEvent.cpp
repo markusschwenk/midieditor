@@ -43,7 +43,9 @@ QString TextEvent::text()
 void TextEvent::setText(QString text)
 {
     ProtocolEntry* toCopy = copy();
+
     _text = text;
+
     protocol(toCopy, this);
 }
 

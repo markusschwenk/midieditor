@@ -44,6 +44,8 @@ StandardTool::StandardTool()
     sizeChangeTool->setStandardTool(this);
     selectTool = new SelectTool(SELECTION_TYPE_BOX);
     selectTool->setStandardTool(this);
+    selectTool2 = new SelectTool(SELECTION_TYPE_BOX2);
+    selectTool2->setStandardTool(this);
     newNoteTool = new NewNoteTool();
     newNoteTool->setStandardTool(this);
 
@@ -56,6 +58,7 @@ StandardTool::StandardTool(StandardTool& other)
     sizeChangeTool = other.sizeChangeTool;
     moveTool = other.moveTool;
     selectTool = other.selectTool;
+    selectTool2 = other.selectTool2;
 }
 
 void StandardTool::draw(QPainter* painter)
@@ -140,6 +143,9 @@ bool StandardTool::press(bool leftClick)
                 Tool::setCurrentTool(selectTool);
                 selectTool->move(mouseX, mouseY);
                 selectTool->press(leftClick);
+                Tool::setCurrentTool(selectTool2);
+                selectTool2->move(mouseX, mouseY);
+                selectTool2->press(leftClick);
                 return true;
             }
 
@@ -189,6 +195,7 @@ bool StandardTool::press(bool leftClick)
     Tool::setCurrentTool(selectTool);
     selectTool->move(mouseX, mouseY);
     selectTool->press(leftClick);
+
     return true;
 }
 
@@ -224,6 +231,8 @@ void StandardTool::reloadState(ProtocolEntry* entry)
     sizeChangeTool = other->sizeChangeTool;
     moveTool = other->moveTool;
     selectTool = other->selectTool;
+    selectTool2 = other->selectTool2;
+
 }
 
 bool StandardTool::release()

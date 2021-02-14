@@ -32,6 +32,13 @@
 #include "../MidiEvent/OffEvent.h"
 #include "SenderThread.h"
 
+#ifdef USE_FLUIDSYNTH
+#include "../fluid/fluidsynth_proc.h"
+#else
+extern int Bank_MIDI[17];
+extern int Prog_MIDI[17];
+#endif
+
 RtMidiOut* MidiOutput::_midiOut = 0;
 QString MidiOutput::_outPort = "";
 SenderThread* MidiOutput::_sender = new SenderThread();
@@ -54,14 +61,21 @@ void MidiOutput::init()
 
 void MidiOutput::sendCommand(QByteArray array)
 {
-
+   #ifdef USE_FLUIDSYNTH
+    if(fluid_output && !fluid_output->disabled && fluid_output->use_fluidsynt) fluid_output->SendMIDIEvent(array);
+    else
+   #endif
     sendEnqueuedCommand(array);
 }
 
+void MidiOutput::sendCommand2(MidiEvent* e) {
+    sendCommand(e->save());
+    delete e;
+}
 void MidiOutput::sendCommand(MidiEvent* e)
 {
 
-    if (e->channel() >= 0 && e->channel() < 16 || e->line() == MidiEvent::SYSEX_LINE) {
+    if ((e->channel() >= 0 && e->channel() < 16) || e->line() == MidiEvent::SYSEX_LINE) {
         _sender->enqueue(e);
 
         if (isAlternativePlayer) {
@@ -98,6 +112,9 @@ QStringList MidiOutput::outputPorts()
         } catch (RtMidiError&) {
         }
     }
+    #ifdef USE_FLUIDSYNTH
+        ports.append(QString::fromStdString(FLUID_SYNTH_NAME));
+    #endif
 
     return ports;
 }
@@ -119,12 +136,24 @@ bool MidiOutput::setOutputPort(QString name)
                 _midiOut->closePort();
                 _midiOut->openPort(i);
                 _outPort = name;
+#ifdef USE_FLUIDSYNTH
+                if(fluid_output) fluid_output->use_fluidsynt=false;
+#endif
                 return true;
             }
 
         } catch (RtMidiError&) {
         }
     }
+
+#ifdef USE_FLUIDSYNTH
+    if (FLUID_SYNTH_NAME == name.toStdString()) {
+        if(fluid_output && !fluid_output->disabled) fluid_output->use_fluidsynt=true;
+        _midiOut->closePort();
+        _outPort = FLUID_SYNTH_NAME;
+         return true;
+    }
+#endif
 
     // port not found
     return false;
@@ -137,7 +166,18 @@ QString MidiOutput::outputPort()
 
 void MidiOutput::sendEnqueuedCommand(QByteArray array)
 {
+    int type = array[0] & 0xf0;
+    int chan = array[0] & 0xf;
+    if(type == 0xC0) Prog_MIDI[chan] = array[1];
+    if(type == 0xB0 && array[1]== (char) 0) Bank_MIDI[chan]= array[2];
 
+#ifdef USE_FLUIDSYNTH
+
+    if(fluid_output && !fluid_output->disabled && fluid_output->use_fluidsynt) {
+        fluid_output->SendMIDIEvent(array);
+        return;
+    }
+#endif
     if (_outPort != "") {
 
         // convert data to std::vector
@@ -174,5 +214,12 @@ void MidiOutput::sendProgram(int channel, int prog)
 
 bool MidiOutput::isConnected()
 {
+#ifdef USE_FLUIDSYNTH
+    if (_outPort == "") {
+        if(fluid_output && !fluid_output->disabled) fluid_output->use_fluidsynt=true;
+        _outPort = FLUID_SYNTH_NAME;
+         return true;
+    }
+#endif
     return _outPort != "";
 }

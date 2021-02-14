@@ -30,10 +30,22 @@ SelectTool::SelectTool(int type)
     stool_type = type;
     x_rect = 0;
     y_rect = 0;
+    x_rect2 = 0;
+    y_rect2 = 0;
     switch (stool_type) {
     case SELECTION_TYPE_BOX: {
         setImage(":/run_environment/graphics/tool/select_box.png");
         setToolTipText("Select Events (Box)");
+        break;
+    }
+    case SELECTION_TYPE_BOX2: {
+        setImage(":/run_environment/graphics/tool/select_box2.png");
+        setToolTipText("Select Events using lines (Box)");
+        break;
+    }
+    case SELECTION_TYPE_BOX3: {
+        setImage(":/run_environment/graphics/tool/select_box3.png");
+        setToolTipText("Select Events using lines from/to current cursor (Box)");
         break;
     }
     case SELECTION_TYPE_SINGLE: {
@@ -51,6 +63,11 @@ SelectTool::SelectTool(int type)
         setToolTipText("Select all Events on the right side");
         break;
     }
+    case SELECTION_TYPE_CURSOR: {
+        setImage(":/run_environment/graphics/tool/select_cursor.png");
+        setToolTipText("Select all Events from/to the current cursor");
+        break;
+    }
     }
 }
 
@@ -60,20 +77,45 @@ SelectTool::SelectTool(SelectTool& other)
     stool_type = other.stool_type;
     x_rect = 0;
     y_rect = 0;
+    x_rect2 = 0;
+    y_rect2 = 0;
 }
 
 void SelectTool::draw(QPainter* painter)
 {
     paintSelectedEvents(painter);
-    if (SELECTION_TYPE_BOX && (x_rect || y_rect)) {
+    if (stool_type == SELECTION_TYPE_BOX && (x_rect || y_rect)) {
         painter->setPen(Qt::gray);
         painter->setBrush(QColor(0, 0, 0, 100));
         painter->drawRect(x_rect, y_rect, mouseX - x_rect, mouseY - y_rect);
-    } else if (stool_type == SELECTION_TYPE_RIGHT || stool_type == SELECTION_TYPE_LEFT) {
+    } else if ((stool_type == SELECTION_TYPE_BOX2 || stool_type == SELECTION_TYPE_BOX3) && (x_rect2 || y_rect2)) {
+        if(stool_type == SELECTION_TYPE_BOX2) {
+            painter->setPen(Qt::gray);
+            painter->setBrush(QColor(0, 0, 0, 100));
+            painter->drawRect(0, y_rect2, matrixWidget->width() - 1, mouseY - y_rect2);
+        } else if (mouseIn) {
+            painter->setPen(Qt::black);
+            painter->setPen(Qt::gray);
+            painter->setBrush(QColor(0, 0, 0, 100));
+
+            int tick = file()->tick(matrixWidget->msOfXPos(mouseX));
+            int xx = matrixWidget->xPosOfMs(matrixWidget->msOfTick(file()->cursorTick()));
+            if(file()->cursorTick()<tick) painter->drawRect(xx, y_rect2, mouseX-xx, mouseY - y_rect2);
+            else painter->drawRect(mouseX, y_rect2, xx-mouseX, mouseY - y_rect2);
+
+        }
+    } else if (stool_type == SELECTION_TYPE_RIGHT || stool_type == SELECTION_TYPE_LEFT || stool_type == SELECTION_TYPE_CURSOR) {
         if (mouseIn) {
             painter->setPen(Qt::black);
             painter->setPen(Qt::gray);
             painter->setBrush(QColor(0, 0, 0, 100));
+            if (stool_type == SELECTION_TYPE_CURSOR) {
+                int tick = file()->tick(matrixWidget->msOfXPos(mouseX));
+                int xx = matrixWidget->xPosOfMs(matrixWidget->msOfTick(file()->cursorTick()));
+                if(file()->cursorTick()<tick) painter->drawRect(xx, 0, mouseX-xx, matrixWidget->height() - 1);
+                 else painter->drawRect(mouseX, 0, xx-mouseX/*matrixWidget->width() - 1*/, matrixWidget->height() - 1);
+
+            } else
             if (stool_type == SELECTION_TYPE_LEFT) {
                 painter->drawRect(0, 0, mouseX, matrixWidget->height() - 1);
             } else {
@@ -86,10 +128,21 @@ void SelectTool::draw(QPainter* painter)
 bool SelectTool::press(bool leftClick)
 {
     Q_UNUSED(leftClick);
+
+    y_rect=0;
+    x_rect=0;
+    y_rect2=0;
+    x_rect2=0;
+
     if (stool_type == SELECTION_TYPE_BOX) {
         y_rect = mouseY;
         x_rect = mouseX;
+    } else if (stool_type == SELECTION_TYPE_BOX2 || stool_type == SELECTION_TYPE_BOX3) {
+        y_rect2 = mouseY;
+        x_rect2 = mouseX;
     }
+
+
     return true;
 }
 
@@ -134,23 +187,61 @@ bool SelectTool::release()
                 selectEvent(event, false);
             }
         }
-    } else if (stool_type == SELECTION_TYPE_RIGHT || stool_type == SELECTION_TYPE_LEFT) {
+    } else if (stool_type == SELECTION_TYPE_RIGHT || stool_type == SELECTION_TYPE_LEFT || stool_type == SELECTION_TYPE_CURSOR) {
         int tick = file()->tick(matrixWidget->msOfXPos(mouseX));
-        int start, end;
+        int start = 0, end = tick;
         if (stool_type == SELECTION_TYPE_LEFT) {
-            start = 0;
-            end = tick;
+
         } else if (stool_type == SELECTION_TYPE_RIGHT) {
             end = file()->endTick();
             start = tick;
+        } else if (stool_type == SELECTION_TYPE_CURSOR) {
+            if(file()->cursorTick() < tick){
+                start = file()->cursorTick();
+            }
+            else {
+                end = file()->cursorTick();
+                start = tick;
+            }
         }
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
             selectEvent(event, false);
         }
+    } else if (stool_type == SELECTION_TYPE_BOX2 || stool_type == SELECTION_TYPE_BOX3) {
+
+        int start=0, end = file()->endTick();
+        if(stool_type == SELECTION_TYPE_BOX3) {
+            int tick = file()->tick(matrixWidget->msOfXPos(mouseX));
+            if(file()->cursorTick() < tick){
+                start = file()->cursorTick();
+                end = tick;
+            }
+            else {
+                end = file()->cursorTick();
+                start = tick;
+            }
+        }
+        int l_start = matrixWidget->lineAtY(y_rect2);
+        int l_end = matrixWidget->lineAtY(mouseY);
+
+        if (l_start > l_end) {
+            int tmp = l_start;
+            l_start = l_end;
+            l_end = tmp;
+        }
+
+        foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
+
+            if(event->line() >= l_start && event->line() <= l_end)
+            selectEvent(event, false);
+        }
+
     }
 
     x_rect = 0;
     y_rect = 0;
+    x_rect2 = 0;
+    y_rect2 = 0;
 
     protocol(toCopy, this);
     file()->protocol()->endAction();

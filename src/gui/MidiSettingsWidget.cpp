@@ -206,6 +206,7 @@ void MidiSettingsWidget::reloadOutputPorts()
         }
         _outList->addItem(item);
     }
+
     connect(_outList, SIGNAL(itemChanged(QListWidgetItem*)), this,
         SLOT(outputChanged(QListWidgetItem*)));
 }
