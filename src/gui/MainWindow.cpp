@@ -843,9 +843,12 @@ void MainWindow::record()
 #endif
             MidiPlayer::play(file, 1);
             MidiInput::startInput();
+            //MidiInControl::wait_record(this);
+            /*
             if(MidiInControl::wait_record(this) < 0) {
                 stop(); return;
             }
+            */
             MidiPlayer::start();
             connect(MidiPlayer::playerThread(),
                 SIGNAL(playerStopped()), this, SLOT(stop()));
@@ -853,6 +856,9 @@ void MainWindow::record()
             connect(MidiPlayer::playerThread(),
                 SIGNAL(timeMsChanged(int)), mw_matrixWidget, SLOT(timeMsChanged(int)));
 #endif
+            if(MidiInControl::wait_record(this) < 0) {
+                stop(); return;
+            }
         }
     }
 }

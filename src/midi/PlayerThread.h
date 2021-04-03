@@ -33,6 +33,8 @@ class PlayerThread : public QThread {
     Q_OBJECT
 
 public:
+    int mode;
+
     PlayerThread();
     void setFile(MidiFile* f);
     void stop();

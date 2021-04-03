@@ -26,6 +26,7 @@
 #include "MidiInput.h"
 #include "MidiOutput.h"
 #include "MidiPlayer.h"
+#include "MidiInControl.h"
 #include <QMultiMap>
 #include <QTime>
 
@@ -85,7 +86,8 @@ void PlayerThread::run()
         position = file->msOfTick(file->cursorTick());
     }
 
-    emit playerStarted();
+    if(!mode)
+        emit playerStarted();
 
     // Reset all Controllers
     for (int i = 0; i < 16; i++) {
@@ -111,7 +113,8 @@ void PlayerThread::run()
     setInterval(INTERVAL_TIME);
 
     connect(timer, SIGNAL(timeout()), this, SLOT(timeout()), Qt::DirectConnection);
-    timer->start(INTERVAL_TIME);
+    if(!mode)
+        timer->start(INTERVAL_TIME);
 
     stopped = false;
 
@@ -119,7 +122,20 @@ void PlayerThread::run()
 
     int tickInMeasure = 0;
     measure = file->measure(file->cursorTick(), file->cursorTick(), &list, &tickInMeasure);
+
     emit(measureChanged(measure, tickInMeasure));
+
+    if(mode) {
+
+        if(MidiInControl::wait_record_thread() < 0) {
+            emit playerStopped();
+            return;
+        }
+
+        emit playerStarted();
+        timer->start(INTERVAL_TIME);
+        //emit(measureChanged(measure, tickInMeasure));
+    }
 
     if (exec() == 0) {
         timer->stop();

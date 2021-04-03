@@ -61,7 +61,9 @@ void MidiPlayer::play(MidiFile* file, int mode)
     }
     file->preparePlayerData(tickFrom);
     filePlayer->setFile(file);
+    filePlayer->mode = mode;
     if(!mode) {
+
         filePlayer->start(QThread::TimeCriticalPriority);
         playing = true;
     }

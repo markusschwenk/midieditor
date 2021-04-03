@@ -225,6 +225,7 @@ public:
     int get_key();
 
     static int wait_record(QWidget *parent);
+    static int wait_record_thread();
     static void init_MidiInControl(QSettings *settings);
     static void MidiIn_toexit(MidiInControl *MidiIn);
 

@@ -1534,9 +1534,12 @@ int MidiInControl::get_key() {
     return current_note();
 }
 
+static int _ret_wait = 555;
 int MidiInControl::wait_record(QWidget *parent) {
 
-    if(!_record_waits) return 0;
+    if(!_record_waits) {_ret_wait = 0; return 0; }
+
+    _ret_wait = 555;
 
     set_current_note(-1);
     QMessageBox *mb = new QMessageBox("MIDI Input Control",
@@ -1553,8 +1556,18 @@ int MidiInControl::wait_record(QWidget *parent) {
     mb->exec();
     mb2 = NULL;
     delete mb;
+    _ret_wait = current_note();
+    return _ret_wait;
+}
 
-    return current_note();
+int MidiInControl::wait_record_thread() {
+    if(!_record_waits) return 0;
+
+    int *v= &_ret_wait;
+    while(*v == 555) {
+        QThread::msleep(1);
+    }
+    return _ret_wait;
 }
 
 
@@ -1563,7 +1576,7 @@ void MidiInControl::set_key(int key) {
     _current_note = key;
     mb2->hide();
     mb2 = NULL;
-    QThread::msleep(100); // very important sleep()
+    QThread::msleep(30); // very important sleep()
 
 }
 
