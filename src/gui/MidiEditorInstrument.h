@@ -264,6 +264,7 @@ public slots:
     void rbackToBegin();
     void rback();
     void rplay();
+    void rplay2();
     void rpause();
     void rstop();
     void rforward();
@@ -293,6 +294,8 @@ private:
     qint64 _system_time;
     int _init_time;
     int is_playing;
+
+    int is_playsync;
 
     QDialog *QD;
     QTimer* time_updat;

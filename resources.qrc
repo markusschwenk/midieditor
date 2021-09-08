@@ -95,5 +95,6 @@
         <file>run_environment/graphics/tool/drumbox.png</file>
         <file>run_environment/graphics/tool/drumbox-res.png</file>
         <file>run_environment/graphics/tool/record2.png</file>
+        <file>run_environment/graphics/tool/play2.png</file>
     </qresource>
 </RCC>

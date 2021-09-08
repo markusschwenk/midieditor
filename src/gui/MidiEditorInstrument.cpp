@@ -1390,6 +1390,13 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
     connect(playAction, SIGNAL(triggered()), this, SLOT(rplay()));
     playbackMB->addAction(playAction);
 
+    if(is_rhythm) {
+        QAction* playAction2 = new QAction("Play Sync", this);
+        playAction2->setIcon(QIcon(":/run_environment/graphics/tool/play2.png"));
+        connect(playAction2, SIGNAL(triggered()), this, SLOT(rplay2()));
+        playbackMB->addAction(playAction2);
+    }
+
     QAction* pauseAction = new QAction("Pause", this);
     pauseAction->setIcon(QIcon(":/run_environment/graphics/tool/pause.png"));
     connect(pauseAction, SIGNAL(triggered()), this, SLOT(rpause()));
@@ -1405,6 +1412,12 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
             connect(recordAction, QOverload<bool>::of(&QAction::triggered),[=](bool)
             {
                 int init_time = -1;
+
+                if(is_playsync && play_rhythm_track) {
+                    ptButton->setChecked(false);
+                    emit ptButton->clicked();
+                    is_playsync = 0;
+                }
 
                 if(MidiInput::recording()) {
 
@@ -3582,6 +3595,11 @@ void MyInstrument::rbackToBegin() {
         return;
     MainWindow * Q = (MainWindow *) _MAINW;
     Q->backToBegin();
+    if(is_playsync && play_rhythm_track) {
+        ptButton->setChecked(false);
+        emit ptButton->clicked();
+        is_playsync = 0;
+    }
 }
 
 void MyInstrument::rback() {
@@ -3589,6 +3607,11 @@ void MyInstrument::rback() {
         return;
     MainWindow * Q = (MainWindow *) _MAINW;
     Q->back();
+    if(is_playsync && play_rhythm_track) {
+        ptButton->setChecked(false);
+        emit ptButton->clicked();
+        is_playsync = 0;
+    }
 }
 
 void MyInstrument::rplay() {
@@ -3597,6 +3620,33 @@ void MyInstrument::rplay() {
     _piano_timer = -1;
     MainWindow * Q = (MainWindow *) _MAINW;
     Q->play();
+    if(is_playsync && play_rhythm_track) {
+        ptButton->setChecked(false);
+        emit ptButton->clicked();
+        is_playsync = 0;
+    }
+    is_playsync = 0;
+}
+
+void MyInstrument::rplay2() {
+    if(_piano_insert_mode && !MidiPlayer::isPlaying() && _piano_timer >= 0)
+        return;
+
+    _piano_timer = -1;
+    MainWindow * Q = (MainWindow *) _MAINW;
+    Q->play();
+
+    if(play_rhythm_track) {
+        ptButton->setChecked(false);
+        emit ptButton->clicked();
+        is_playsync = 0;
+    }
+
+    if(!play_rhythm_track) {
+        ptButton->setChecked(true);
+        emit ptButton->clicked();
+        is_playsync = 1;
+    }
 }
 
 void MyInstrument::rpause() {
@@ -3604,11 +3654,23 @@ void MyInstrument::rpause() {
         return;
     MainWindow * Q = (MainWindow *) _MAINW;
     Q->pause();
+
+    if(is_playsync && play_rhythm_track) {
+        ptButton->setChecked(false);
+        emit ptButton->clicked();
+        is_playsync = 0;
+    }
 }
 
 void MyInstrument::rstop() {
     MainWindow * Q = (MainWindow *) _MAINW;
     Q->stop();
+
+    if(is_playsync && play_rhythm_track) {
+        ptButton->setChecked(false);
+        emit ptButton->clicked();
+        is_playsync = 0;
+    }
 }
 
 void MyInstrument::rforward() {
@@ -3616,6 +3678,12 @@ void MyInstrument::rforward() {
         return;
     MainWindow * Q = (MainWindow *) _MAINW;
     Q->forward();
+
+    if(is_playsync && play_rhythm_track) {
+        ptButton->setChecked(false);
+        emit ptButton->clicked();
+        is_playsync = 0;
+    }
 }
 
 void MyInstrument::save_rhythm_edit() {
