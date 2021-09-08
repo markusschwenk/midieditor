@@ -183,6 +183,9 @@ public slots:
     void buildMinorSeventhMajor();
 
     void pitchbend_effect1();
+    void volumeoff_effect();
+    void choppy_audio_effect();
+    void conv_pattern_note();
 
     void setInstrumentForChannel(int i);
     void setSoundEffectForChannel(int i);

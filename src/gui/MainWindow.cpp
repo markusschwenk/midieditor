@@ -3178,6 +3178,23 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     connect(pitchbend1, SIGNAL(triggered()), this, SLOT(pitchbend_effect1()));
     notesMB->addAction(pitchbend1);
 
+    QAction* volumeoff = new QAction("Volume Off Effect", this);
+    _activateWithSelections.append(volumeoff);
+    connect(volumeoff, SIGNAL(triggered()), this, SLOT(volumeoff_effect()));
+    notesMB->addAction(volumeoff);
+
+    QAction* choppy_audio = new QAction("Choppy Audio Effect", this);
+    _activateWithSelections.append(choppy_audio);
+    connect(choppy_audio, SIGNAL(triggered()), this, SLOT(choppy_audio_effect()));
+    notesMB->addAction(choppy_audio);
+
+    notesMB->addSeparator();
+
+    QAction* pattern_note = new QAction("Pattern Note", this);
+    _activateWithSelections.append(pattern_note);
+    connect(pattern_note, SIGNAL(triggered()), this, SLOT(conv_pattern_note()));
+    notesMB->addAction(pattern_note);
+
     // View
     QMenu* zoomMenu = new QMenu("Zoom...", viewMB);
     QAction* zoomHorOutAction = new QAction("Horizontal out", this);

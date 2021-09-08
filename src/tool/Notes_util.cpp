@@ -732,6 +732,252 @@ void MainWindow::pitchbend_effect1() {
     }
 }
 
+void MainWindow::volumeoff_effect() {
+
+    if (!(Selection::instance()->selectedEvents().size() > 0 && file)) return;
+
+    if (Selection::instance()->selectedEvents().size() > 0 && file) {
+
+        QList<MidiEvent*> events;
+        foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
+
+            if(e) events.append(e);
+        }
+
+        file->protocol()->startNewAction("Volume Off Effect", 0);
+
+        int tick_1 = 999999999, tick_2 = -1;
+
+        int chan[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+        MidiTrack* track[16];
+
+        foreach (MidiEvent* e, events) {
+            NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
+
+            if (on) {
+                int note = on->note();
+                MidiEvent* off =(MidiEvent* ) on->offEvent();
+                on->setNote(note);
+
+                if(on->midiTime() < tick_1) tick_1 = on->midiTime();
+
+                int c = on->channel();
+                if(c >= 0 && c < 16) {
+                    chan[c] = 1;
+                    track[c] = e->track();
+                }
+
+                if(off){
+
+                    if(off->midiTime() > tick_2) tick_2 = off->midiTime();
+
+                }
+            }
+        }
+
+        if(tick_1 != 999999999 && tick_2 != -1) {
+
+            for(int n = 0; n < 16; n++) {
+
+                if(chan[n]) {
+
+                    // remove channel volume events from this interval...
+                    foreach (MidiEvent* event2, *(file->eventsBetween(tick_1-10, tick_2+10))) {
+                        ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
+                        if (toRemove && event2->channel()==n && toRemove->control() == 7) {
+                            file->channel(n)->removeEvent(toRemove);
+                        }
+                    }
+
+
+                    // get last value for channel volume
+                    int old_vol = 100;
+                    foreach (MidiEvent* event2, *(file->eventsBetween(0, tick_2+10))) {
+                        ControlChangeEvent* chanVol = dynamic_cast<ControlChangeEvent*>(event2);
+                        if (chanVol && event2->channel()==n && chanVol->control() == 7) {
+                            old_vol = chanVol->value();
+
+                        }
+                    }
+
+                    // progressive decay channel volume
+                    int clicks, nclicks, vol, volstep;
+
+                    nclicks = (tick_2-tick_1)/8;
+                    if(nclicks < 1) nclicks = 1;
+                    volstep = old_vol/8;
+                    if(volstep < 0) volstep = 1;
+
+                    vol = old_vol;
+
+                    for(clicks = tick_1; clicks < tick_2; clicks+= nclicks) {
+
+                        ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, vol, track[n]);
+                        file->channel(n)->insertEvent(Pevent, clicks);
+                        vol -= volstep; if(vol < 0) break;
+                    }
+
+                    // restore channel volume
+
+                    ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, old_vol, track[n]);
+                    file->channel(n)->insertEvent(Pevent, tick_2 + 25);
+
+                }
+            }
+        }
+
+
+        file->protocol()->endAction();
+    }
+}
+
+void MainWindow::choppy_audio_effect() {
+
+    if (!(Selection::instance()->selectedEvents().size() > 0 && file)) return;
+
+    if (Selection::instance()->selectedEvents().size() > 0 && file) {
+
+        QList<MidiEvent*> events;
+        foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
+
+            if(e) events.append(e);
+        }
+
+        file->protocol()->startNewAction("Volume Off Effect", 0);
+
+        int tick_1 = 999999999, tick_2 = -1;
+
+        int chan[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+        MidiTrack* track[16];
+
+        foreach (MidiEvent* e, events) {
+            NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
+
+            if (on) {
+                int note = on->note();
+                MidiEvent* off =(MidiEvent* ) on->offEvent();
+                on->setNote(note);
+
+                if(on->midiTime() < tick_1) tick_1 = on->midiTime();
+
+                int c = on->channel();
+                if(c >= 0 && c < 16) {
+                    chan[c] = 1;
+                    track[c] = e->track();
+                }
+
+                if(off){
+
+                    if(off->midiTime() > tick_2) tick_2 = off->midiTime();
+
+                }
+            }
+        }
+
+        if(tick_1 != 999999999 && tick_2 != -1) {
+
+            for(int n = 0; n < 16; n++) {
+
+                if(chan[n]) {
+
+                    // remove channel volume events from this interval...
+                    foreach (MidiEvent* event2, *(file->eventsBetween(tick_1-10, tick_2+10))) {
+                        ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
+                        if (toRemove && event2->channel()==n && toRemove->control() == 7) {
+                            file->channel(n)->removeEvent(toRemove);
+                        }
+                    }
+
+
+                    // get last value for channel volume
+                    int old_vol = 100;
+                    foreach (MidiEvent* event2, *(file->eventsBetween(0, tick_2+10))) {
+                        ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
+                        if (toRemove && event2->channel()==n && toRemove->control() == 7) {
+                            old_vol = toRemove->value();
+
+                        }
+                    }
+
+
+                    int clicks, s = 1;
+                    for(clicks = tick_1; clicks < tick_2; clicks+= 25) {
+
+                        ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, old_vol/2 + old_vol/2 * s, track[n]);
+                        file->channel(n)->insertEvent(Pevent, clicks);
+                        s^= 1;
+                    }
+
+                    // restore channel volume
+
+                    if(s == 1) {
+                        ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, old_vol, track[n]);
+                        file->channel(n)->insertEvent(Pevent, tick_2);
+                    }
+
+                }
+            }
+        }
+
+
+        file->protocol()->endAction();
+    }
+}
+
+void MainWindow::conv_pattern_note() {
+
+    if (!(Selection::instance()->selectedEvents().size() > 0 && file)) return;
+
+    if (Selection::instance()->selectedEvents().size() > 0 && file) {
+
+        QList<MidiEvent*> events;
+        foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
+
+            if(e) events.append(e);
+        }
+
+        file->protocol()->startNewAction("Pitch Bend Effect1", 0);
+
+        foreach (MidiEvent* e, events) {
+            NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
+
+            if (on) {
+                int note = on->note();
+                MidiEvent* off =(MidiEvent* ) on->offEvent();
+                on->setNote(note);
+
+                if(off){
+
+                    int clicks;
+
+                    int lapse = 50;
+
+                    if((off->midiTime() - on->midiTime()) > lapse)
+                    for(clicks = on->midiTime(); clicks < off->midiTime(); clicks+= lapse) {
+                        int clicks2 = off->midiTime() - clicks;
+                        if(clicks2 > (lapse - 2)) clicks2 = lapse - 2;
+                        clicks2+= clicks;
+
+                        NoteOnEvent* on1 = file->channel(e->channel())->
+                        insertNote(on->note(), clicks,
+                                   clicks2,
+                                   on->velocity(),
+                                   e->track());
+                        EventTool::selectEvent(on1, false, false);
+
+                        // remove old note
+                        EventTool::deselectEvent(on);
+                        file->channel(e->channel())->removeEvent(on);
+                    }
+
+                }
+            }
+        }
+
+        file->protocol()->endAction();
+    }
+}
+
 #ifdef USE_FLUIDSYNTH
 FluidDialog *fluid_control= NULL;
 
