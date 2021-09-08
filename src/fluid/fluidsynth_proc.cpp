@@ -495,7 +495,8 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
         {
             char id2[4]= {0x0, 0x66, 0x66, 'P'}; // global mixer
 
-            if(array[1]==id2[0] && array[2]==id2[1] && array[3]==id2[2] && array[4]==id2[3]) {
+            // new sysEx old compatibility
+            if(array[2]==id2[0] && array[3]==id2[1] && array[4]==id2[2] && array[5]=='P') {
 
                 int entries = 13 * 16 + 1;
                 char id[4];
@@ -505,12 +506,16 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                                QIODevice::ReadOnly);
                 qd.startTransaction();
 
+                qd.readRawData((char *) id, 1); // new sysEx old compatibility
                 qd.readRawData((char *) id, 1);
                 qd.readRawData((char *) id, 4);
 
-                if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2] || id[3]!=id2[3]) {
+                if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2]) {
                     return 0;
                 }
+
+
+                if(id[3]!='P') return 0;
 
                 if(decode_sys_format(qd, (void *) &entries)<0) {
 
@@ -520,6 +525,7 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                 if(entries!=13 * 16 + 1) {
                     return 0;
                 }
+
 
                 decode_sys_format(qd, (void *) &synth_gain);
 
@@ -582,8 +588,10 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                     fluid_control->spinChan->valueChanged(0);
                 }
 
-            } else if(array[1] == id2[0] && array[2] == id2[1]
-                      && array[3] == id2[2] && (array[4] & 0xf0) == 0x70) {
+            } else
+                // new sysEx2 old compatibility
+                if((array[2] == id2[0] || array[5] == 'R') && array[3] == id2[1]
+                      && array[4] == id2[2] && ((array[5] & 0xf0) == 0x70 || array[5] == 'R')) {
 
                 int entries = 13;
                 char id[4];
@@ -593,25 +601,38 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                                QIODevice::ReadOnly);
                 qd.startTransaction();
 
+                // new sysEx old compatibility
+                qd.readRawData((char *) id, 1);
                 qd.readRawData((char *) id, 1);
                 qd.readRawData((char *) id, 4);
 
-                if(id[0] != id2[0] || id[1] != id2[1] || id[2] != id2[2]
-                        || (id[3] & 0xF0) != 0x70) {
+                if(id[1] != id2[1] || id[2] != id2[2]) {
                     return 0;
                 }
+
+                if(!((id[0] == id2[0] && (id[3] & 0xF0) == 0x70) || id[3] == 'R')) {
+                    return 0;
+                }
+
+                int flag = 1;
                 int n= id[3] & 15;
+                if(id[3] == 'R') {
+                    flag = 2;
+                    n= id[0] & 15;
+                }
 
                 if(decode_sys_format(qd, (void *) &entries)<0) {
 
                     return 0;
                 }
 
-                if(entries!=13) {
+                if((flag == 1 && entries !=13) ||
+                    (flag == 2 && entries != 13 + (n==0))) {
                     return 0;
                 }
 
-                decode_sys_format(qd, (void *) &synth_gain);
+                if(flag == 1 || (flag == 2 && n == 0))
+                    decode_sys_format(qd, (void *) &synth_gain);
 
                 audio_chanmute[n]= false;
                 decode_sys_format(qd, (void *) &synth_chanvolume[n]);
@@ -1941,6 +1962,7 @@ void fluid_Thread_playerWAV::run()
 
 }
 
+#define u32 unsigned int
 int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
     QByteArray data = event->save();
 
@@ -1954,27 +1976,27 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
     if(type==0xB0) {  // control
         if((unsigned) data[1]==11) data[2]= _proc->synth_chanvolume[channel]; //ignore song expresion
         if((unsigned) data[1]==121) {
-            sequence_command(fluid_event_control_change(evt, channel, data[1], data[2]))
+            sequence_command(fluid_event_control_change(evt, (u32) channel, (u32) data[1], (u32) data[2]))
                     if(fluid_res < 0) return fluid_res;
             data[1]=11; // set expresion
             data[2]= _proc->synth_chanvolume[channel];
         }
         if((unsigned) data[1]==124) return 0; // ignore Omni off
-        sequence_command(fluid_event_control_change(evt, channel, data[1], data[2]))
+        sequence_command(fluid_event_control_change(evt, (u32) channel, (u32) data[1], (unsigned int) data[2]))
                 if(fluid_res < 0) return fluid_res;
     }
 
 
     if(type==0x90) {
-        sequence_command(fluid_event_noteon(evt, channel, data[1], data[2]))
+        sequence_command(fluid_event_noteon(evt, (u32) channel, (u32) data[1], (u32) data[2]))
         if(fluid_res < 0) return fluid_res;
     }
     if(type==0x80) {
-        sequence_command(fluid_event_noteoff(evt, channel, data[1]))
+        sequence_command(fluid_event_noteoff(evt, (u32) channel, (u32) data[1]))
         if(fluid_res < 0) return fluid_res;
     }
     if(type==0xC0) { // program
-        sequence_command(fluid_event_program_change(evt, channel, data[1]))
+        sequence_command(fluid_event_program_change(evt, (u32) channel, (u32)  data[1]))
         if(fluid_res < 0) return fluid_res;
     }
 
@@ -1987,7 +2009,9 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
     {
         char id2[4]= {0x0, 0x66, 0x66, 'P'}; // global mixer
 
-        if(data[1]==id2[0] && data[2]==id2[1] && data[3]==id2[2] && data[4]==id2[3]) {
+
+        // new sysEx old compatibility
+        if(data[2]==id2[0] && data[3]==id2[1] && data[4]==id2[2] && data[5]=='P') {
 
             int fluid_res;
             sequence_callback(event_ticks); // I needs to send previous commands
@@ -2002,21 +2026,33 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                            QIODevice::ReadOnly);
             qd.startTransaction();
 
+            // new sysEx old compatibility
+            qd.readRawData((char *) id, 1);
             qd.readRawData((char *) id, 1);
             qd.readRawData((char *) id, 4);
 
-            if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2] || id[3]!=id2[3]) {
-               goto skip;
+
+            if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2]) {
+                goto skip;
             }
+
+
+            if(id[3]!='P') goto skip;
+
 
             if(decode_sys_format(qd, (void *) &entries)<0) {
 
                 goto skip;
             }
 
-            if(entries!=13 * 16 + 1) {
+
+
+
+
+            if(entries!=13 * 16 + 1){
                 goto skip;
             }
+
 
             decode_sys_format(qd, (void *) &fluid_output->synth_gain);
 
@@ -2080,7 +2116,11 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 fluid_control->spinChan->valueChanged(0);
             }
 
-        } else if(data[1]==id2[0] && data[2]==id2[1] && data[3]==id2[2] && (data[4] & 0xf0)==0x70) {
+        } else
+            // new sysEx2 old compatibility
+            if((data[2] == id2[0] || data[5] == 'R') && data[3] == id2[1]
+                      && data[4] == id2[2] && ((data[5] & 0xf0) == 0x70 || data[5] == 'R')) {
+
             int fluid_res;
             sequence_callback(event_ticks); // I needs to send previous commands
             if(fluid_res < 0) return fluid_res;
@@ -2094,24 +2134,39 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                            QIODevice::ReadOnly);
             qd.startTransaction();
 
+            // new sysEx old compatibility
+            qd.readRawData((char *) id, 1);
             qd.readRawData((char *) id, 1);
             qd.readRawData((char *) id, 4);
 
-            if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2] || (id[3] & 0xF0) != 0x70) {
-                goto skip;
+            if(id[1] != id2[1] || id[2] != id2[2]) {
+                 goto skip;
             }
+
+            if(!((id[0] == id2[0] && (id[3] & 0xF0) == 0x70) || id[3] == 'R')) {
+                 goto skip;
+            }
+
+            int flag = 1;
             int n= id[3] & 15;
+            if(id[3] == 'R') {
+                flag = 2;
+                n= id[0] & 15;
+            }
+
 
             if(decode_sys_format(qd, (void *) &entries)<0) {
 
                 goto skip;
             }
 
-            if(entries!=13) {
+            if((flag == 1 && entries !=13) ||
+                (flag == 2 && entries != 13 + (n==0))) {
                 goto skip;
             }
 
-            decode_sys_format(qd, (void *) &fluid_output->synth_gain);
+            if(flag == 1 || (flag == 2 && n == 0))
+                decode_sys_format(qd, (void *) &fluid_output->synth_gain);
 
                 fluid_output->audio_chanmute[n]= false;
                 decode_sys_format(qd, (void *) &fluid_output->synth_chanvolume[n]);

@@ -227,7 +227,12 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                     array.append((char)tempByte);
                 }
             }
+
+
             *ok = true;
+            if((array.size()) == array[0]) // sysEx have lenght...
+                return new SysExEvent(channel, QByteArray(array.constData() + 1, array.count() - 1), track);
+            // for old compatibility
             return new SysExEvent(channel, array, track);
         }
 

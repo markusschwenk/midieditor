@@ -44,6 +44,7 @@ QByteArray SysExEvent::save()
 {
     QByteArray s;
     s.append(char(0xF0));
+    s.append(_data.length() + 1); // sysEx have lenght...
     s.append(_data);
     s.append(char(0xF7));
     return s;

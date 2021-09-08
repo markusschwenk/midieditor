@@ -740,7 +740,7 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
                 QByteArray d= sys->data();
                 if(d[0]==(char) 0
                         && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
-                  (d[3]=='P' || (d[3] & 0xF0)==0x70)) {
+                  (d[3]=='P' || d[3]=='R' || (d[3] & 0xF0)==0x70)) {
                     int x = xPosOfMs(msOfTick(sys->midiTime()));
                     int wd = 16;
 
@@ -1279,7 +1279,7 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                     QByteArray d= sys->data();
                     if(d[0]==(char) 0
                             && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
-                      (d[3]=='P' || (d[3] & 0xF0)==(char) 0x70)) {
+                      (d[3]=='P' || d[3]=='R' || (d[3] & 0xF0)==(char) 0x70)) {
 
                         MainWindow::FluidControl();
 
@@ -1527,6 +1527,7 @@ void MatrixWidget::mouseDoubleClickEvent(QMouseEvent* /*event*/)
     if (mouseInRect(TimeLineArea)) {
         int tick = file->tick(msOfXPos(mouseX));
         file->setCursorTick(tick);
+
         _cur_edit = -666;
         update();
     }
