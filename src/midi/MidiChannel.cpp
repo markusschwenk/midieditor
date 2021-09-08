@@ -230,27 +230,39 @@ int MidiChannel::progAtTick(int tick)
 
 int MidiChannel::progBankAtTick(int tick, int *bank)
 {
-    int _bank=0;
+    int _bank= -1;
 
     // search for the last ProgChangeEvent in the channel
-    QMultiMap<int, MidiEvent*>::iterator it = _events->upperBound(tick);
+    QMultiMap<int, MidiEvent*>::iterator it = _events->lowerBound(tick + 5);
     if (it == _events->end()) {
-        it--;
+      it--;
     }
+
+
+    ProgChangeEvent* ev2 = NULL;
+
     if (_events->size()) {
-        while (it != _events->begin()) {
+        int fl = 0;
+
+        while ((fl == 0 && it != _events->begin())
+               || (fl == 1 && it == _events->begin())) {
             ProgChangeEvent* ev = dynamic_cast<ProgChangeEvent*>(it.value());
+            if(ev && !ev2 && it.key() <= tick) ev2 = ev;
+
             ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(it.value());
             if (ctrl && ctrl->control()==0x0 && it.key() <= tick) {
                 _bank= ctrl->value();
             }
-            if (ev && it.key() <= tick) {
+            if (ev2 && it.key() <= tick && _bank != -1) {
                 if(bank) *bank = _bank;
-                return ev->program();
+                return ev2->program();
             }
             it--;
+            if(it == _events->begin()) fl = 1;
         }
     }
+
+    ev2 = NULL;
 
     // default: first
     foreach (MidiEvent* event, *_events) {
@@ -259,11 +271,15 @@ int MidiChannel::progBankAtTick(int tick, int *bank)
         if (ctrl && ctrl->control()==0x0) {
             _bank= ctrl->value();
         }
-        if (ev) {
+        if(ev) ev2 = ev;
+
+        if (ev2 && _bank != -1) {
             if(bank) *bank = _bank;
-            return ev->program();
+            return ev2->program();
         }
     }
+
+    if(_bank < 0) _bank = 0; // Default bank
 
     if(bank) *bank = _bank;
     return 0;

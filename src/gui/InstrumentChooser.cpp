@@ -428,17 +428,17 @@ void InstrumentChooser::accept()
                     // deletes upcoming repeating prg events
                     foreach (MidiEvent* event3, *(_file->eventsBetween(ticks2-10, ticks2+10))) {
                         ProgChangeEvent* toRemove = dynamic_cast<ProgChangeEvent*>(event3);
-                        if (toRemove && event3->channel()==_channel) {
+                        if (toRemove && event3->channel()==_channel && toRemove->program() == program) {
                             _file->channel(_channel)->removeEvent(toRemove);
                         }
                     }
 
                     // insert news bank/prg events
                     MidiEvent* cevent = new ControlChangeEvent(_channel, 0x0, old_bank, track);
-                    MidiEvent* event = new ProgChangeEvent(_channel, program, track);
+                  //  MidiEvent* event = new ProgChangeEvent(_channel, program, track);
 
                     _file->channel(_channel)->insertEvent(cevent, ticks2);
-                    _file->channel(_channel)->insertEvent(event, ticks2);
+                   // _file->channel(_channel)->insertEvent(event, ticks2);
                     break;
 
                 }

@@ -77,8 +77,11 @@ signals:
     void selectInstrumentClicked(int channel);
     void selectSoundEffectClicked(int channel);
 
+
 public slots:
     void update();
+    void isDoubleClicked(QListWidgetItem *item);
+
 
 private:
     MidiFile* file;

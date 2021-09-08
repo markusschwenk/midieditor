@@ -210,6 +210,21 @@ void ChannelListItem::onBeforeUpdate()
     }
 }
 
+void ChannelListWidget::isDoubleClicked(QListWidgetItem *item)
+{
+   // qWarning("item: %i", item->listWidget()->currentRow());
+
+    this->midiFile()->protocol()->startNewAction("Show Channel " + QString().number(item->listWidget()->currentRow(), 10));
+    for(int channel = 0; channel < 17; channel++) {
+        if(channel == item->listWidget()->currentRow())
+            this->midiFile()->channel(channel)->setVisible(true);
+        else
+            this->midiFile()->channel(channel)->setVisible(false);
+    }
+    this->midiFile()->protocol()->endAction();
+    emit channelStateChanged();
+}
+
 ChannelListWidget::ChannelListWidget(QWidget* parent)
     : QListWidget(parent)
 {
@@ -227,9 +242,12 @@ ChannelListWidget::ChannelListWidget(QWidget* parent)
 
         connect(widget, SIGNAL(channelStateChanged()), this, SIGNAL(channelStateChanged()));
         connect(widget, SIGNAL(selectInstrumentClicked(int)), this, SIGNAL(selectInstrumentClicked(int)));
-        connect(widget, SIGNAL(selectSoundEffectClicked(int)), this, SIGNAL(selectSoundEffectClicked(int)));
+        connect(widget, SIGNAL(selectSoundEffectClicked(int)), this, SIGNAL(selectSoundEffectClicked(int))); 
 
     }
+    connect(this, SIGNAL(itemDoubleClicked(QListWidgetItem *)), this, SLOT(isDoubleClicked(QListWidgetItem *)));
+
+
 
     file = 0;
 }
@@ -245,7 +263,9 @@ void ChannelListWidget::update()
 {
 
     foreach (ChannelListItem* item, items) {
+
         item->onBeforeUpdate();
+
     }
 
     QListWidget::update();
