@@ -700,7 +700,9 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
             if(!visible_TimeLineArea4) text = NULL;
 
             if(text && (text->type() == TextEvent::TEXT ||
-                        text->type() == TextEvent::MARKER)){
+                        text->type() == TextEvent::MARKER ||
+                        text->type() == TextEvent::LYRIK ||
+                        text->type() == TextEvent::TRACKNAME)){
                 int x = xPosOfMs(msOfTick(text->midiTime()));
                 int wd = 16;
 
@@ -1343,12 +1345,19 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                TextEvent* text = dynamic_cast<TextEvent*>(event2);
 
                if (text && (text->type() == TextEvent::TEXT ||
-                            text->type() == TextEvent::MARKER)) {
+                            text->type() == TextEvent::MARKER ||
+                            text->type() == TextEvent::LYRIK||
+                            text->type() == TextEvent::TRACKNAME)) {
 
                    _cur_edit = event2->midiTime();
                    TextEventEdit* d = new TextEventEdit(file, event2->channel(), this,
                                         (text->type() == TextEvent::TEXT)
-                                            ? TEXTEVENT_EDIT_TEXT : TEXTEVENT_EDIT_MARKER);
+                                            ? TEXTEVENT_EDIT_TEXT
+                                            : ((text->type() == TextEvent::LYRIK)
+                                               ? TEXTEVENT_EDIT_LYRIK
+                                               : ((text->type() == TextEvent::TRACKNAME)
+                                                  ? TEXTEVENT_EDIT_TRACK_NAME
+                                                  : TEXTEVENT_EDIT_MARKER)));
 
 
                    d->textEdit->setText(text->text());
