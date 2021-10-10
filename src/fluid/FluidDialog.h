@@ -36,6 +36,8 @@
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QToolButton>
+#include <QtWidgets/QRadioButton>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QWidget>
 
 #include <QFrame>
@@ -51,6 +53,12 @@
 #include "../gui/MainWindow.h"
 
 #include "fluidsynth_proc.h"
+
+#include "../MidiEvent/MidiEvent.h"
+#include "../MidiEvent/TextEvent.h"
+#include "../midi/MidiChannel.h"
+#include "../midi/MidiFile.h"
+#include "../protocol/Protocol.h"
 
 int addInstrumentNamesFromSF2(const char *filename);
 
@@ -163,6 +171,29 @@ public:
     QLabel *status_fluid;
     QLabel *status_audio;
 
+    QGroupBox *MP3Audio;
+    QComboBox *MP3BitrateBox;
+    QLabel *MP3Bitratelabel;
+    QRadioButton *MP3ModeButton;
+    QRadioButton *MP3ModeButton_2;
+    QLabel *MP3label_2;
+    QCheckBox *MP3VBRcheckBox;
+    QCheckBox *MP3HQcheckBox;
+    QLineEdit *MP3_lineEdit_title;
+    QLabel *MP3label_title;
+    QLabel *MP3label_artist;
+    QLabel *MP3label_album;
+    QLabel *MP3label_genre;
+    QLineEdit *MP3_lineEdit_artist;
+    QLineEdit *MP3_lineEdit_album;
+    QLineEdit *MP3_lineEdit_genre;
+    QLabel *MP3label_year;
+    QLabel *MP3label_track;
+    QSpinBox *MP3spinBox_year;
+    QSpinBox *MP3spinBox_track;
+    QCheckBox *MP3checkBox_id3;
+    QPushButton *MP3Button_save;
+
 
     FluidDialog(QWidget* parent);
     void tab_MainVolume(QDialog *FluidDialog);
@@ -207,6 +238,8 @@ public slots:
     void setOutput(int index);
     void setOutputFreq(int index);
     void setWavFreq(int index);
+
+    void save_MP3_settings();
 
     void timer_update();
     void reject();

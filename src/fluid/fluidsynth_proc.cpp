@@ -220,6 +220,19 @@ fluidsynth_proc::fluidsynth_proc()
 
     fluid_settings = new QSettings(QString("Fluid_MidiEditor"), QString("NONE"));
 
+    fluid_settings->setValue("mp3_title", "");
+    //fluid_settings->setValue("mp3_artist", "");
+    fluid_settings->setValue("mp3_album", "");
+    fluid_settings->setValue("mp3_genre", "");
+    if(fluid_settings->value("mp3_bitrate").toInt() == 0)
+        fluid_settings->setValue("mp3_bitrate", 5);
+    fluid_settings->setValue("mp3_mode", true);
+    fluid_settings->setValue("mp3_vbr", false);
+    fluid_settings->setValue("mp3_hq", false);
+    fluid_settings->setValue("mp3_id3", true);
+    fluid_settings->setValue("mp3_year", QDate::currentDate().year());
+    fluid_settings->setValue("mp3_track", 1);
+
     sf2_name = NULL;
 
 
@@ -494,6 +507,12 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
         case 0xF0: // systemEX
         {
             char id2[4]= {0x0, 0x66, 0x66, 'P'}; // global mixer
+
+            if(fluid_control) { // anti-crash!
+                fluid_control->disable_mainmenu = true;
+                fluid_control->deleteLater();
+                fluid_control = NULL;
+            }
 
             // new sysEx old compatibility
             if(array[2]==id2[0] && array[3]==id2[1] && array[4]==id2[2] && array[5]=='P') {
@@ -2009,6 +2028,11 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
     {
         char id2[4]= {0x0, 0x66, 0x66, 'P'}; // global mixer
 
+        if(fluid_control) { // anti-crash!
+            fluid_control->disable_mainmenu = true;
+            fluid_control->deleteLater();
+            fluid_control = NULL;
+        }
 
         // new sysEx old compatibility
         if(data[2]==id2[0] && data[3]==id2[1] && data[4]==id2[2] && data[5]=='P') {
@@ -2112,8 +2136,8 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
                 fluid_control->MainVol->setValue(fluid_output->getSynthGain());
-                fluid_control->spinChan->valueChanged(15);
-                fluid_control->spinChan->valueChanged(0);
+                emit fluid_control->spinChan->valueChanged(15);
+                emit fluid_control->spinChan->valueChanged(0);
             }
 
         } else
@@ -2165,8 +2189,9 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 goto skip;
             }
 
-            if(flag == 1 || (flag == 2 && n == 0))
+            if((flag == 1) || (flag == 2 && n == 0)) {
                 decode_sys_format(qd, (void *) &fluid_output->synth_gain);
+            }
 
                 fluid_output->audio_chanmute[n]= false;
                 decode_sys_format(qd, (void *) &fluid_output->synth_chanvolume[n]);

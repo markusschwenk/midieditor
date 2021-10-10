@@ -272,6 +272,119 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
         OutputFreqBox->setCurrentIndex(ind);
     }
 
+    MP3Audio = new QGroupBox(tabConfig);
+    MP3Audio->setObjectName(QString::fromUtf8("MP3Audio"));
+    MP3Audio->setGeometry(QRect(30, 370, 741 - 46, 141));
+    MP3BitrateBox = new QComboBox(MP3Audio);
+    MP3BitrateBox->setObjectName(QString::fromUtf8("MP3BitrateBox"));
+    MP3BitrateBox->setGeometry(QRect(50, 20, 91, 22));
+    MP3Bitratelabel = new QLabel(MP3Audio);
+    MP3Bitratelabel->setObjectName(QString::fromUtf8("MP3Bitratelabel"));
+    MP3Bitratelabel->setGeometry(QRect(10, 20, 41, 16));
+    MP3ModeButton = new QRadioButton(MP3Audio);
+    MP3ModeButton->setObjectName(QString::fromUtf8("MP3ModeButton"));
+    MP3ModeButton->setGeometry(QRect(50, 60, 51, 17));
+    MP3ModeButton->setChecked(!fluid_output->fluid_settings->value("mp3_mode").toBool()); //-
+    MP3ModeButton_2 = new QRadioButton(MP3Audio);
+    MP3ModeButton_2->setObjectName(QString::fromUtf8("MP3ModeButton_2"));
+    MP3ModeButton_2->setGeometry(QRect(100, 60, 51, 17));
+    MP3ModeButton_2->setChecked(fluid_output->fluid_settings->value("mp3_mode").toBool()); //-
+    MP3label_2 = new QLabel(MP3Audio);
+    MP3label_2->setObjectName(QString::fromUtf8("MP3label_2"));
+    MP3label_2->setGeometry(QRect(10, 60, 31, 16));
+    MP3VBRcheckBox = new QCheckBox(MP3Audio);
+    MP3VBRcheckBox->setObjectName(QString::fromUtf8("MP3VBRcheckBox"));
+    MP3VBRcheckBox->setGeometry(QRect(10, 90, 51, 17));
+    MP3VBRcheckBox->setChecked(fluid_output->fluid_settings->value("mp3_vbr").toBool()); //-
+    MP3HQcheckBox = new QCheckBox(MP3Audio);
+    MP3HQcheckBox->setObjectName(QString::fromUtf8("MP3HQcheckBox"));
+    MP3HQcheckBox->setGeometry(QRect(60, 90, 71, 17));
+    MP3HQcheckBox->setChecked(fluid_output->fluid_settings->value("mp3_hq").toBool()); //-
+
+    MP3label_title = new QLabel(MP3Audio);
+    MP3label_title->setObjectName(QString::fromUtf8("MP3label_title"));
+    MP3label_title->setGeometry(QRect(250, 10, 47, 13));
+    MP3label_artist = new QLabel(MP3Audio);
+    MP3label_artist->setObjectName(QString::fromUtf8("MP3label_artist"));
+    MP3label_artist->setGeometry(QRect(250, 40, 47, 13));
+    MP3label_album = new QLabel(MP3Audio);
+    MP3label_album->setObjectName(QString::fromUtf8("MP3label_album"));
+    MP3label_album->setGeometry(QRect(250, 70, 47, 13));
+    MP3label_genre = new QLabel(MP3Audio);
+    MP3label_genre->setObjectName(QString::fromUtf8("MP3label_genre"));
+    MP3label_genre->setGeometry(QRect(250, 100, 47, 13));
+
+    MP3_lineEdit_title = new QLineEdit(MP3Audio);
+    MP3_lineEdit_title->setObjectName(QString::fromUtf8("MP3_lineEdit_title"));
+    MP3_lineEdit_title->setGeometry(QRect(290, 20, 311 - 40, 20));
+    MP3_lineEdit_title->setMaxLength(64);
+    MP3_lineEdit_title->setText(fluid_output->fluid_settings->value("mp3_title").toString()); //-
+    MP3_lineEdit_artist = new QLineEdit(MP3Audio);
+    MP3_lineEdit_artist->setObjectName(QString::fromUtf8("MP3_lineEdit_artist"));
+    MP3_lineEdit_artist->setGeometry(QRect(290, 50, 311 - 40, 20));
+    MP3_lineEdit_artist->setMaxLength(64);
+    MP3_lineEdit_artist->setText(fluid_output->fluid_settings->value("mp3_artist").toString()); //-
+    MP3_lineEdit_album = new QLineEdit(MP3Audio);
+    MP3_lineEdit_album->setObjectName(QString::fromUtf8("MP3_lineEdit_album"));
+    MP3_lineEdit_album->setGeometry(QRect(290, 80, 311 - 40, 20));
+    MP3_lineEdit_album->setMaxLength(64);
+    MP3_lineEdit_album->setText(fluid_output->fluid_settings->value("mp3_album").toString()); //-
+    MP3_lineEdit_genre = new QLineEdit(MP3Audio);
+    MP3_lineEdit_genre->setObjectName(QString::fromUtf8("MP3_lineEdit_genre"));
+    MP3_lineEdit_genre->setGeometry(QRect(290, 110, 311 - 40, 20));
+    MP3_lineEdit_genre->setMaxLength(64);
+    MP3_lineEdit_genre->setText(fluid_output->fluid_settings->value("mp3_genre").toString()); //-
+    MP3label_year = new QLabel(MP3Audio);
+    MP3label_year->setObjectName(QString::fromUtf8("MP3label_year"));
+    MP3label_year->setGeometry(QRect(620 - 40, 20, 31, 16));
+    MP3label_track = new QLabel(MP3Audio);
+    MP3label_track->setObjectName(QString::fromUtf8("MP3label_track"));
+    MP3label_track->setGeometry(QRect(620 - 40, 50, 31, 16));
+    MP3spinBox_year = new QSpinBox(MP3Audio);
+    MP3spinBox_year->setObjectName(QString::fromUtf8("MP3spinBox_year"));
+    MP3spinBox_year->setGeometry(QRect(660 - 40, 20, 61, 22));
+    MP3spinBox_year->setMaximum(4000);
+    MP3spinBox_year->setValue(fluid_output->fluid_settings->value("mp3_year").toInt()); //-
+
+    MP3spinBox_track = new QSpinBox(MP3Audio);
+    MP3spinBox_track->setObjectName(QString::fromUtf8("MP3spinBox_track"));
+    MP3spinBox_track->setGeometry(QRect(660 - 40, 50, 61, 22));
+    MP3spinBox_track->setMinimum(0);
+    MP3spinBox_track->setMaximum(255);
+    MP3spinBox_track->setValue(fluid_output->fluid_settings->value("mp3_track").toInt()); //-
+    MP3checkBox_id3 = new QCheckBox(MP3Audio);
+    MP3checkBox_id3->setObjectName(QString::fromUtf8("MP3checkBox_id3"));
+    MP3checkBox_id3->setGeometry(QRect(190, 10, 41, 17));
+    MP3checkBox_id3->setChecked(fluid_output->fluid_settings->value("mp3_id3").toBool());
+    MP3Button_save = new QPushButton(MP3Audio);
+    MP3Button_save->setObjectName(QString::fromUtf8("MP3Button_save"));
+    MP3Button_save->setGeometry(QRect(170, 80, 61, 51));
+
+    MP3Audio->setTitle(QCoreApplication::translate("FluidDialog", "MP3 Conversion/ FLAC Tags", nullptr));
+    MP3BitrateBox->setCurrentText(QString());
+    MP3BitrateBox->addItem("128 kbps", 128);
+    MP3BitrateBox->addItem("160 kbps", 160);
+    MP3BitrateBox->addItem("192 kbps", 192);
+    MP3BitrateBox->addItem("224 kbps", 224);
+    MP3BitrateBox->addItem("256 kbps", 256);
+    MP3BitrateBox->addItem("320 kbps", 320);
+    MP3BitrateBox->setCurrentIndex(fluid_output->fluid_settings->value("mp3_bitrate").toInt()); //-
+
+    MP3Bitratelabel->setText(QCoreApplication::translate("FluidDialog", "Bitrate:", nullptr));
+    MP3ModeButton->setText(QCoreApplication::translate("FluidDialog", "Joint", nullptr));
+    MP3ModeButton_2->setText(QCoreApplication::translate("FluidDialog", "Simple", nullptr));
+    MP3label_2->setText(QCoreApplication::translate("FluidDialog", "Mode:", nullptr));
+    MP3VBRcheckBox->setText(QCoreApplication::translate("FluidDialog", "VBR", nullptr));
+    MP3HQcheckBox->setText(QCoreApplication::translate("FluidDialog", "Hi Quality", nullptr));
+    MP3label_title->setText(QCoreApplication::translate("FluidDialog", "Title:", nullptr));
+    MP3label_artist->setText(QCoreApplication::translate("FluidDialog", "Artist:", nullptr));
+    MP3label_album->setText(QCoreApplication::translate("FluidDialog", "Album:", nullptr));
+    MP3label_genre->setText(QCoreApplication::translate("FluidDialog", "Genre:", nullptr));
+    MP3label_year->setText(QCoreApplication::translate("FluidDialog", "Year:", nullptr));
+    MP3label_track->setText(QCoreApplication::translate("FluidDialog", "Track:", nullptr));
+    MP3checkBox_id3->setText(QCoreApplication::translate("FluidDialog", "ID3", nullptr));
+    MP3Button_save->setText(QCoreApplication::translate("FluidDialog", "Save ID3", nullptr));
+
     QObject::connect(loadSF2Button, SIGNAL(clicked()), this, SLOT(load_SF2()));
     QObject::connect(sf2Box, SIGNAL(textActivated(QString)), this, SLOT(load_SF2(QString)));
     QObject::connect(MIDIConnectbutton, SIGNAL(clicked()), this, SLOT(MIDIConnectOnOff()));
@@ -288,6 +401,8 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
         fluid_output->fluid_settings->setValue("Wav to Float", fluid_output->wav_is_float);
 
     });
+
+    QObject::connect(MP3Button_save, SIGNAL(clicked()), this, SLOT(save_MP3_settings()));
 }
 
 void FluidDialog::update_status() {
@@ -489,6 +604,58 @@ void FluidDialog::setWavFreq(int) {
 
         fluid_output->fluid_settings->setValue("Wav Freq", fluid_output->_wave_sample_rate);
     }
+}
+
+void FluidDialog::save_MP3_settings() {
+
+    QString info;
+
+    info.append("title: " + MP3_lineEdit_title->text()+"\n");
+    fluid_output->fluid_settings->setValue("mp3_title", MP3_lineEdit_title->text());
+    info.append("artist: " + MP3_lineEdit_artist->text()+"\n");
+    fluid_output->fluid_settings->setValue("mp3_artist", MP3_lineEdit_artist->text());
+    info.append("album: " + MP3_lineEdit_album->text()+"\n");
+    fluid_output->fluid_settings->setValue("mp3_album", MP3_lineEdit_album->text());
+    info.append("genre: " + MP3_lineEdit_genre->text()+"\n");
+    fluid_output->fluid_settings->setValue("mp3_genre", MP3_lineEdit_genre->text());
+    QString a;
+    a.setNum(MP3BitrateBox->currentIndex());
+    info.append("mp3_bitrate: " + a +"\n");
+    fluid_output->fluid_settings->setValue("mp3_bitrate", MP3BitrateBox->currentIndex());
+    a.setNum(MP3ModeButton_2->isChecked() ? 1 : 0);
+    info.append("mp3_mode: " + a +"\n");
+    fluid_output->fluid_settings->setValue("mp3_mode", MP3ModeButton_2->isChecked());
+    a.setNum(MP3VBRcheckBox->isChecked() ? 1 : 0);
+    info.append("mp3_vbr: " + a +"\n");
+    fluid_output->fluid_settings->setValue("mp3_vbr", MP3VBRcheckBox->isChecked());
+    a.setNum(MP3HQcheckBox->isChecked() ? 1 : 0);
+    info.append("mp3_hq: " + a +"\n");
+    fluid_output->fluid_settings->setValue("mp3_hq", MP3HQcheckBox->isChecked());
+    fluid_output->fluid_settings->setValue("mp3_id3", MP3checkBox_id3->isChecked());
+    a.setNum(MP3spinBox_year->value());
+    info.append("mp3_year: " + a +"\n");
+    fluid_output->fluid_settings->setValue("mp3_year", MP3spinBox_year->value());
+    a.setNum(MP3spinBox_track->value());
+    info.append("mp3_track: " + a +"\n");
+    fluid_output->fluid_settings->setValue("mp3_track", MP3spinBox_track->value());
+
+    ((MainWindow *) _parent)->getFile()->protocol()->startNewAction("Save Copyright info");
+
+    TextEvent *event = new TextEvent(16, ((MainWindow *) _parent)->getFile()->track(0));
+    event->setType(TextEvent::COPYRIGHT);
+    event->setText(info);
+    ((MainWindow *) _parent)->getFile()->channel(16)->insertEvent(event, 0);
+
+    // borra eventos repetidos proximos
+    foreach (MidiEvent* event2, *(((MainWindow *) _parent)->getFile()->eventsBetween(0, 10))) {
+        TextEvent* toRemove = dynamic_cast<TextEvent*>(event2);
+        if (toRemove && toRemove != event && toRemove->type() == TextEvent::COPYRIGHT) {
+            ((MainWindow *) _parent)->getFile()->channel(16)->removeEvent(toRemove);
+        }
+    }
+
+    ((MainWindow *) _parent)->getFile()->protocol()->endAction();
+
 }
 
 void FluidDialog::load_SF2() {

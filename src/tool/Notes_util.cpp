@@ -1022,7 +1022,7 @@ void MainWindow::FluidSaveAsWav() {
         path =  oldPath;
         path.remove(path.lastIndexOf(".kar"), 20);
         path+=".wav";
-    } else path="default.wav";
+    } else path = startDirectory+"/default.wav";
 
     QString savePath = QFileDialog::getSaveFileName(this, "Save WAV file",
                                                     path, "WAV Files (*.wav)");
@@ -1036,6 +1036,218 @@ void MainWindow::FluidSaveAsWav() {
 
         fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
 
+    }
+
+}
+
+void MainWindow::FluidSaveAsMp3() {
+
+    if (!file)
+        return;
+
+    if (MidiPlayer::isPlaying()) return;
+
+    QString oldPath = file->path();
+
+    QString path;
+    if(oldPath.endsWith(".mid")) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".mid"), 20);
+        path+=".mp3";
+    } else if(oldPath.endsWith(".kar")) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".kar"), 20);
+        path+=".mp3";
+    } else path = startDirectory+"/default.mp3";
+
+    QString savePath = QFileDialog::getSaveFileName(this, "Save MP3 file",
+                                                    path, "MP3 Files (*.mp3)");
+
+    if(savePath.isEmpty()) {
+        return; // canceled
+    }
+
+    QString file_mp3 = QApplication::applicationDirPath() + "/encoders/lame.exe";
+
+    if(!QFile::exists(file_mp3)) {
+        QMessageBox::critical(this, "MP3 Saving", "lame.exe not found!");
+        return;
+    }
+
+    QFile *wav = new QFile(savePath + ".wav");
+    if(wav->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+
+        fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
+        if(wav->exists()) {
+            QFile::remove(savePath);
+
+            QProcess *process = new QProcess(this);
+
+            QStringList args;
+            args.append("--disptime");
+            args.append("5");
+            args.append("-b");
+            int index = fluid_output->fluid_settings->value("mp3_bitrate").toInt();
+            int tab_bitrate[] = {128, 160, 192, 224, 256, 320};
+            args.append(QString::number(tab_bitrate[index]));
+
+            if(fluid_output->fluid_settings->value("mp3_vbr").toBool())
+                args.append("--vbr-new");
+            else
+                args.append("--cbr");
+
+            if(fluid_output->fluid_settings->value("mp3_hq").toBool()) {
+                args.append("-q");
+                args.append("0");
+            }
+
+            args.append("-m");
+            if(fluid_output->fluid_settings->value("mp3_mode").toBool())
+                args.append("s");
+            else
+                args.append("j");
+
+
+            QString title = fluid_output->fluid_settings->value("mp3_title").toString();
+
+            if(title.isEmpty()) {
+
+                // get name from filename
+
+                title = savePath.mid(savePath.lastIndexOf("/") + 1);
+                title = title.mid(title.lastIndexOf("\\") + 1);
+                if(title.endsWith(".mp3")) {
+
+                    title.remove(title.lastIndexOf(".mp3"), 20);
+
+                }
+            }
+
+            if(fluid_output->fluid_settings->value("mp3_id3").toBool()) {
+                args.append("--tt");
+                args.append(title);
+                args.append("--ta");
+                args.append(fluid_output->fluid_settings->value("mp3_artist").toString());
+                args.append("--tl");
+                args.append(fluid_output->fluid_settings->value("mp3_album").toString());
+                args.append("--tg");
+                args.append(fluid_output->fluid_settings->value("mp3_genre").toString());
+                args.append("--ty");
+                args.append(QString::number(fluid_output->fluid_settings->value("mp3_year").toInt()));
+                args.append("--tn");
+                args.append(QString::number(fluid_output->fluid_settings->value("mp3_track").toInt()));
+            }
+
+            args.append(savePath + ".wav");
+            args.append(savePath);
+
+            int r = process->execute(file_mp3, args);
+
+            QFile::remove(savePath + ".wav");
+
+            if(r) QMessageBox::critical(this, "MP3 Saving", "Error!");
+            else QMessageBox::information(this, "MP3 Saving", "Succeeded");
+
+            delete process;
+        }
+    }
+
+}
+
+void MainWindow::FluidSaveAsFlac() {
+
+    if (!file)
+        return;
+
+    if (MidiPlayer::isPlaying()) return;
+
+    QString oldPath = file->path();
+
+    QString path;
+    if(oldPath.endsWith(".mid")) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".mid"), 20);
+        path+=".flac";
+    } else if(oldPath.endsWith(".kar")) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".kar"), 20);
+        path+=".flac";
+    } else path = startDirectory+"/default.flac";
+
+    QString savePath = QFileDialog::getSaveFileName(this, "Save FLAC file",
+                                                    path, "FLAC Files (*.flac)");
+
+    if(savePath.isEmpty()) {
+        return; // canceled
+    }
+
+    QString file_flac = QApplication::applicationDirPath() + "/encoders/flac.exe";
+
+    if(!QFile::exists(file_flac)) {
+        QMessageBox::critical(this, "FLAC Saving", "flac.exe not found!");
+        return;
+    }
+
+    QFile *wav = new QFile(savePath + ".wav");
+    if(wav->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+
+        // FLAC is not float32 compatible: use int16
+        int isf = fluid_output->wav_is_float;
+        fluid_output->wav_is_float = 0;
+        fluid_output->fluid_settings->setValue("Wav to Float", fluid_output->wav_is_float);
+
+        fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
+
+        // restore wav_is_float
+        fluid_output->wav_is_float = isf;
+        fluid_output->fluid_settings->setValue("Wav to Float", fluid_output->wav_is_float);
+
+        if(wav->exists()) {
+            QFile::remove(savePath);
+
+            QProcess *process = new QProcess(this);
+
+            QStringList args;
+
+            args.append("-f");
+
+            QString title = fluid_output->fluid_settings->value("mp3_title").toString();
+
+            if(title.isEmpty()) {
+
+                // get name from filename
+
+                title = savePath.mid(savePath.lastIndexOf("/") + 1);
+                title = title.mid(title.lastIndexOf("\\") + 1);
+                if(title.endsWith(".flac")) {
+
+                    title.remove(title.lastIndexOf(".flac"), 20);
+
+                }
+            }
+
+            if(fluid_output->fluid_settings->value("mp3_id3").toBool()) {
+                args.append("--tag=TITLE=""" + title + """");
+                args.append("--tag=ARTIST=""" + fluid_output->fluid_settings->value("mp3_artist").toString() + """");
+                args.append("--tag=ALBUM=""" + fluid_output->fluid_settings->value("mp3_album").toString() + """");
+                args.append("--tag=GENRE=""" + fluid_output->fluid_settings->value("mp3_genre").toString() + """");
+                args.append("--tag=YEAR=""" + QString::number(fluid_output->fluid_settings->value("mp3_year").toInt()) + """");
+                args.append("--tag=TRACKNUMBER=""" + QString::number(fluid_output->fluid_settings->value("mp3_track").toInt()) + """");
+            }
+
+            args.append("-o");
+            args.append(savePath);
+            args.append(savePath + ".wav");
+
+            int r = process->execute(file_flac, args);
+
+            QFile::remove(savePath + ".wav");
+
+            if(r) QMessageBox::critical(this, "FLAC Saving", "Error!");
+            else QMessageBox::information(this, "FLAC Saving", "Succeeded");
+
+            delete process;
+        }
     }
 
 }
@@ -1349,6 +1561,21 @@ void MainWindow::midi_text_edit() {
     delete d;
 }
 
+void MainWindow::midi_lyrik_edit() {
+
+    TextEventEdit* d = new TextEventEdit(file, 16, this, TEXTEVENT_NEW_LYRIK);
+
+    d->exec();
+    delete d;
+}
+
+void MainWindow::midi_track_name_edit() {
+
+    TextEventEdit* d = new TextEventEdit(file, 16, this, TEXTEVENT_NEW_TRACK_NAME);
+
+    d->exec();
+    delete d;
+}
 void MainWindow::midi_marker_edit() {
 
     TextEventEdit* d = new TextEventEdit(file, 16, this, TEXTEVENT_NEW_MARKER);

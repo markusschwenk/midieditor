@@ -24,6 +24,7 @@
 #include <QScrollBar>
 #include <QSettings>
 #include <QSplitter>
+#include <QDateTime>
 
 class MatrixWidget;
 class MidiEvent;
@@ -235,10 +236,14 @@ public slots:
 
     void midi_text_edit();
     void midi_marker_edit();
+    void midi_lyrik_edit();
+    void midi_track_name_edit();
 
  #ifdef USE_FLUIDSYNTH
     static void FluidControl();
     void FluidSaveAsWav();
+    void FluidSaveAsMp3();
+    void FluidSaveAsFlac();
  #endif
 
     void ImportSF2Names();
@@ -286,6 +291,8 @@ private:
 #ifdef USE_FLUIDSYNTH
 
     QAction* FluidActionExportWav;
+    QAction* FluidActionExportMp3;
+    QAction* FluidActionExportFlac;
 
 #endif
 

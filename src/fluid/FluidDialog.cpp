@@ -110,6 +110,8 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
 void FluidDialog::reject() {
     time_updat->stop();
     delete time_updat;
+    if(fluid_output->fluid_settings->value("mp3_artist").toString() != "")
+        fluid_output->fluid_settings->setValue("mp3_artist", MP3_lineEdit_artist->text());
     hide();
     _cur_edit = -1;
 }

@@ -781,6 +781,7 @@ void MainWindow::play()
         mw_matrixWidget->timeMsChanged(file->msOfTick(file->cursorTick()), true);
 #ifdef USE_FLUIDSYNTH
         FluidActionExportWav->setEnabled(false);
+        FluidActionExportMp3->setEnabled(false);
 #endif
         _miscWidget->setEnabled(false);
         channelWidget->setEnabled(false);
@@ -831,6 +832,7 @@ void MainWindow::record()
 
 #ifdef USE_FLUIDSYNTH
             FluidActionExportWav->setEnabled(false);
+            FluidActionExportMp3->setEnabled(false);
 #endif
             _miscWidget->setEnabled(false);
             channelWidget->setEnabled(false);
@@ -892,6 +894,7 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
         MidiPlayer::stop();
 #ifdef USE_FLUIDSYNTH
         FluidActionExportWav->setEnabled(true);
+        FluidActionExportMp3->setEnabled(true);
 #endif
         _miscWidget->setEnabled(true);
         channelWidget->setEnabled(true);
@@ -932,6 +935,7 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
         MidiOutput::sendCommand2(pevent);
 #ifdef USE_FLUIDSYNTH
         FluidActionExportWav->setEnabled(true);
+        FluidActionExportMp3->setEnabled(true);
 #endif
         _miscWidget->setEnabled(true);
         channelWidget->setEnabled(true);
@@ -1287,6 +1291,127 @@ void MainWindow::openFile(QString filePath)
         stop();
         setFile(mf);
         updateRecentPathsList();
+
+        QString info;
+        bool fl = false;
+
+        if(fluid_control) { // anti-crash!
+            fluid_control->disable_mainmenu = true;
+            fluid_control->deleteLater();
+            fluid_control = NULL;
+        }
+
+        // get COPYRIGHT event
+        foreach (MidiEvent* event, *(getFile()->eventsBetween(0, 10))) {
+            TextEvent* te = dynamic_cast<TextEvent*>(event);
+            if (te && te->channel()== 16 && te->type() == TextEvent::COPYRIGHT) {
+                info = te->text();
+                break;
+            }
+        }
+
+        QString s = info.mid(info.indexOf("title: "));
+        if(!s.isEmpty()) {
+            s = s.mid(7);
+            s = s.left(s.indexOf("\n"));
+            fl = true;
+            fluid_output->fluid_settings->setValue("mp3_title", s);
+        } else {
+            QString name;
+            if(filePath.endsWith(".mid")) {
+                name =  filePath;
+                name.remove(name.lastIndexOf(".mid"), 20);
+            } else if(filePath.endsWith(".kar")) {
+                name =  filePath;
+                name.remove(name.lastIndexOf(".kar"), 20);
+            }
+
+            name = name.mid(name.lastIndexOf("/") + 1);
+            name = name.mid(name.lastIndexOf("\\") + 1);
+            fluid_output->fluid_settings->setValue("mp3_title", name);
+        }
+
+        s = info.mid(info.indexOf("artist: "));
+        if(!s.isEmpty()) {
+            s = s.mid(8);
+            s = s.left(s.indexOf("\n"));
+            fl = true;
+            fluid_output->fluid_settings->setValue("mp3_artist", s);
+        } /* else
+            fluid_output->fluid_settings->setValue("mp3_artist", "");*/
+
+        s = info.mid(info.indexOf("album: "));
+        if(!s.isEmpty()) {
+            s = s.mid(7);
+            s = s.left(s.indexOf("\n"));
+            //fl = true;
+            fluid_output->fluid_settings->setValue("mp3_album", s);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_album", "");
+
+        s = info.mid(info.indexOf("genre: "));
+        if(!s.isEmpty()) {
+            s = s.mid(7);
+            s = s.left(s.indexOf("\n"));
+            //fl = true;
+            fluid_output->fluid_settings->setValue("mp3_genre", s);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_genre", "");
+
+        s = info.mid(info.indexOf("mp3_year: "));
+        if(!s.isEmpty()) {
+            s = s.mid(10);
+            s = s.left(s.indexOf("\n"));
+            //fl = true;
+            fluid_output->fluid_settings->setValue("mp3_year", s.toInt());
+        } else
+            fluid_output->fluid_settings->setValue("mp3_year", QDate::currentDate().year());
+
+        s = info.mid(info.indexOf("mp3_track: "));
+        if(!s.isEmpty()) {
+            s = s.mid(11);
+            s = s.left(s.indexOf("\n"));
+            //fl = true;
+            fluid_output->fluid_settings->setValue("mp3_track", s.toInt());
+        } else
+            fluid_output->fluid_settings->setValue("mp3_track", 1);
+
+        s = info.mid(info.indexOf("mp3_bitrate: "));
+        if(!s.isEmpty()) {
+            s = s.mid(13);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_bitrate", s.toInt());
+        } else
+            fluid_output->fluid_settings->setValue("mp3_bitrate", 5);
+
+        s = info.mid(info.indexOf("mp3_mode: "));
+        if(!s.isEmpty()) {
+            s = s.mid(10);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_mode", s.toInt() ? true : false);
+        }  else
+            fluid_output->fluid_settings->setValue("mp3_mode", true);
+
+        s = info.mid(info.indexOf("mp3_vbr: "));
+        if(!s.isEmpty()) {
+            s = s.mid(9);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_vbr", s.toInt() ? true : false);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_vbr", false);
+
+
+        s = info.mid(info.indexOf("mp3_hq: "));
+        if(!s.isEmpty()) {
+            s = s.mid(8);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_hq", s.toInt() ? true : false);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_hq", false);
+
+        fluid_output->fluid_settings->setValue("mp3_id3", true);
+
+
     } else {
         QMessageBox::warning(this, "Error", QString("The file is damaged and cannot be opened. "));
     }
@@ -1493,6 +1618,106 @@ void MainWindow::newFile()
 
     editTrack(1);
     setWindowTitle(QApplication::applicationName() + " - Untitled Document[*]");
+
+    QString info;
+
+    if(fluid_control) { // anti-crash!
+        fluid_control->disable_mainmenu = true;
+        fluid_control->deleteLater();
+        fluid_control = NULL;
+    }
+
+    // get COPYRIGHT event
+    foreach (MidiEvent* event, *(getFile()->eventsBetween(0, 10))) {
+        TextEvent* te = dynamic_cast<TextEvent*>(event);
+        if (te && te->channel()== 16 && te->type() == TextEvent::COPYRIGHT) {
+            info = te->text();
+            break;
+        }
+    }
+
+    QString s = info.mid(info.indexOf("title: "));
+    if(!s.isEmpty()) {
+        s = s.mid(7);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_title", s);
+    } else
+        fluid_output->fluid_settings->setValue("mp3_title", "");
+
+    s = info.mid(info.indexOf("artist: "));
+    if(!s.isEmpty()) {
+        s = s.mid(8);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_artist", s);
+    } /* else
+        fluid_output->fluid_settings->setValue("mp3_artist", "");*/
+
+    s = info.mid(info.indexOf("album: "));
+    if(!s.isEmpty()) {
+        s = s.mid(7);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_album", s);
+    } else
+        fluid_output->fluid_settings->setValue("mp3_album", "");
+
+    s = info.mid(info.indexOf("genre: "));
+    if(!s.isEmpty()) {
+        s = s.mid(7);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_genre", s);
+    } else
+        fluid_output->fluid_settings->setValue("mp3_genre", "");
+
+    s = info.mid(info.indexOf("mp3_year: "));
+    if(!s.isEmpty()) {
+        s = s.mid(10);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_year", s.toInt());
+    } else
+        fluid_output->fluid_settings->setValue("mp3_year", QDate::currentDate().year());
+
+    s = info.mid(info.indexOf("mp3_track: "));
+    if(!s.isEmpty()) {
+        s = s.mid(11);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_track", s.toInt());
+    } else
+        fluid_output->fluid_settings->setValue("mp3_track", 1);
+
+    s = info.mid(info.indexOf("mp3_bitrate: "));
+    if(!s.isEmpty()) {
+        s = s.mid(13);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_bitrate", s.toInt());
+    } else
+        fluid_output->fluid_settings->setValue("mp3_bitrate", 5);
+
+    s = info.mid(info.indexOf("mp3_mode: "));
+    if(!s.isEmpty()) {
+        s = s.mid(10);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_mode", s.toInt() ? true : false);
+    }  else
+        fluid_output->fluid_settings->setValue("mp3_mode", true);
+
+    s = info.mid(info.indexOf("mp3_vbr: "));
+    if(!s.isEmpty()) {
+        s = s.mid(9);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_vbr", s.toInt() ? true : false);
+    } else
+        fluid_output->fluid_settings->setValue("mp3_vbr", false);
+
+
+    s = info.mid(info.indexOf("mp3_hq: "));
+    if(!s.isEmpty()) {
+        s = s.mid(8);
+        s = s.left(s.indexOf("\n"));
+        fluid_output->fluid_settings->setValue("mp3_hq", s.toInt() ? true : false);
+    } else
+        fluid_output->fluid_settings->setValue("mp3_hq", false);
+
+    //fluid_output->fluid_settings->setValue("mp3_id3", 0);
 }
 
 void MainWindow::panic()
@@ -2609,6 +2834,16 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     connect(FluidActionExportWav, SIGNAL(triggered()), this, SLOT(FluidSaveAsWav()));
     fileMB->addAction(FluidActionExportWav);
+
+    FluidActionExportMp3 = new QAction("Export to MP3 file..", this);
+
+    connect(FluidActionExportMp3, SIGNAL(triggered()), this, SLOT(FluidSaveAsMp3()));
+    fileMB->addAction(FluidActionExportMp3);
+
+    FluidActionExportFlac = new QAction("Export to FLAC file..", this);
+
+    connect(FluidActionExportFlac, SIGNAL(triggered()), this, SLOT(FluidSaveAsFlac()));
+    fileMB->addAction(FluidActionExportFlac);
 #endif
 
     QAction* ImportSF2NamesAction = new QAction("Import Instrument names from .SF2/.SF3 file", this);
@@ -2894,6 +3129,26 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     markerAction->setIcon(QIcon(":/run_environment/graphics/tool/midi_marker.png"));
     connect(markerAction, SIGNAL(triggered()), this, SLOT(midi_marker_edit()));
     toolsMB->addAction(markerAction);
+
+    ////////
+    // Tweak
+
+    QMenu* textevMenu = new QMenu("Insert more text events...", toolsMB);
+
+    QAction* evLyrikAction = new QAction("Insert Lyrik event", textevMenu);
+    evLyrikAction->setToolTip("Insert Lyrik event");
+    evLyrikAction->setIcon(QIcon(":/run_environment/graphics/tool/midi_text.png"));
+    connect(evLyrikAction, SIGNAL(triggered()), this, SLOT(midi_lyrik_edit()));
+    textevMenu->addAction(evLyrikAction);
+
+    QAction* evTracknameAction = new QAction("Insert Track Name event", textevMenu);
+    evTracknameAction->setToolTip("Insert Track Name event");
+    evTracknameAction->setIcon(QIcon(":/run_environment/graphics/tool/midi_text.png"));
+    connect(evTracknameAction, SIGNAL(triggered()), this, SLOT(midi_track_name_edit()));
+    textevMenu->addAction(evTracknameAction);
+
+    toolsMB->addMenu(textevMenu);
+    //////////
 
     toolsMB->addSeparator();
 
