@@ -60,6 +60,10 @@ TextEventEdit::TextEventEdit(MidiFile* f, int channel, QWidget* parent, int flag
         MIDITextDialog->setWindowTitle("Text Event Editor");
     else if((flag & 127) == TEXTEVENT_EDIT_MARKER)
         MIDITextDialog->setWindowTitle("Marker Event Editor");
+    else if((flag & 127) == TEXTEVENT_EDIT_LYRIK)
+        MIDITextDialog->setWindowTitle("Lyrik Event Editor");
+    else if((flag & 127) == TEXTEVENT_EDIT_TRACK_NAME)
+        MIDITextDialog->setWindowTitle("Marker Track Name Editor");
     else MIDITextDialog->setWindowTitle("General Text Event Editor");
 
     label->setText("Text");
@@ -76,11 +80,14 @@ void TextEventEdit::accept()
 {
 
  result=1;
- if(_flag!=TEXTEVENT_NEW_TEXT && _flag!=TEXTEVENT_NEW_MARKER) {QDialog::accept();return;}
+ if(_flag!=TEXTEVENT_NEW_TEXT && _flag!=TEXTEVENT_NEW_MARKER  &&
+         _flag!=TEXTEVENT_NEW_LYRIK && _flag!=TEXTEVENT_NEW_TRACK_NAME) {QDialog::accept();return;}
     MidiTrack* track = 0;
 
     int type = TextEvent::TEXT;
-    if(_flag==TEXTEVENT_NEW_MARKER) type = TextEvent::MARKER;
+    if(_flag == TEXTEVENT_NEW_MARKER) type = TextEvent::MARKER;
+    if(_flag == TEXTEVENT_NEW_LYRIK) type = TextEvent::LYRIK;
+    if(_flag == TEXTEVENT_NEW_TRACK_NAME) type = TextEvent::TRACKNAME;
 
     // get events
     foreach (MidiEvent* event, _file->channel(_channel)->eventMap()->values()) {
