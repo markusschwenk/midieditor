@@ -32,6 +32,7 @@
 #include <QResizeEvent>
 #include <QWidget>
 #include <QTextCodec>
+#include "../tool/EventMoveTool.h"
 
 class MidiFile;
 class TempoChangeEvent;

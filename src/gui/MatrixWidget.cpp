@@ -1195,10 +1195,84 @@ void MatrixWidget::leaveEvent(QEvent* event)
 
 void MatrixWidget::mousePressEvent(QMouseEvent* event)
 {
+
+    static int _locked = 0;
+
     PaintWidget::mousePressEvent(event);
     if (!MidiPlayer::isPlaying() && Tool::currentTool() && mouseInRect(ToolArea)) {
         if (Tool::currentTool()->press(event->buttons() == Qt::LeftButton)) {
             if (enabled) {
+
+                if(cursor() == Qt::SizeHorCursor && _locked == 0) { // 1
+
+                    _locked = 1;
+
+                    int tick = file->tick(msOfXPos(mouseX));
+
+                    int x = mouseX;
+                    int y = mouseY;
+
+                    int breaked = 0;
+
+                    QList<MidiEvent*> selected = Selection::instance()->selectedEvents();
+
+                    for(int chan = 0; chan < 16; chan++) { // 2
+                        if(file->channel(chan)->visible()) { //3
+                            foreach (MidiEvent* event, file->channel(chan)->eventMap()->values()) {  // 4
+                                NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
+                                if(noteOn && noteOn->shown() && noteOn->offEvent() &&
+                                        noteOn->midiTime() <= tick
+                                       && noteOn->offEvent()->midiTime() >= tick && !selected.contains(event)) {  // 5
+
+                                    int yy =  noteOn->y();
+
+                                    if(y >= yy && y < (yy + noteOn->height())
+                                            && x >= noteOn->x() && x < (noteOn->x() + noteOn->width())) {  // 6
+
+                                        if (!selected.contains(event)) {  // 7
+
+                                            int tmid = 0x7fffffff;
+                                            int tx = 0x7fffffff;
+                                            breaked = 1;
+                                            foreach (MidiEvent* event2, Selection::instance()->selectedEvents()) {
+                                                if(event2->midiTime() < tmid) {
+                                                    tx = event2->x(); tmid = event2->midiTime();
+                                                }
+                                            }
+
+                                            if(tmid != 0x7fffffff) {
+                                                tmid -= noteOn->midiTime();
+                                                tx -= noteOn->x();
+
+                                                midiFile()->protocol()->startNewAction("Move events aligned");
+
+                                                foreach (MidiEvent* event2, Selection::instance()->selectedEvents()) {
+                                                    event2->setMidiTime(event2->midiTime() - tmid);
+                                                    event2->setX(event2->x() - tx);
+                                                    NoteOnEvent* noteOn2 = dynamic_cast<NoteOnEvent*>(event2);
+                                                    if(noteOn2 && noteOn2->offEvent()) {
+
+                                                        noteOn2->offEvent()->setMidiTime(noteOn2->offEvent()->midiTime() - tmid);
+                                                        noteOn2->offEvent()->setX(noteOn2->offEvent()->x() - tx);
+
+                                                    }
+                                                }
+                                                midiFile()->protocol()->endAction();
+                                            }
+                                            break;
+                                        } // 7
+
+                                    }  // 6
+                                } // 5
+                            } // 4
+                        } // 3
+
+                        if(breaked) break;
+                    } // 2
+
+                    _locked = 0;
+                } // 1
+
                 update();
             }
         }
@@ -1213,6 +1287,7 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                 pianoEvent->setChannel(NewNoteTool::editChannel(), false);
 
                 MidiPlayer::play(pianoEvent);
+
             }
 
 

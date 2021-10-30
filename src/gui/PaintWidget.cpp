@@ -100,6 +100,7 @@ void PaintWidget::mousePressEvent(QMouseEvent* event)
         return;
     }
 
+
     if (this->repaintOnMousePress) {
         this->update();
     }
