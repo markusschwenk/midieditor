@@ -1035,6 +1035,7 @@ void MainWindow::FluidSaveAsWav() {
     if(wav->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
 
         fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
+        delete wav;
 
     }
 
@@ -1078,7 +1079,12 @@ void MainWindow::FluidSaveAsMp3() {
     if(wav->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
 
         fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
-        if(wav->exists()) {
+
+        bool exist = wav->exists();
+        delete wav;
+
+        if(exist) {
+
             QFile::remove(savePath);
 
             QProcess *process = new QProcess(this);
@@ -1198,11 +1204,14 @@ void MainWindow::FluidSaveAsFlac() {
 
         fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
 
+        bool exist = wav->exists();
+        delete wav;
+
         // restore wav_is_float
         fluid_output->wav_is_float = isf;
         fluid_output->fluid_settings->setValue("Wav to Float", fluid_output->wav_is_float);
 
-        if(wav->exists()) {
+        if(exist) {
             QFile::remove(savePath);
 
             QProcess *process = new QProcess(this);

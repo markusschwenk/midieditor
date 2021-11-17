@@ -48,6 +48,9 @@
 #include <QMutex>
 #include <QWaitCondition>
 
+// maximun samples loop Output buffer (minimum 512 = Input Low Latency)
+#define FLUID_OUT_SAMPLES  2048
+
 #define FLUID_SYNTH_NAME "** Fluid Synth **"
 
 #define PROC_FILTER_LOW_PASS 1
@@ -89,6 +92,7 @@ public:
     ~fluidsynth_proc();
 
     ProgressDialog *_bar;
+    bool wavDIS;
 
     bool use_fluidsynt;
     int disabled;
@@ -156,6 +160,8 @@ public:
 
     int fluid_out_samples; // size of samples loop buffer
 
+    QTime time_frame;
+    int frames;
     int _sample_rate;
     int _wave_sample_rate;
 
@@ -319,8 +325,8 @@ private:
     int _type;
 
     #define MAX_DIST_DEF 255
-    float _distortion_tab[MAX_DIST_DEF+1];
-    float _distortion_tab2[MAX_DIST_DEF+1];
+    float _distortion_tab[MAX_DIST_DEF+2];
+    float _distortion_tab2[MAX_DIST_DEF+2];
 
 };
 

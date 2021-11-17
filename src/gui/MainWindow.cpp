@@ -21,6 +21,8 @@
 #ifdef USE_FLUIDSYNTH
 #include "../fluid/fluidsynth_proc.h"
 #include "../fluid/FluidDialog.h"
+#include "../VST/VST.h"
+
 #endif
 
 #include <QAction>
@@ -198,6 +200,8 @@ MainWindow::~MainWindow() {
 
         delete fluid_output;
     }
+
+    VST_proc::VST_exit();
 #endif
 }
 
@@ -546,7 +550,9 @@ MainWindow::MainWindow(QString initFile)
     connect(channelWidget, SIGNAL(channelStateChanged()), this, SLOT(updateChannelMenu()), Qt::QueuedConnection);
     connect(channelWidget, SIGNAL(selectInstrumentClicked(int)), this, SLOT(setInstrumentForChannel(int)), Qt::QueuedConnection);
     connect(channelWidget, SIGNAL(selectSoundEffectClicked(int)), this, SLOT(setSoundEffectForChannel(int)), Qt::QueuedConnection);
-
+#ifdef USE_FLUIDSYNTH
+    connect(channelWidget, SIGNAL(LoadVSTClicked(int, int)), this, SLOT(setLoadVSTForChannel(int, int)), Qt::QueuedConnection);
+#endif
     channelsLayout->addWidget(channelWidget, 1, 0, 1, 1);
     upperTabWidget->addTab(channels, "Channels");
 
@@ -658,7 +664,6 @@ MainWindow::MainWindow(QString initFile)
         QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
 
-
 }
 
 void MainWindow::loadInitFile()
@@ -724,6 +729,12 @@ void MainWindow::setFile(MidiFile* file)
     mw_matrixWidget->update();
     _miscWidget->update();
     checkEnableActionsForSelection();
+
+#ifdef USE_FLUIDSYNTH
+    VST_proc::VST_setParent(this);
+    VST_proc::VST_LoadfromMIDIfile();
+#endif
+
 }
 
 MidiFile* MainWindow::getFile()
@@ -766,6 +777,28 @@ void MainWindow::play()
     }
 
 #ifdef USE_FLUIDSYNTH
+
+    for(int n = 0; n < PRE_CHAN; n++) {
+
+        VST_proc::VST_DisableButtons(n, true);
+
+        QByteArray vst_sel;
+
+        vst_sel.append((char) 0xF0);
+        vst_sel.append((char) 0x6);
+        vst_sel.append((char) n);
+        vst_sel.append((char) 0x66);
+        vst_sel.append((char) 0x66);
+        vst_sel.append((char) 'W');
+        vst_sel.append((char) 0x0);
+        vst_sel.append((char) 0xF7);
+
+        MidiOutput::sendCommand(vst_sel);
+
+    }
+
+    fluid_output->frames = fluid_output->time_frame.msecsSinceStartOfDay();
+
     if(MidiOutput::outputPort()==FLUID_SYNTH_NAME) {
         if(fluid_output->it_have_error == 2) {
             QMessageBox::information(this, "Apuff!", "Fluid Synth engine is stopped\nbe cause a don't recoverable error");
@@ -782,6 +815,7 @@ void MainWindow::play()
 #ifdef USE_FLUIDSYNTH
         FluidActionExportWav->setEnabled(false);
         FluidActionExportMp3->setEnabled(false);
+        FluidActionExportFlac->setEnabled(false);
 #endif
         _miscWidget->setEnabled(false);
         channelWidget->setEnabled(false);
@@ -806,6 +840,13 @@ void MainWindow::play()
 
 void MainWindow::record()
 {
+#ifdef USE_FLUIDSYNTH
+    for(int n = 0; n <= PRE_CHAN; n++) {
+
+            VST_proc::VST_show(n, false);
+    }
+#endif
+
 
     if (!MidiOutput::isConnected() || !MidiInput::isConnected()) {
         CompleteMidiSetupDialog* d = new CompleteMidiSetupDialog(this, !MidiInput::isConnected(), !MidiOutput::isConnected());
@@ -833,6 +874,7 @@ void MainWindow::record()
 #ifdef USE_FLUIDSYNTH
             FluidActionExportWav->setEnabled(false);
             FluidActionExportMp3->setEnabled(false);
+            FluidActionExportFlac->setEnabled(false);
 #endif
             _miscWidget->setEnabled(false);
             channelWidget->setEnabled(false);
@@ -895,6 +937,7 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
 #ifdef USE_FLUIDSYNTH
         FluidActionExportWav->setEnabled(true);
         FluidActionExportMp3->setEnabled(true);
+        FluidActionExportFlac->setEnabled(true);
 #endif
         _miscWidget->setEnabled(true);
         channelWidget->setEnabled(true);
@@ -916,6 +959,17 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
 
         MidiOutput::sendCommand2(cevent);
         MidiOutput::sendCommand2(pevent);
+
+        #ifdef USE_FLUIDSYNTH
+            for(int n = 0; n < PRE_CHAN; n++) {
+
+                    VST_proc::VST_DisableButtons(n, false);
+
+                    VST_proc::VST_MIDInotesOff(n);
+            }
+
+            VST_proc::VST_MIDIend();
+        #endif
     }
 
     MidiTrack* track = file->track(NewNoteTool::editTrack());
@@ -936,6 +990,7 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
 #ifdef USE_FLUIDSYNTH
         FluidActionExportWav->setEnabled(true);
         FluidActionExportMp3->setEnabled(true);
+        FluidActionExportFlac->setEnabled(true);
 #endif
         _miscWidget->setEnabled(true);
         channelWidget->setEnabled(true);
@@ -1422,6 +1477,11 @@ void MainWindow::redo()
     if (file)
         file->protocol()->redo(true);
     updateTrackMenu();
+
+#ifdef USE_FLUIDSYNTH
+    VST_proc::VST_UpdatefromMIDIfile();
+#endif
+
 }
 
 void MainWindow::undo()
@@ -1429,6 +1489,11 @@ void MainWindow::undo()
     if (file)
         file->protocol()->undo(true);
     updateTrackMenu();
+
+#ifdef USE_FLUIDSYNTH
+    VST_proc::VST_UpdatefromMIDIfile();
+#endif
+
 }
 
 EventWidget* MainWindow::eventWidget()
@@ -2652,6 +2717,20 @@ void MainWindow::setSoundEffectForChannel(int i)
     updateChannelMenu();
     channelWidget->update();
 }
+
+#ifdef USE_FLUIDSYNTH
+
+void MainWindow::setLoadVSTForChannel(int channel, int flag)
+{
+    VST_chan vst(this, channel, flag);
+    if(!flag) vst.exec();
+
+    updateChannelMenu();
+    channelWidget->update();
+}
+
+#endif
+
 void MainWindow::SoundEffectChannel(QAction* action)
 {
     if (file) {
@@ -4335,34 +4414,8 @@ void MainWindow::message_timeout(QString title, QString message) {
     delete mb;
 }
 
-#if 0
-FluidDialog *fluid_control= NULL;
 
-void MainWindow::FluidControl(){
-
-    if (!MidiOutput::isConnected()) {
-        QMessageBox::information(MW, "Fluid Synth Control", "Fluid Synth is not connected\n(Try MIDI/Settings)");
-        return;
-    }
-
-    if(MidiOutput::outputPort()!=FLUID_SYNTH_NAME) {
-        QMessageBox::information(MW, "Fluid Synth Control", "MIDI port is not Fluid Synth\n(Try MIDI/Settings)");
-        return;
-    }
-    if(fluid_control) {
-
-        delete fluid_control;
-    }
-    fluid_control= new FluidDialog(MW);
-    if(!fluid_control) return;
-    fluid_control->setModal(false);
-    fluid_control->show();
-    fluid_control->raise();
-    fluid_control->activateWindow();
-
-}
-#endif
- MidiInControl *MidiIn_control = NULL;
+MidiInControl *MidiIn_control = NULL;
 
 void MainWindow::DMidiInControl() {
 

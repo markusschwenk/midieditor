@@ -29,6 +29,7 @@
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
+#include <QtWidgets/QPushButton>
 
 #define ROW_HEIGHT 85
 
@@ -103,6 +104,54 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
         toolBar->addAction( SoundEffectAction);
         connect( SoundEffectAction, SIGNAL(triggered()), this, SLOT(SoundEffect()));
 
+#ifdef USE_FLUIDSYNTH
+        // VST
+
+        int x = toolBar->width() + 2;
+
+        QPushButton *viewVST = new QPushButton(toolBar);
+        viewVST->setToolTip("View VST plugin 1 window");
+        viewVST->setObjectName(QString::fromUtf8("pushButtonviewVST"));
+        viewVST->setGeometry(QRect(x, 3, 32, 17));
+        viewVST->setText("View");
+        viewVST->setStyleSheet(QString::fromUtf8("background-color: #6080ff80;"));
+
+        connect(viewVST, SIGNAL(clicked()), this, SLOT(viewVST1()));
+
+        x+= 32;
+
+        QPushButton *loadVST = new QPushButton(toolBar);
+        loadVST->setToolTip("Load VST plugin 1");
+        loadVST->setObjectName(QString::fromUtf8("pushButtonloadVST"));
+        loadVST->setGeometry(QRect(x, 3, 38, 17));
+        loadVST->setText("VST1");
+        loadVST->setStyleSheet(QString::fromUtf8("background-color: #6080ff80;"));
+
+        connect(loadVST, SIGNAL(clicked()), this, SLOT(LoadVST1()));
+
+        x+= 39;
+
+        QPushButton *viewVST2 = new QPushButton(toolBar);
+        viewVST2->setToolTip("View VST plugin 2 window");
+        viewVST2->setObjectName(QString::fromUtf8("pushButtonviewVST2"));
+        viewVST2->setGeometry(QRect(x, 3, 32, 17));
+        viewVST2->setText("View");
+        viewVST2->setStyleSheet(QString::fromUtf8("background-color: #6040ffff;"));
+
+        connect(viewVST2, SIGNAL(clicked()), this, SLOT(viewVST2()));
+
+        x+= 32;
+
+        QPushButton *loadVST2 = new QPushButton(toolBar);
+        loadVST2->setToolTip("Load VST plugin 2");
+        loadVST2->setObjectName(QString::fromUtf8("pushButtonloadVST2"));
+        loadVST2->setGeometry(QRect(x, 3, 38, 17));
+        loadVST2->setText("VST2");
+        loadVST2->setStyleSheet(QString::fromUtf8("background-color: #6040ffff;"));
+
+        connect(loadVST2, SIGNAL(clicked()), this, SLOT(LoadVST2()));
+
+#endif
     }
 
     layout->addWidget(toolBar, 2, 1, 1, 1);
@@ -159,6 +208,32 @@ void ChannelListItem::SoundEffect()
     if(visibleAction->isChecked())
     emit selectSoundEffectClicked(channel);
 }
+
+#ifdef USE_FLUIDSYNTH
+void ChannelListItem::LoadVST1()
+{
+    if(visibleAction->isChecked())
+    emit LoadVSTClicked(channel, 0);
+}
+
+void ChannelListItem::viewVST1()
+{
+    if(visibleAction->isChecked())
+    emit LoadVSTClicked(channel, 1);
+}
+
+void ChannelListItem::LoadVST2()
+{
+    if(visibleAction->isChecked())
+    emit LoadVSTClicked(channel + 16, 0);
+}
+
+void ChannelListItem::viewVST2()
+{
+    if(visibleAction->isChecked())
+    emit LoadVSTClicked(channel + 16, 1);
+}
+#endif
 
 void ChannelListItem::onBeforeUpdate()
 {
@@ -243,7 +318,9 @@ ChannelListWidget::ChannelListWidget(QWidget* parent)
         connect(widget, SIGNAL(channelStateChanged()), this, SIGNAL(channelStateChanged()));
         connect(widget, SIGNAL(selectInstrumentClicked(int)), this, SIGNAL(selectInstrumentClicked(int)));
         connect(widget, SIGNAL(selectSoundEffectClicked(int)), this, SIGNAL(selectSoundEffectClicked(int))); 
-
+#ifdef USE_FLUIDSYNTH
+        connect(widget, SIGNAL(LoadVSTClicked(int, int)), this, SIGNAL(LoadVSTClicked(int, int)));
+#endif
     }
     connect(this, SIGNAL(itemDoubleClicked(QListWidgetItem *)), this, SLOT(isDoubleClicked(QListWidgetItem *)));
 

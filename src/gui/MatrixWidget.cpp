@@ -47,6 +47,7 @@
 
 #ifdef USE_FLUIDSYNTH
 #include "../fluid/FluidDialog.h"
+#include "../VST/VST.h"
 #endif
 
 #include <QList>
@@ -670,6 +671,14 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
     QMap<int, MidiEvent*>::iterator it = map->lowerBound(0/*startTick*/);
     while (it != map->end() && it.key() <= endTick) {
         MidiEvent* event = it.value();
+        SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+        if(sys) {
+            QByteArray c = sys->data();
+            if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') {
+                it++; continue;
+            }
+        }
         OnEvent* onEvent = dynamic_cast<OnEvent*>(event);
         if(onEvent) {
             if(onEvent->offEvent()) {
@@ -758,7 +767,24 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
                     painter->setBrush(QColor(0x908090));
                     painter->drawRect(x, 50-16, wd, 8);
                     painter->setClipping(true);
-                }
+                } else if(d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
+                      d[3]=='W') {
+                      int x = xPosOfMs(msOfTick(sys->midiTime()));
+                      int wd = 16;
+
+                      painter->setPen(QPen(QColor(0x908090), 1, Qt::DashLine));
+                      painter->setClipping(false);
+                      painter->drawLine(x, 50-16, x, yPosOfLine(event->line()));
+                      painter->setPen(Qt::SolidLine);
+
+                      if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
+                      else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
+
+                      painter->setPen(0x504050);
+                      painter->setBrush(QColor(0x90c0c0));
+                      painter->drawRect(x, 50-16, wd, 8);
+                      painter->setClipping(true);
+                  }
             }
 
             if(ctrl && ctrl->control()!=0){
@@ -1354,6 +1380,11 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                 if(sys){
 
                     QByteArray d= sys->data();
+                    if(d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
+                                          d[3]=='W') {
+                        VST_chan vst(this, d[0], 0);
+                        vst.exec();
+                    } else
                     if(d[0]==(char) 0
                             && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
                       (d[3]=='P' || d[3]=='R' || (d[3] & 0xF0)==(char) 0x70)) {

@@ -23,6 +23,7 @@
 #include "SizeChangeTool.h"
 
 #include "../MidiEvent/MidiEvent.h"
+#include "../MidiEvent/SysExEvent.h"
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
@@ -76,6 +77,12 @@ bool StandardTool::press(bool leftClick)
         int minDiffToMouse = 0;
         int action = NO_ACTION;
         foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
+            SysExEvent* sys = dynamic_cast<SysExEvent*>(ev);
+
+            if(sys) {
+                QByteArray c = sys->data();
+                if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
+            }
             if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + ev->width() + 2,
                     ev->y() + ev->height())) {
 

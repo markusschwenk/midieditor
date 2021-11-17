@@ -59,6 +59,7 @@
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
+#include "../VST/VST.h"
 
 int addInstrumentNamesFromSF2(const char *filename);
 
@@ -86,6 +87,7 @@ public:
     QLabel *label;
     QLabel *chanGainLabel[16];
     QVLabel *qv[16];
+    QPushButton *wicon[32];
 
     QGroupBox *groupMainVol;
     QSlider *MainVol;

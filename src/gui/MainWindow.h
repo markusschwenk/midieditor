@@ -83,6 +83,7 @@ public:
     int EventSplitterTabPos;
 
     ChannelListWidget* channelWidget;
+
 protected:
     void dropEvent(QDropEvent* ev);
     void dragEnterEvent(QDragEnterEvent* ev);
@@ -190,6 +191,7 @@ public slots:
 
     void setInstrumentForChannel(int i);
     void setSoundEffectForChannel(int i);
+    void setLoadVSTForChannel(int channel, int flag);
 
     void message_timeout(QString title, QString message);
 

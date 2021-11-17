@@ -45,6 +45,9 @@ signals:
     void selectInstrumentClicked(int channel);
     void selectBankClicked(int channel);
     void selectSoundEffectClicked(int channel);
+#ifdef USE_FLUIDSYNTH
+    void LoadVSTClicked(int channel, int flag);
+#endif
     void channelStateChanged();
 
 public slots:
@@ -53,7 +56,12 @@ public slots:
     void toggleSolo(bool solo);
     void instrument();
     void SoundEffect();
-
+#ifdef USE_FLUIDSYNTH
+    void LoadVST1();
+    void viewVST1();
+    void LoadVST2();
+    void viewVST2();
+#endif
 
 private:
     QLabel* instrumentLabel;
@@ -76,7 +84,9 @@ signals:
     void channelStateChanged();
     void selectInstrumentClicked(int channel);
     void selectSoundEffectClicked(int channel);
-
+#ifdef USE_FLUIDSYNTH
+    void LoadVSTClicked(int channel, int flag);
+#endif
 
 public slots:
     void update();

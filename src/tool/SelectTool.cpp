@@ -19,6 +19,7 @@
 #include "SelectTool.h"
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
+#include "../MidiEvent/SysExEvent.h"
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
@@ -177,12 +178,19 @@ bool SelectTool::release()
                 y_end = tmp;
             }
         } else if (stool_type == SELECTION_TYPE_SINGLE) {
+
             x_start = mouseX;
             y_start = mouseY;
             x_end = mouseX + 1;
             y_end = mouseY + 1;
         }
         foreach (MidiEvent* event, *(matrixWidget->activeEvents())) {
+            SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+            if(sys) {
+                QByteArray c = sys->data();
+                if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
+            }
             if (inRect(event, x_start, y_start, x_end, y_end)) {
                 selectEvent(event, false);
             }
@@ -205,6 +213,12 @@ bool SelectTool::release()
             }
         }
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
+            SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+            if(sys) {
+                QByteArray c = sys->data();
+                if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
+            }
             selectEvent(event, false);
         }
     } else if (stool_type == SELECTION_TYPE_BOX2 || stool_type == SELECTION_TYPE_BOX3) {
@@ -231,7 +245,12 @@ bool SelectTool::release()
         }
 
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
+            SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
 
+            if(sys) {
+                QByteArray c = sys->data();
+                if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
+            }
             if(event->line() >= l_start && event->line() <= l_end)
             selectEvent(event, false);
         }

@@ -212,6 +212,28 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         chanGainLabel[n]->setToolTip("<html><head/><body><p>Output control gain</p>"
                                   "<p>of the channel</p></body></html>");
 
+        QIcon ico(":/run_environment/graphics/channelwidget/vst_effect.png");
+        wicon[n] = new QPushButton(groupM);
+        wicon[n]->setObjectName(QString::asprintf("wicon %i", n));
+        wicon[n]->setGeometry(QRect(x - 60 + 18 - 10, 374, 16, 16));
+        wicon[n]->setStyleSheet(QString::fromUtf8("background-color: white;"));
+        wicon[n]->setIcon(ico);
+
+        if(VST_proc::VST_isLoaded(n))
+            wicon[n]->setVisible(true);
+        else
+            wicon[n]->setVisible(false);
+
+        wicon[n + 16] = new QPushButton(groupM);
+        wicon[n + 16]->setObjectName(QString::asprintf("wicon %i", n + 16));
+        wicon[n + 16]->setGeometry(QRect(x - 60 + 18 + 10, 374, 16, 16));
+        wicon[n + 16]->setStyleSheet(QString::fromUtf8("background-color: white;"));
+        wicon[n + 16]->setIcon(ico);
+
+        if(VST_proc::VST_isLoaded(n + 16))
+            wicon[n + 16]->setVisible(true);
+        else
+            wicon[n + 16]->setVisible(false);
 
         groupChan[n]->setTitle(QString());
         const QString str= "Ch "+QString::number(n);
@@ -718,6 +740,16 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
     for(n = 0; n < 16; n++) {
 
+        connect(wicon[n], QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+        {
+            VST_chan vst(_parent, n, 1);
+        });
+
+        connect(wicon[n + 16], QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+        {
+            VST_chan vst(_parent, n + 16, 1);
+        });
+
         connect(groupChan[n], QOverload<bool>::of(&QGroupBox::clicked), [=](bool checked)
         {
             fluid_output->setAudioMute(n, !checked);
@@ -1072,7 +1104,7 @@ static void encode_sys_format(QDataStream &qd, void *data) {
 
 }
 
-int decode_sys_format(QDataStream &qd, void *data) {
+static int decode_sys_format(QDataStream &qd, void *data) {
 
     unsigned char *a= (unsigned char *) data;
     unsigned char b[5];
@@ -1111,7 +1143,7 @@ void FluidDialog::DeletePressets() // store or delete
                 b = sys->data();
                 if((b[0]==id[0] || b[3]=='R') && b[1]==id[1] && b[2]==id[2] &&
                         (b[3]=='R' || b[3]=='P' || b[3]==(char) (0x70+channel_selected))){
-                    MWin->getFile()->channel(sys->channel())->removeEvent(sys);
+                    MWin->getFile()->channel(16)->removeEvent(sys);
                 }
             }
 
@@ -1185,9 +1217,6 @@ void FluidDialog::StorePressets() // store or delete
 
     if(_save_mode) return;
 
-    MWin->getFile()->track(0);
-
-
     MWin->getFile()->protocol()->startNewAction("SYSex Presets stored");
     int dtick= MWin->getFile()->tick(150);
 
@@ -1205,10 +1234,10 @@ void FluidDialog::StorePressets() // store or delete
                 MWin->getFile()->channel(event->channel())->removeEvent(sys);
             }
             if(c[0]==id[0] && c[1]==id[1] && c[2]==id[2] && c[3]=='P'){
-                MWin->getFile()->channel(sys->channel())->removeEvent(sys);
+                MWin->getFile()->channel(16)->removeEvent(sys);
             }
             if(c[1]==id[1] && c[2]==id[2] && c[3]=='R'){
-                MWin->getFile()->channel(sys->channel())->removeEvent(sys);
+                MWin->getFile()->channel(16)->removeEvent(sys);
             }
 
         }
@@ -1404,7 +1433,7 @@ void FluidDialog::StoreSelectedPresset()
                 return;
             }
             if(b[0]==id[0] && b[1]==id[1] && b[2]==id[2] && b[3]==id[3]){
-                MWin->getFile()->channel(sys->channel())->removeEvent(sys);
+                MWin->getFile()->channel(16)->removeEvent(sys);
             }
         }
 

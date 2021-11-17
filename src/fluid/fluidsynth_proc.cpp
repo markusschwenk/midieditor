@@ -22,6 +22,7 @@
 #ifdef USE_FLUIDSYNTH
 
 #include "fluidsynth_proc.h"
+#include "../VST/VST.h"
 //#include "../fluid/FluidDialog.h"
 #include "../MidiEvent/TempoChangeEvent.h"
 #include "../midi/MidiChannel.h"
@@ -29,9 +30,6 @@
 #include <QMessageBox>
 #include <QSemaphore>
 #include <QDateTime>
-
-// maximun samples loop Output buffer (minimum 512 = Input Low Latency)
-#define FLUID_OUT_SAMPLES  2048
 
 #if 0
 #include <windows.h>
@@ -206,6 +204,7 @@ fluidsynth_proc::fluidsynth_proc()
     _bar = NULL;
     sf2_id = -1;
     mdriver = NULL;
+    wavDIS = true;
 
     status_fluid_err = 255;
     status_audio_err = 255;
@@ -481,10 +480,20 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
         case 0x90: // note on
             isNoteOn[channel] = 4;
+            ret = 0;
+
+            if(VST_proc::VST_isMIDI(channel) && mixer) VST_proc::VST_MIDIcmd(channel,
+                                                            ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) / 1000
+                                                            , array);
             ret = fluid_synth_noteon(synth, channel, array[1], array[2]);
         break;
         case 0x80: // note off
-            return fluid_synth_noteoff(synth, channel, array[1]);
+
+            ret = 0;
+            if(VST_proc::VST_isMIDI(channel) && mixer) VST_proc::VST_MIDIcmd(channel,
+                                                            ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) /1000
+                                                            , array);
+            ret = fluid_synth_noteoff(synth, channel, array[1]);
         break;
         case 0xB0: // control
             if((unsigned) array[1]==11) array[2]= synth_chanvolume[channel]; //ignore song expresion
@@ -709,6 +718,9 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                     emit fluid_control->spinChan->valueChanged(0);
                 }
 
+            } else if(/*array[2] == id2[0] &&*/ array[3] == id2[1]
+                 && array[4] == id2[2] && (array[5] == 'V' || array[5] == 'W')) {
+                    VST_proc::VST_LoadParameterStream(array);
             }
         //
 
@@ -913,6 +925,7 @@ void fluid_Thread::run()
      int lock_thread = 1;
 
      MSG_OUT("fluid_Thread: loop");
+     _proc->frames = 0;
      while(1) {
 
          if(_proc->_player_status == 2) {
@@ -1055,6 +1068,11 @@ void fluid_Thread::run()
          memset(mix_buffer, 0, fluid_out_samples * 2 * sizeof(float));
          int n, m;
 
+         //
+         VST_proc::VST_mix(dry, /*n_aud_chan*/PRE_CHAN, (_proc->_player_wav) ? _proc->_wave_sample_rate : _proc->_sample_rate, fluid_out_samples);
+         _proc->frames= _proc->time_frame.msecsSinceStartOfDay();
+
+
          // mix audio channels
          for(m = 0; m < (n_aud_chan * 2); m+= 2) {
 
@@ -1140,8 +1158,12 @@ void fluid_Thread::run()
              if(_proc->_player_wav) { // alternative for WAV files
                  if(_proc->_player_status == 2) break;
                  if(_proc->_player_status == 666) len=-1;
-                 else
-                     len = _proc->_player_wav->write(((const char  *)buff+pos), total);
+                 else {
+                     if(_proc->wavDIS)
+                        {len = 0; break;}
+                     else
+                        len = _proc->_player_wav->write(((const char  *)buff+pos), total);
+                 }
 
                  if(len < 0) {
 
@@ -1606,12 +1628,11 @@ int fluidsynth_proc::get_param_filter(int type, int chan, int index) {
     return 0;
 }
 
-
-
-
 int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
 
     if(_player_status) return -1;
+
+    fluid_output->wavDIS = true;
     _file = file;
 
     _file->setPauseTick(0);
@@ -1619,6 +1640,11 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
     _file->preparePlayerData(0);
 
     if(_bar) delete _bar;
+
+    for(int n = 0; n < PRE_CHAN; n++) {
+
+        VST_proc::VST_show(n, false);
+    }
 
     _bar= new ProgressDialog(parent, QString("Exporting to WAVE File..."));
     _bar->setModal(true);
@@ -1629,6 +1655,8 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
 
     fluid_Thread_playerWAV *player= new fluid_Thread_playerWAV(this);
     if(!player) {
+        _player_wav = NULL;
+        wav->close();
         new_sound_thread(_sample_rate);
         stop_audio(false);
         fluid_output->MidiClean();
@@ -1643,14 +1671,35 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
 
         emit message_timeout("Error!", "FluidSynth building error");
 
-        _player_wav->close();
-        _player_wav = NULL;
+        fluid_output->wavDIS = true;
 
         stop_audio(true);
+        _player_wav = NULL;
         new_sound_thread(_sample_rate);
         stop_audio(false);
         fluid_output->MidiClean();
+
+        wav->close();
         return 0;
+    }
+
+    for(int n = 0; n < PRE_CHAN; n++) {
+
+        VST_proc::VST_DisableButtons(n, true);
+
+        QByteArray vst_sel;
+
+        vst_sel.append((char) 0xF0);
+        vst_sel.append((char) 0x6);
+        vst_sel.append((char) n);
+        vst_sel.append((char) 0x66);
+        vst_sel.append((char) 0x66);
+        vst_sel.append((char) 'W');
+        vst_sel.append((char) 0x0);
+        vst_sel.append((char) 0xF7);
+
+        SendMIDIEvent(vst_sel);
+
     }
 
     player->start(QThread::NormalPriority);
@@ -1673,10 +1722,24 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
         QThread::msleep(50); // waits WAV thread ends
     }
 
+    fluid_output->wavDIS = true;
+
     stop_audio(true);
+    _player_wav = NULL;
     new_sound_thread(_sample_rate);
     stop_audio(false);
+
     fluid_output->MidiClean();
+
+    for(int n = 0; n < PRE_CHAN; n++) {
+
+        VST_proc::VST_MIDInotesOff(n);
+
+        VST_proc::VST_DisableButtons(n, false);
+    }
+
+    VST_proc::VST_MIDIend();
+
     return 0;
 }
 
@@ -1704,7 +1767,7 @@ ProgressDialog::ProgressDialog(QWidget *parent, QString text)
 }
 
 void ProgressDialog::setBar(int num) {
-   ((ProgressDialog *) PBar)->progressBar->setValue(num);
+   progressBar->setValue(num);
 }
 
 void ProgressDialog::reject() {
@@ -1795,10 +1858,12 @@ int fluid_Thread_playerWAV::msOfTick(int tick)
     }
 
     if (!event) {
+        delete events;
         return 0;
     }
 
     timeMs += event->msPerTick() * (tick - event->midiTime());
+    delete events;
     return (int)timeMs;
 }
 
@@ -1880,6 +1945,7 @@ int fluid_Thread_playerWAV::sequencer_player(){
         foreach (MidiEvent* event, offEv) {
             sendCommand(event);
         }
+
         foreach (MidiEvent* event, onEv) {
 
             sendCommand(event);
@@ -1912,10 +1978,13 @@ int fluid_Thread_playerWAV::sequencer_player(){
     }
     return 0;
 }
+
 void fluid_Thread_playerWAV::run()
 {
     _proc->_player_status =1;
     _proc->total_wav_write= 0;
+
+    fluid_output->wavDIS = false;
 
     // write fake header
     write_header(_proc->_player_wav, 0, 0, 0, 0);
@@ -1952,23 +2021,30 @@ void fluid_Thread_playerWAV::run()
         int *p = &_proc->iswaiting_signal;
         while(*p!=1) QThread::msleep(5);
         _proc->_player_wav->seek(0);
-        write_header(_proc->_player_wav, _proc->total_wav_write, _proc->_wave_sample_rate, (_proc->wav_is_float) ? 32 : 16, 2);
-        _proc->_player_wav->close();
-        _proc->_player_wav = NULL;
+        fluid_output->wavDIS = true;
+        QFile *wav = _proc->_player_wav;
+        //_proc->_player_wav = NULL;
+        write_header(wav, _proc->total_wav_write, _proc->_wave_sample_rate, (_proc->wav_is_float) ? 32 : 16, 2);
+        wav->close();
+
         _proc->_player_status = 0;
 
         if( _proc->_bar) {
             emit endBar();
         }
     } else {
-        _proc->_player_wav->remove();
-        _proc->_player_wav = NULL;
+        fluid_output->wavDIS = true;
+        QFile *wav = _proc->_player_wav;
+        //_proc->_player_wav = NULL;
+        wav->remove();
         _proc->_player_status=0;
 
         if( _proc->_bar) {
             emit endBar();
         }
     }
+
+    fluid_output->wavDIS = true;
 
     QThread::msleep(1000);
     for(int n = 0; n < 16; n++){
@@ -1982,6 +2058,7 @@ void fluid_Thread_playerWAV::run()
 }
 
 #define u32 unsigned int
+
 int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
     QByteArray data = event->save();
 
@@ -2007,12 +2084,19 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
 
 
     if(type==0x90) {
+
+        if(VST_proc::VST_isMIDI(channel)) VST_proc::VST_MIDIcmd(channel,((msOfTick(event_ticks) % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000, data);
+
         sequence_command(fluid_event_noteon(evt, (u32) channel, (u32) data[1], (u32) data[2]))
         if(fluid_res < 0) return fluid_res;
+
     }
     if(type==0x80) {
+        if(VST_proc::VST_isMIDI(channel)) VST_proc::VST_MIDIcmd(channel,((msOfTick(event_ticks) % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000 , data);
+
         sequence_command(fluid_event_noteoff(evt, (u32) channel, (u32) data[1]))
         if(fluid_res < 0) return fluid_res;
+
     }
     if(type==0xC0) { // program
         sequence_command(fluid_event_program_change(evt, (u32) channel, (u32)  data[1]))
@@ -2068,9 +2152,6 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
 
                 goto skip;
             }
-
-
-
 
 
             if(entries!=13 * 16 + 1){
@@ -2245,12 +2326,25 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
                 fluid_control->MainVol->setValue(fluid_output->getSynthGain());
-                fluid_control->spinChan->valueChanged(15);
-                fluid_control->spinChan->valueChanged(0);
+                emit fluid_control->spinChan->valueChanged(15);
+                emit fluid_control->spinChan->valueChanged(0);
             }
-        }
+        }  else if(/*data[2] == id2[0] &&*/ data[3] == id2[1]
+                   && data[4] == id2[2] && (data[5] == 'V' || data[5] == 'W')) {
+
+                    if(data[5] == 'W') {
+                        int fluid_res;
+                        sequence_callback(event_ticks); // I needs to send previous commands
+                        if(fluid_res < 0) return fluid_res;
+                        semaf->acquire(1);
+                    }
+
+                    VST_proc::VST_LoadParameterStream(data);
+
+              }
     skip: ;
     }
+
     return 0;
 }
 
