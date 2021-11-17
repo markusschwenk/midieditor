@@ -191,7 +191,9 @@ public slots:
 
     void setInstrumentForChannel(int i);
     void setSoundEffectForChannel(int i);
+#ifdef USE_FLUIDSYNTH
     void setLoadVSTForChannel(int channel, int flag);
+#endif
 
     void message_timeout(QString title, QString message);
 

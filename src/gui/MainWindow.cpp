@@ -1348,6 +1348,9 @@ void MainWindow::openFile(QString filePath)
         updateRecentPathsList();
 
         QString info;
+
+#ifdef USE_FLUIDSYNTH
+
         bool fl = false;
 
         if(fluid_control) { // anti-crash!
@@ -1466,6 +1469,7 @@ void MainWindow::openFile(QString filePath)
 
         fluid_output->fluid_settings->setValue("mp3_id3", true);
 
+#endif
 
     } else {
         QMessageBox::warning(this, "Error", QString("The file is damaged and cannot be opened. "));
@@ -1686,11 +1690,13 @@ void MainWindow::newFile()
 
     QString info;
 
+#ifdef USE_FLUIDSYNTH
     if(fluid_control) { // anti-crash!
         fluid_control->disable_mainmenu = true;
         fluid_control->deleteLater();
         fluid_control = NULL;
     }
+
 
     // get COPYRIGHT event
     foreach (MidiEvent* event, *(getFile()->eventsBetween(0, 10))) {
@@ -1783,6 +1789,8 @@ void MainWindow::newFile()
         fluid_output->fluid_settings->setValue("mp3_hq", false);
 
     //fluid_output->fluid_settings->setValue("mp3_id3", 0);
+#endif
+
 }
 
 void MainWindow::panic()
