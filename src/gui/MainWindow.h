@@ -62,8 +62,6 @@ public:
     MainWindow(QString initFile = "");
     ~MainWindow();
 
-    static bool enum_windows_callback(HWND handle, long lParam);
-
     void setFile(MidiFile* f);
     MidiFile* getFile();
     MatrixWidget* matrixWidget();
