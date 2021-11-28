@@ -742,12 +742,12 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
         connect(wicon[n], QOverload<bool>::of(&QPushButton::clicked), [=](bool)
         {
-            VST_chan vst(_parent, n, 1);
+            VST_chan vst(main_widget, n, 1);
         });
 
         connect(wicon[n + 16], QOverload<bool>::of(&QPushButton::clicked), [=](bool)
         {
-            VST_chan vst(_parent, n + 16, 1);
+            VST_chan vst(main_widget, n + 16, 1);
         });
 
         connect(groupChan[n], QOverload<bool>::of(&QGroupBox::clicked), [=](bool checked)
@@ -1020,7 +1020,7 @@ void FluidDialog::highcut_res(int res)
 
 void FluidDialog::timer_update(){
 
-    if(MainVolume == NULL || disable_mainmenu) return;
+    if(fluid_output== NULL || MainVolume == NULL || disable_mainmenu) return;
 
     for(int n = 0; n < 16; n++) {
         if(groupChan[n]) {

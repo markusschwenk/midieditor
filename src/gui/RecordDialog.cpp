@@ -213,6 +213,9 @@ void RecordDialog::enter()
             SysExEvent *sysEx = dynamic_cast<SysExEvent*>(toCheck);
             if (sysEx) {
                 currentChannel = 16;
+                QByteArray a = sysEx->data();
+                if(a.at(1) == 0x66 && a.at(2) == 0x66 && a.at(3) == 'W')
+                    ignoreEvent = false; // skip VST preset changes
             }
 
             if (!ignoreEvent) {

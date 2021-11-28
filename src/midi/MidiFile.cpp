@@ -32,11 +32,13 @@
 #include "../MidiEvent/TextEvent.h"
 #include "../MidiEvent/TimeSignatureEvent.h"
 #include "../MidiEvent/UnknownEvent.h"
+#include "../MidiEvent/SysExEvent.h"
 #include "../protocol/Protocol.h"
 #include "../gui/MainWindow.h"
 #include "MidiChannel.h"
 #include "MidiTrack.h"
 #include "math.h"
+#include "../VST/VST.h"
 
 #include <QtCore/qmath.h>
 
@@ -1425,6 +1427,29 @@ void MidiFile::preparePlayerData(int tickFrom)
     playerMap->clear();
     QList<MidiEvent*>* prgList;
 
+    #ifdef USE_FLUIDSYNTH
+
+    if(tickFrom == 0) {
+        for(int n = 0; n < PRE_CHAN; n++) {
+
+            QByteArray vst_sel;
+
+            vst_sel.append((char) 0xF0);
+            vst_sel.append((char) 0x6);
+            vst_sel.append((char) n);
+            vst_sel.append((char) 0x66);
+            vst_sel.append((char) 0x66);
+            vst_sel.append((char) 'W');
+            vst_sel.append((char) 0x0);
+            vst_sel.append((char) 0xF7);
+
+            VST_proc::VST_LoadParameterStream(vst_sel);
+
+        }
+    }
+
+    #endif
+
     for (int i = 0; i < 19; i++) {
 
         if (channelMuted(i)) {
@@ -1453,20 +1478,41 @@ void MidiFile::preparePlayerData(int tickFrom)
                 if (ctrl) {
                     // insert all ControlChanges //on first position
                      playerMap->insert(msOfTick(tick)-1, ctrl);
+                     goto skip;
                 }
                 PitchBendEvent* pitch = dynamic_cast<PitchBendEvent*>(event);
                 if (pitch) {
                     // insert all ControlChanges //on first position
                      playerMap->insert(msOfTick(tick)-1, pitch);
+                     goto skip;
                 }
                 ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
                 if (prg) {
                     // save ProgramChenges in the list, the last will be added
                     // to the playerMap later
                     prgList->append(prg);
+                    goto skip;
                 }
 
+                #ifdef USE_FLUIDSYNTH
+
+                SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+                if(sys) {
+
+                    QByteArray c = sys->save();
+                    if(c[3] == (char) 0x66 && c[4] == (char) 0x66 && c[5] == 'W') {
+                        VST_proc::VST_LoadParameterStream(c);
+                        int ms = msOfTick(tick);
+                        if (!event->track()->muted()) {
+                            playerMap->insert(ms, event);
+                        }
+                    }
+                }
+                #endif
+
             }
+            skip:
             it++;
         }
 

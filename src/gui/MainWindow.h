@@ -61,6 +61,9 @@ class MainWindow : public QMainWindow {
 public:
     MainWindow(QString initFile = "");
     ~MainWindow();
+
+    static bool enum_windows_callback(HWND handle, long lParam);
+
     void setFile(MidiFile* f);
     MidiFile* getFile();
     MatrixWidget* matrixWidget();
@@ -87,6 +90,8 @@ public:
 protected:
     void dropEvent(QDropEvent* ev);
     void dragEnterEvent(QDragEnterEvent* ev);
+signals:
+    int s_remote_event(QByteArray cmd);
 
 public slots:
     void setChordVelocityProp();

@@ -100,6 +100,13 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                 if(is_effect) {
                     evt = message->at(0) & 0xF0;
                     if(evt == 0) return; // skip
+                    if(is_effect == 2) {
+                        if(!no_record) _messages->insert(_currentTime, *message);
+
+                        if(_thru && no_record != 2)
+                            send_thru(is_effect,  message);
+                        return;
+                    }
                 }
             } else if(MidiInControl::split_enable()) {
 

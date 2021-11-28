@@ -1382,8 +1382,10 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                     QByteArray d= sys->data();
                     if(d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
                                           d[3]=='W') {
-                        VST_chan vst(this, d[0], 0);
-                        vst.exec();
+                        file->setCursorTick(sys->midiTime());
+                        VST_proc::VST_LoadParameterStream(sys->save());
+                        VST_chan vst(main_widget, d[0], 1);
+                       // vst.exec();
                     } else
                     if(d[0]==(char) 0
                             && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&

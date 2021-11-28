@@ -32,6 +32,10 @@
 #include "../gui/InstrumentChooser.h"
 #include "../gui/SoundEffectChooser.h"
 
+#ifdef USE_FLUIDSYNTH
+#include "../VST/VST.h"
+#endif
+
 extern int Bank_MIDI[17];
 extern int Prog_MIDI[17];
 
@@ -69,21 +73,38 @@ static int _note_effect1_value;
 static int _note_effect1_type;
 static bool _note_effect1_usevel;
 static bool _note_effect1_fkeypressed;
+static int _note_VST1_plugin1_off;
+static int _note_VST1_plugin1_on;
+static int _note_VST1_plugin2_off;
+static int _note_VST1_plugin2_on;
 static int _note_effect2;
 static int _note_effect2_value;
 static int _note_effect2_type;
 static bool _note_effect2_usevel;
 static bool _note_effect2_fkeypressed;
+static int _note_VST2_plugin1_off;
+static int _note_VST2_plugin1_on;
+static int _note_VST2_plugin2_off;
+static int _note_VST2_plugin2_on;
 static int _note_effect3;
 static int _note_effect3_value;
 static int _note_effect3_type;
-static bool _note_effect3_fkeypressed;
 static bool _note_effect3_usevel;
+static bool _note_effect3_fkeypressed;
+static int _note_VST3_plugin1_off;
+static int _note_VST3_plugin1_on;
+static int _note_VST3_plugin2_off;
+static int _note_VST3_plugin2_on;
 static int _note_effect4;
 static int _note_effect4_value;
 static int _note_effect4_type;
-static bool _note_effect4_fkeypressed;
 static bool _note_effect4_usevel;
+static bool _note_effect4_fkeypressed;
+static int _note_VST4_plugin1_off;
+static int _note_VST4_plugin1_on;
+static int _note_VST4_plugin2_off;
+static int _note_VST4_plugin2_on;
+
 
 static bool _skip_prgbanks;
 static bool _skip_bankonly;
@@ -131,21 +152,44 @@ void MidiInControl::init_MidiInControl(QSettings *settings) {
     _note_effect1_type = _settings->value("MIDIin_note_effect1_type", false).toInt();
     _note_effect1_usevel = _settings->value("MIDIin_note_effect1_usevel", true).toBool();
     _note_effect1_fkeypressed = _settings->value("MIDIin_note_effect1_fkeypressed", false).toBool();
+
+    _note_VST1_plugin1_off = _settings->value("MIDIin_note_VST1_plugin1_off", -1).toInt();
+    _note_VST1_plugin1_on = _settings->value("MIDIin_note_VST1_plugin1_on", 0).toInt();
+    _note_VST1_plugin2_off = _settings->value("MIDIin_note_VST1_plugin2_off", -1).toInt();
+    _note_VST1_plugin2_on = _settings->value("MIDIin_note_VST1_plugin2_on", 0).toInt();
+
     _note_effect2 = _settings->value("MIDIin_note_effect2", -1).toInt();
     _note_effect2_value = _settings->value("MIDIin_note_effect2_value", 0).toInt();
     _note_effect2_type = _settings->value("MIDIin_note_effect2_type", false).toInt();
     _note_effect2_usevel = _settings->value("MIDIin_note_effect2_usevel", true).toBool();
     _note_effect2_fkeypressed = _settings->value("MIDIin_note_effect2_fkeypressed", false).toBool();
     _note_effect3 = _settings->value("MIDIin_note_effect3", -1).toInt();
+
+    _note_VST2_plugin1_off = _settings->value("MIDIin_note_VST2_plugin1_off", -1).toInt();
+    _note_VST2_plugin1_on = _settings->value("MIDIin_note_VST2_plugin1_on", 0).toInt();
+    _note_VST2_plugin2_off = _settings->value("MIDIin_note_VST2_plugin2_off", -1).toInt();
+    _note_VST2_plugin2_on = _settings->value("MIDIin_note_VST2_plugin2_on", 0).toInt();
+
     _note_effect3_value = _settings->value("MIDIin_note_effect3_value", 0).toInt();
     _note_effect3_type = _settings->value("MIDIin_note_effect3_type", false).toInt();
     _note_effect3_usevel = _settings->value("MIDIin_note_effect3_usevel", true).toBool();
     _note_effect3_fkeypressed = _settings->value("MIDIin_note_effect3_fkeypressed", false).toBool();
+
+    _note_VST3_plugin1_off = _settings->value("MIDIin_note_VST3_plugin1_off", -1).toInt();
+    _note_VST3_plugin1_on = _settings->value("MIDIin_note_VST3_plugin1_on", 0).toInt();
+    _note_VST3_plugin2_off = _settings->value("MIDIin_note_VST3_plugin2_off", -1).toInt();
+    _note_VST3_plugin2_on = _settings->value("MIDIin_note_VST3_plugin2_on", 0).toInt();
+
     _note_effect4 = _settings->value("MIDIin_note_effect4", -1).toInt();
     _note_effect4_value = _settings->value("MIDIin_note_effect4_value", 0).toInt();
     _note_effect4_type = _settings->value("MIDIin_note_effect4_type", false).toInt();
     _note_effect4_usevel = _settings->value("MIDIin_note_effect4_usevel", true).toBool();
     _note_effect4_fkeypressed = _settings->value("MIDIin_note_effect4_fkeypressed", false).toBool();
+
+    _note_VST4_plugin1_off = _settings->value("MIDIin_note_VST4_plugin1_off", -1).toInt();
+    _note_VST4_plugin1_on = _settings->value("MIDIin_note_VST4_plugin1_on", 0).toInt();
+    _note_VST4_plugin2_off = _settings->value("MIDIin_note_VST4_plugin2_off", -1).toInt();
+    _note_VST4_plugin2_on = _settings->value("MIDIin_note_VST4_plugin2_on", 0).toInt();
 
     _skip_prgbanks = _settings->value("MIDIin_skip_prgbanks", true).toBool();
     _skip_bankonly = _settings->value("MIDIin_skip_bankonly", true).toBool();
@@ -192,6 +236,210 @@ void MidiInControl::paintEvent(QPaintEvent *) {
     painter.fillRect(0, 0, width(), height(), linearGrad);
 }
 
+void MidiInControl::VST_reset() {
+
+    #ifdef USE_FLUIDSYNTH
+
+    if(_note_effect1_type == 8 || _note_effect1_type == 9) {
+        int channel = ((MidiInControl::channelUp() < 0)
+                       ? MidiOutput::standardChannel()
+                       : (MidiInControl::channelUp() & 15));
+
+        effect1_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect1_type == 9));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect1_type == 9)
+            s.append((char) (((!effect1_on) ? _note_VST1_plugin2_off : _note_VST1_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect1_on) ? _note_VST1_plugin1_off : _note_VST1_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+
+    } else if(_note_effect1_type == 10 || _note_effect1_type == 11) {
+        int channel = ((MidiInControl::channelDown() < 0)
+                       ? ((MidiInControl::channelUp() < 0)
+                          ? MidiOutput::standardChannel()
+                          : (MidiInControl::channelUp() & 15))
+                       : (MidiInControl::channelDown() & 15));
+
+
+        effect1_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect1_type == 11));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect1_type == 11)
+            s.append((char) (((!effect1_on) ? _note_VST1_plugin2_off : _note_VST1_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect1_on) ? _note_VST1_plugin1_off : _note_VST1_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+    }
+
+    if(_note_effect2_type == 8 || _note_effect2_type == 9) {
+        int channel = ((MidiInControl::channelUp() < 0)
+                       ? MidiOutput::standardChannel()
+                       : (MidiInControl::channelUp() & 15));
+
+        effect2_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect2_type == 9));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect2_type == 9)
+            s.append((char) (((!effect2_on) ? _note_VST2_plugin2_off : _note_VST2_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect2_on) ? _note_VST2_plugin1_off : _note_VST2_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+
+    } else if(_note_effect2_type == 10 || _note_effect2_type == 11) {
+        int channel = ((MidiInControl::channelDown() < 0)
+                       ? ((MidiInControl::channelUp() < 0)
+                          ? MidiOutput::standardChannel()
+                          : (MidiInControl::channelUp() & 15))
+                       : (MidiInControl::channelDown() & 15));
+
+        effect2_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect2_type == 11));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect2_type == 11)
+            s.append((char) (((!effect2_on) ? _note_VST2_plugin2_off : _note_VST2_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect2_on) ? _note_VST2_plugin1_off : _note_VST2_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+    }
+
+    if(_note_effect3_type == 8 || _note_effect3_type == 9) {
+        int channel = ((MidiInControl::channelUp() < 0)
+                       ? MidiOutput::standardChannel()
+                       : (MidiInControl::channelUp() & 15));
+
+        effect3_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect3_type == 9));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect3_type == 9)
+            s.append((char) (((!effect3_on) ? _note_VST3_plugin2_off : _note_VST3_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect3_on) ? _note_VST3_plugin1_off : _note_VST3_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+
+    } else if(_note_effect3_type == 10 || _note_effect3_type == 11) {
+        int channel = ((MidiInControl::channelDown() < 0)
+                       ? ((MidiInControl::channelUp() < 0)
+                          ? MidiOutput::standardChannel()
+                          : (MidiInControl::channelUp() & 15))
+                       : (MidiInControl::channelDown() & 15));
+
+        effect3_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect3_type == 11));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect3_type == 11)
+            s.append((char) (((!effect3_on) ? _note_VST3_plugin2_off : _note_VST3_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect3_on) ? _note_VST3_plugin1_off : _note_VST3_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+    }
+
+    if(_note_effect4_type == 8 || _note_effect4_type == 9) {
+        int channel = ((MidiInControl::channelUp() < 0)
+                       ? MidiOutput::standardChannel()
+                       : (MidiInControl::channelUp() & 15));
+
+        effect4_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect4_type == 9));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect4_type == 9)
+            s.append((char) (((!effect4_on) ? _note_VST4_plugin2_off : _note_VST4_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect4_on) ? _note_VST4_plugin1_off : _note_VST4_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+
+    } else if(_note_effect4_type == 10 || _note_effect4_type == 11) {
+        int channel = ((MidiInControl::channelDown() < 0)
+                       ? ((MidiInControl::channelUp() < 0)
+                          ? MidiOutput::standardChannel()
+                          : (MidiInControl::channelUp() & 15))
+                       : (MidiInControl::channelDown() & 15));
+
+        effect4_on = false;
+
+        QByteArray s;
+        s.append((char) 0xf0);
+        s.append((char) 0x6);
+        s.append((char) channel + 16 * (_note_effect4_type == 11));
+        s.append((char) 0x66);
+        s.append((char) 0x66);
+        s.append((char) 'W');
+
+        if(_note_effect4_type == 11)
+            s.append((char) (((!effect4_on) ? _note_VST4_plugin2_off : _note_VST4_plugin2_on)) & 0x7f);
+        else
+            s.append((char) (((!effect4_on) ? _note_VST4_plugin1_off : _note_VST4_plugin1_on)) & 0x7f);
+        s.append((char) 0xf7);
+
+        VST_proc::VST_LoadParameterStream(s);
+    }
+
+    #endif
+}
+
 MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemMenuHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint) {
 
     MIDIin = this;
@@ -224,14 +472,39 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     if (MIDIin->objectName().isEmpty())
         MIDIin->setObjectName(QString::fromUtf8("MIDIin"));
 
-    MIDIin->setFixedSize(592, 540);
+    MIDIin->setFixedSize(592, 540 + 40);
     MIDIin->setWindowTitle("MIDI In Control");
 
+    QFont font;
+    QFont font1;
+    QFont font2;
+    font.setPointSize(16);
+    font2.setPointSize(12);
+
+    QLabel *labelIN = new QLabel(MIDIin);
+    labelIN->setObjectName(QString::fromUtf8("labelIN"));
+    labelIN->setGeometry(QRect(30, 4, 531, 16));
+    labelIN->setStyleSheet(QString::fromUtf8("color: white;\n"));
+    labelIN->setAlignment(Qt::AlignCenter);
+    labelIN->setText("MIDI Input");
+
+    MIDI_INPUT = new QComboBox(MIDIin);
+    MIDI_INPUT->setObjectName(QString::fromUtf8("MIDI_INPUT"));
+    MIDI_INPUT->setGeometry(QRect(30, 20, 531, 31));
+    MIDI_INPUT->setToolTip("Select MIDI Input");
+    MIDI_INPUT->setFont(font2);
+
+    connect(MIDI_INPUT, QOverload<int>::of(&QComboBox::activated), [=](int v)
+    {
+
+        MidiInput::setInputPort(MIDI_INPUT->itemText(v));
+
+    });
+
     QFrame *MIDIin2 = new QFrame(MIDIin); // for heritage style sheet
-    MIDIin2->setGeometry(QRect(0, 0, width(), height()));
+    MIDIin2->setGeometry(QRect(0, 40, width(), height()));
     MIDIin2->setObjectName(QString::fromUtf8("MIDIin2"));
     MIDIin2->setStyleSheet(QString::fromUtf8("color: white;")); // background-color: #607080;\n"));
-
 
     buttonBox = new QDialogButtonBox(MIDIin2);
     buttonBox->setObjectName(QString::fromUtf8("buttonBox"));
@@ -271,11 +544,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
                            "'Get It' and pressing one.\n"
                              "Or combine two voices to duo.\n"
                              "C -1 or 'Get It' state disable 'Down'");
-    QFont font;
-    QFont font1;
-    QFont font2;
-    font.setPointSize(16);
-    font2.setPointSize(12);
+
     NoteBoxCut->setFont(font);
     NoteBoxCut->addItem("Get It", -1);
 
@@ -607,6 +876,10 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect1->addItem("Chorus Level", 1);
     typeBoxEffect1->addItem("AutoChord Up", 0);
     typeBoxEffect1->addItem("AutoChord Down", 0);
+    typeBoxEffect1->addItem("VST UP Plug 1", 0);
+    typeBoxEffect1->addItem("VST UP Plug 2", 0);
+    typeBoxEffect1->addItem("VST DOWN Plug 1", 0);
+    typeBoxEffect1->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect1->setCurrentIndex(-1);
     QObject::connect(typeBoxEffect1, SIGNAL(currentIndexChanged(QString)), labelPitch1, SLOT(setText(QString)));
 
@@ -669,9 +942,110 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
                                        "velocity is used, this is the scale value\n"
                                         "to fix the range");
 
+
+    int curr = _note_effect1_type;
+
+    VSTBoxPresetOff1 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOff1->setObjectName(QString::fromUtf8("VSTBoxPresetOff1"));
+    VSTBoxPresetOff1->setGeometry(QRect(xx, yy + 80, 91, 25));
+    VSTBoxPresetOff1->setToolTip("When VST key is OFF");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOff1->setFont(font1);
+    VSTBoxPresetOff1->addItem("Off", -1);
+    VSTBoxPresetOff1->addItem("Preset 0", 0);
+    VSTBoxPresetOff1->addItem("Preset 1", 1);
+    VSTBoxPresetOff1->addItem("Preset 2", 2);
+    VSTBoxPresetOff1->addItem("Preset 3", 3);
+    VSTBoxPresetOff1->addItem("Preset 4", 4);
+    VSTBoxPresetOff1->addItem("Preset 5", 5);
+    VSTBoxPresetOff1->addItem("Preset 6", 6);
+    VSTBoxPresetOff1->addItem("Preset 7", 7);
+    VSTBoxPresetOff1->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST1_plugin2_off : _note_VST1_plugin1_off) + 1);
+
+    VSTBoxPresetOn1 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOn1->setObjectName(QString::fromUtf8("VSTBoxPresetOn1"));
+    VSTBoxPresetOn1->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
+    VSTBoxPresetOn1->setToolTip("When VST key is ON");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOn1->setFont(font1);
+    VSTBoxPresetOn1->addItem("Preset 0", 0);
+    VSTBoxPresetOn1->addItem("Preset 1", 1);
+    VSTBoxPresetOn1->addItem("Preset 2", 2);
+    VSTBoxPresetOn1->addItem("Preset 3", 3);
+    VSTBoxPresetOn1->addItem("Preset 4", 4);
+    VSTBoxPresetOn1->addItem("Preset 5", 5);
+    VSTBoxPresetOn1->addItem("Preset 6", 6);
+    VSTBoxPresetOn1->addItem("Preset 7", 7);
+    VSTBoxPresetOn1->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST1_plugin2_on : _note_VST1_plugin1_on);
+
+    if(curr >= 8 && curr <= 11) {
+
+        horizontalSliderPitch1->setVisible(false);
+        VlabelPitch1->setVisible(false);
+
+    } else {
+
+        VSTBoxPresetOff1->setVisible(false);
+        VSTBoxPresetOn1->setVisible(false);
+    }
+
+    connect(VSTBoxPresetOff1, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOff1->itemData(v).toInt();
+
+        int curr = typeBoxEffect1->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST1_plugin1_off = val;
+            _settings->setValue("MIDIin_note_VST1_plugin1_off", _note_VST1_plugin1_off);
+        }
+
+        if(curr == 9 || curr == 11) {
+            _note_VST1_plugin2_off = val;
+            _settings->setValue("MIDIin_note_VST1_plugin2_off", _note_VST1_plugin2_off);
+        }
+
+    });
+
+    connect(VSTBoxPresetOn1, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOn1->itemData(v).toInt();
+
+        int curr = typeBoxEffect1->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST1_plugin1_on = val;
+            _settings->setValue("MIDIin_note_VST1_plugin1_on", _note_VST1_plugin1_on);
+        }
+
+        if(curr == 9  || curr == 11) {
+            _note_VST1_plugin2_on = val;
+            _settings->setValue("MIDIin_note_VST1_plugin2_on", _note_VST1_plugin2_on);
+        }
+
+    });
+
     connect(typeBoxEffect1, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
     {
         int type = typeBoxEffect1->itemData(v).toInt();
+
+        if(v >= 8 && v <= 11) {
+
+            horizontalSliderPitch1->setVisible(false);
+            VlabelPitch1->setVisible(false);
+            VSTBoxPresetOff1->setVisible(true);
+            VSTBoxPresetOn1->setVisible(true);
+
+        } else {
+
+            VSTBoxPresetOff1->setVisible(false);
+            VSTBoxPresetOn1->setVisible(false);
+            horizontalSliderPitch1->setVisible(true);
+            VlabelPitch1->setVisible(true);
+        }
+
         if(type == 2) {
             horizontalSliderPitch1->setDisabled(false);
             horizontalSliderPitch1->setMinimum(-99);
@@ -737,6 +1111,10 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect2->addItem("Chorus Level", 1);
     typeBoxEffect2->addItem("AutoChord Up", 0);
     typeBoxEffect2->addItem("AutoChord Down", 0);
+    typeBoxEffect2->addItem("VST UP Plug 1", 0);
+    typeBoxEffect2->addItem("VST UP Plug 2", 0);
+    typeBoxEffect2->addItem("VST DOWN Plug 1", 0);
+    typeBoxEffect2->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect2->setCurrentIndex(-1);
     QObject::connect(typeBoxEffect2, SIGNAL(currentIndexChanged(QString)), labelPitch2, SLOT(setText(QString)));
 
@@ -798,9 +1176,110 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
                                        "velocity is used, this is the scale value\n"
                                         "to fix the range");
 
+    curr = _note_effect2_type;
+
+    VSTBoxPresetOff2 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOff2->setObjectName(QString::fromUtf8("VSTBoxPresetOff2"));
+    VSTBoxPresetOff2->setGeometry(QRect(xx, yy + 80, 91, 25));
+    VSTBoxPresetOff2->setToolTip("When VST key is OFF");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOff2->setFont(font1);
+    VSTBoxPresetOff2->addItem("Off", -1);
+    VSTBoxPresetOff2->addItem("Preset 0", 0);
+    VSTBoxPresetOff2->addItem("Preset 1", 1);
+    VSTBoxPresetOff2->addItem("Preset 2", 2);
+    VSTBoxPresetOff2->addItem("Preset 3", 3);
+    VSTBoxPresetOff2->addItem("Preset 4", 4);
+    VSTBoxPresetOff2->addItem("Preset 5", 5);
+    VSTBoxPresetOff2->addItem("Preset 6", 6);
+    VSTBoxPresetOff2->addItem("Preset 7", 7);
+    VSTBoxPresetOff2->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST2_plugin2_off : _note_VST2_plugin1_off) + 1);
+
+    VSTBoxPresetOn2 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOn2->setObjectName(QString::fromUtf8("VSTBoxPresetOn2"));
+    VSTBoxPresetOn2->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
+    VSTBoxPresetOn2->setToolTip("When VST key is ON");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOn2->setFont(font1);
+    VSTBoxPresetOn2->addItem("Preset 0", 0);
+    VSTBoxPresetOn2->addItem("Preset 1", 1);
+    VSTBoxPresetOn2->addItem("Preset 2", 2);
+    VSTBoxPresetOn2->addItem("Preset 3", 3);
+    VSTBoxPresetOn2->addItem("Preset 4", 4);
+    VSTBoxPresetOn2->addItem("Preset 5", 5);
+    VSTBoxPresetOn2->addItem("Preset 6", 6);
+    VSTBoxPresetOn2->addItem("Preset 7", 7);
+    VSTBoxPresetOn2->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST2_plugin2_on : _note_VST2_plugin1_on);
+
+    if(curr >= 8 && curr <= 11) {
+
+        horizontalSliderPitch2->setVisible(false);
+        VlabelPitch2->setVisible(false);
+
+    } else {
+
+        VSTBoxPresetOff2->setVisible(false);
+        VSTBoxPresetOn2->setVisible(false);
+    }
+
+    connect(VSTBoxPresetOff2, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOff2->itemData(v).toInt();
+
+        int curr = typeBoxEffect2->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST2_plugin1_off = val;
+            _settings->setValue("MIDIin_note_VST2_plugin1_off", _note_VST2_plugin1_off);
+        }
+
+        if(curr == 9 || curr == 11) {
+            _note_VST2_plugin2_off = val;
+            _settings->setValue("MIDIin_note_VST2_plugin2_off", _note_VST2_plugin2_off);
+        }
+
+    });
+
+    connect(VSTBoxPresetOn2, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOn2->itemData(v).toInt();
+
+        int curr = typeBoxEffect2->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST2_plugin1_on = val;
+            _settings->setValue("MIDIin_note_VST2_plugin1_on", _note_VST2_plugin1_on);
+        }
+
+        if(curr == 9  || curr == 11) {
+            _note_VST2_plugin2_on = val;
+            _settings->setValue("MIDIin_note_VST2_plugin2_on", _note_VST2_plugin2_on);
+            qWarning("pacorrr %i", val);
+        }
+
+    });
+
     connect(typeBoxEffect2, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
     {
         int type = typeBoxEffect2->itemData(v).toInt();
+
+        if(v >= 8 && v <= 11) {
+
+            horizontalSliderPitch2->setVisible(false);
+            VlabelPitch2->setVisible(false);
+            VSTBoxPresetOff2->setVisible(true);
+            VSTBoxPresetOn2->setVisible(true);
+
+        } else {
+
+            VSTBoxPresetOff2->setVisible(false);
+            VSTBoxPresetOn2->setVisible(false);
+            horizontalSliderPitch2->setVisible(true);
+            VlabelPitch2->setVisible(true);
+        }
+
         if(type == 2) {
             horizontalSliderPitch2->setDisabled(false);
             horizontalSliderPitch2->setMinimum(-99);
@@ -866,6 +1345,10 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect3->addItem("Chorus Level", 1);
     typeBoxEffect3->addItem("AutoChord Up", 0);
     typeBoxEffect3->addItem("AutoChord Down", 0);
+    typeBoxEffect3->addItem("VST UP Plug 1", 0);
+    typeBoxEffect3->addItem("VST UP Plug 2", 0);
+    typeBoxEffect3->addItem("VST DOWN Plug 1", 0);
+    typeBoxEffect3->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect3->setCurrentIndex(-1);
     QObject::connect(typeBoxEffect3, SIGNAL(currentIndexChanged(QString)), labelPitch3, SLOT(setText(QString)));
 
@@ -927,9 +1410,109 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
                                        "velocity is used, this is the scale value\n"
                                         "to fix the range");
 
+    curr = _note_effect3_type;
+
+    VSTBoxPresetOff3 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOff3->setObjectName(QString::fromUtf8("VSTBoxPresetOff3"));
+    VSTBoxPresetOff3->setGeometry(QRect(xx, yy + 80, 91, 25));
+    VSTBoxPresetOff3->setToolTip("When VST key is OFF");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOff3->setFont(font1);
+    VSTBoxPresetOff3->addItem("Off", -1);
+    VSTBoxPresetOff3->addItem("Preset 0", 0);
+    VSTBoxPresetOff3->addItem("Preset 1", 1);
+    VSTBoxPresetOff3->addItem("Preset 2", 2);
+    VSTBoxPresetOff3->addItem("Preset 3", 3);
+    VSTBoxPresetOff3->addItem("Preset 4", 4);
+    VSTBoxPresetOff3->addItem("Preset 5", 5);
+    VSTBoxPresetOff3->addItem("Preset 6", 6);
+    VSTBoxPresetOff3->addItem("Preset 7", 7);
+    VSTBoxPresetOff3->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST3_plugin2_off : _note_VST3_plugin1_off) + 1);
+
+    VSTBoxPresetOn3 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOn3->setObjectName(QString::fromUtf8("VSTBoxPresetOn3"));
+    VSTBoxPresetOn3->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
+    VSTBoxPresetOn3->setToolTip("When VST key is ON");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOn3->setFont(font1);
+    VSTBoxPresetOn3->addItem("Preset 0", 0);
+    VSTBoxPresetOn3->addItem("Preset 1", 1);
+    VSTBoxPresetOn3->addItem("Preset 2", 2);
+    VSTBoxPresetOn3->addItem("Preset 3", 3);
+    VSTBoxPresetOn3->addItem("Preset 4", 4);
+    VSTBoxPresetOn3->addItem("Preset 5", 5);
+    VSTBoxPresetOn3->addItem("Preset 6", 6);
+    VSTBoxPresetOn3->addItem("Preset 7", 7);
+    VSTBoxPresetOn3->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST3_plugin2_on : _note_VST3_plugin1_on);
+
+    if(curr >= 8 && curr <= 11) {
+
+        horizontalSliderPitch3->setVisible(false);
+        VlabelPitch3->setVisible(false);
+
+    } else {
+
+        VSTBoxPresetOff3->setVisible(false);
+        VSTBoxPresetOn3->setVisible(false);
+    }
+
+    connect(VSTBoxPresetOff3, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOff3->itemData(v).toInt();
+
+        int curr = typeBoxEffect3->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST3_plugin1_off = val;
+            _settings->setValue("MIDIin_note_VST3_plugin1_off", _note_VST3_plugin1_off);
+        }
+
+        if(curr == 9 || curr == 11) {
+            _note_VST3_plugin2_off = val;
+            _settings->setValue("MIDIin_note_VST3_plugin2_off", _note_VST3_plugin2_off);
+        }
+
+    });
+
+    connect(VSTBoxPresetOn3, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOn3->itemData(v).toInt();
+
+        int curr = typeBoxEffect3->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST3_plugin1_on = val;
+            _settings->setValue("MIDIin_note_VST3_plugin1_on", _note_VST3_plugin1_on);
+        }
+
+        if(curr == 9  || curr == 11) {
+            _note_VST3_plugin2_on = val;
+            _settings->setValue("MIDIin_note_VST3_plugin2_on", _note_VST3_plugin2_on);
+        }
+
+    });
+
     connect(typeBoxEffect3, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
     {
         int type = typeBoxEffect3->itemData(v).toInt();
+
+        if(v >= 8 && v <= 11) {
+
+            horizontalSliderPitch3->setVisible(false);
+            VlabelPitch3->setVisible(false);
+            VSTBoxPresetOff3->setVisible(true);
+            VSTBoxPresetOn3->setVisible(true);
+
+        } else {
+
+            VSTBoxPresetOff3->setVisible(false);
+            VSTBoxPresetOn3->setVisible(false);
+            horizontalSliderPitch3->setVisible(true);
+            VlabelPitch3->setVisible(true);
+        }
+
         if(type == 2) {
             horizontalSliderPitch3->setDisabled(false);
             horizontalSliderPitch3->setMinimum(-99);
@@ -995,6 +1578,10 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect4->addItem("Chorus Level", 1);
     typeBoxEffect4->addItem("AutoChord Up", 0);
     typeBoxEffect4->addItem("AutoChord Down", 0);
+    typeBoxEffect4->addItem("VST UP Plug 1", 0);
+    typeBoxEffect4->addItem("VST UP Plug 2", 0);
+    typeBoxEffect4->addItem("VST DOWN Plug 1", 0);
+    typeBoxEffect4->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect4->setCurrentIndex(-1);
     QObject::connect(typeBoxEffect4, SIGNAL(currentIndexChanged(QString)), labelPitch4, SLOT(setText(QString)));
 
@@ -1057,9 +1644,109 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
                                        "velocity is used, this is the scale value\n"
                                         "to fix the range");
 
+    curr = _note_effect4_type;
+
+    VSTBoxPresetOff4 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOff4->setObjectName(QString::fromUtf8("VSTBoxPresetOff4"));
+    VSTBoxPresetOff4->setGeometry(QRect(xx, yy + 80, 91, 25));
+    VSTBoxPresetOff4->setToolTip("When VST key is OFF");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOff4->setFont(font1);
+    VSTBoxPresetOff4->addItem("Off", -1);
+    VSTBoxPresetOff4->addItem("Preset 0", 0);
+    VSTBoxPresetOff4->addItem("Preset 1", 1);
+    VSTBoxPresetOff4->addItem("Preset 2", 2);
+    VSTBoxPresetOff4->addItem("Preset 3", 3);
+    VSTBoxPresetOff4->addItem("Preset 4", 4);
+    VSTBoxPresetOff4->addItem("Preset 5", 5);
+    VSTBoxPresetOff4->addItem("Preset 6", 6);
+    VSTBoxPresetOff4->addItem("Preset 7", 7);
+    VSTBoxPresetOff4->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST4_plugin2_off : _note_VST4_plugin1_off) + 1);
+
+    VSTBoxPresetOn4 = new QComboBox(groupBoxEffect);
+    VSTBoxPresetOn4->setObjectName(QString::fromUtf8("VSTBoxPresetOn4"));
+    VSTBoxPresetOn4->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
+    VSTBoxPresetOn4->setToolTip("When VST key is ON");
+
+    font1.setPointSize(10);
+    VSTBoxPresetOn4->setFont(font1);
+    VSTBoxPresetOn4->addItem("Preset 0", 0);
+    VSTBoxPresetOn4->addItem("Preset 1", 1);
+    VSTBoxPresetOn4->addItem("Preset 2", 2);
+    VSTBoxPresetOn4->addItem("Preset 3", 3);
+    VSTBoxPresetOn4->addItem("Preset 4", 4);
+    VSTBoxPresetOn4->addItem("Preset 5", 5);
+    VSTBoxPresetOn4->addItem("Preset 6", 6);
+    VSTBoxPresetOn4->addItem("Preset 7", 7);
+    VSTBoxPresetOn4->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST4_plugin2_on : _note_VST4_plugin1_on);
+
+    if(curr >= 8 && curr <= 11) {
+
+        horizontalSliderPitch4->setVisible(false);
+        VlabelPitch4->setVisible(false);
+
+    } else {
+
+        VSTBoxPresetOff4->setVisible(false);
+        VSTBoxPresetOn4->setVisible(false);
+    }
+
+    connect(VSTBoxPresetOff4, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOff4->itemData(v).toInt();
+
+        int curr = typeBoxEffect4->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST4_plugin1_off = val;
+            _settings->setValue("MIDIin_note_VST4_plugin1_off", _note_VST4_plugin1_off);
+        }
+
+        if(curr == 9 || curr == 11) {
+            _note_VST4_plugin2_off = val;
+            _settings->setValue("MIDIin_note_VST4_plugin2_off", _note_VST4_plugin2_off);
+        }
+
+    });
+
+    connect(VSTBoxPresetOn4, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        int val = VSTBoxPresetOn4->itemData(v).toInt();
+
+        int curr = typeBoxEffect4->currentIndex();
+
+        if(curr == 8 || curr == 10) {
+            _note_VST4_plugin1_on = val;
+            _settings->setValue("MIDIin_note_VST4_plugin1_on", _note_VST4_plugin1_on);
+        }
+
+        if(curr == 9  || curr == 11) {
+            _note_VST4_plugin2_on = val;
+            _settings->setValue("MIDIin_note_VST4_plugin2_on", _note_VST4_plugin2_on);
+        }
+
+    });
+
     connect(typeBoxEffect4, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
     {
         int type = typeBoxEffect4->itemData(v).toInt();
+
+        if(v >= 8 && v <= 11) {
+
+            horizontalSliderPitch4->setVisible(false);
+            VlabelPitch4->setVisible(false);
+            VSTBoxPresetOff4->setVisible(true);
+            VSTBoxPresetOn4->setVisible(true);
+
+        } else {
+
+            VSTBoxPresetOff4->setVisible(false);
+            VSTBoxPresetOn4->setVisible(false);
+            horizontalSliderPitch4->setVisible(true);
+            VlabelPitch4->setVisible(true);
+        }
+
         if(type == 2) {
             horizontalSliderPitch4->setDisabled(false);
             horizontalSliderPitch4->setMinimum(-99);
@@ -1300,6 +1987,7 @@ MidiInControl::~MidiInControl() {
     delete time_updat;
     qWarning("MidiInControl() destructor");
 }
+
 void MidiInControl::MidiIn_toexit(MidiInControl *MidiIn) {
     MidiIn_ctrl = MidiIn;
 }
@@ -1535,6 +2223,7 @@ int MidiInControl::get_key() {
 }
 
 static int _ret_wait = 555;
+
 int MidiInControl::wait_record(QWidget *parent) {
 
     if(!_record_waits) {_ret_wait = 0; return 0; }
@@ -1877,6 +2566,15 @@ void MidiInControl::update_checks() {
     if(!groupBoxEffect->isEnabled() || !groupBoxEffect->isChecked()) flip = 0;
 
     if(MidiInput::isConnected() && !MIDIin->isEnabled()) {
+        if(!MIDI_INPUT->count()) {
+
+            foreach (QString name, MidiInput::inputPorts()) {
+
+                MIDI_INPUT->addItem(name);
+            }
+
+        }
+
         setDisabled(false);
     } else if(!MidiInput::isConnected() && MIDIin->isEnabled()) {
 
@@ -2059,7 +2757,76 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0;
             return 1;
-        }else {
+
+        } else if(_note_effect1_type >= 8 && _note_effect1_type <= 11) { // VST
+
+            int v_off = -1;
+            int v_on = 0;
+
+            if(_note_effect1_type >= 10) {
+
+                channel = ((MidiInControl::channelDown() < 0)
+                               ? ((MidiInControl::channelUp() < 0)
+                                  ? MidiOutput::standardChannel()
+                                  : (MidiInControl::channelUp() & 15))
+                               : (MidiInControl::channelDown() & 15));
+            }
+
+            if(_note_effect1_type & 1) {
+                channel = channel + 16;
+                v_off = _note_VST1_plugin2_off;
+                v_on = _note_VST1_plugin2_on;
+            } else {
+                v_off = _note_VST1_plugin1_off;
+                v_on = _note_VST1_plugin1_on;
+            }
+
+            if(v_off < 0) v_off = 0x7f;
+
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
+                if(!_note_effect1_fkeypressed) {
+                    message->at(0) = 0xf0;
+                    message->at(1) = 6;
+                    message->at(2) = channel;
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 'W');
+                    message->insert(message->end(), (unsigned char) v_off);
+                    message->insert(message->end(), (unsigned char) 0xF7);
+                    return 2;
+
+                } else if(_note_effect1_fkeypressed) {
+                    message->at(0) = 0; // no event
+                    return 1;
+                }
+            } else if(_note_effect1_fkeypressed && !effect1_on) {
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_off);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            } else if(effect1_on){
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_on);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            }
+
+            message->at(0) = 0;
+            return 1;
+
+        } else {
             message->at(0) = 0;
             return 1;
         }
@@ -2173,7 +2940,75 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0;
             return 1;
-        }else {
+        } else if(_note_effect2_type >= 8 && _note_effect2_type <= 11) { // VST
+
+            int v_off = -1;
+            int v_on = 0;
+
+            if(_note_effect2_type >= 10) {
+
+                channel = ((MidiInControl::channelDown() < 0)
+                               ? ((MidiInControl::channelUp() < 0)
+                                  ? MidiOutput::standardChannel()
+                                  : (MidiInControl::channelUp() & 15))
+                               : (MidiInControl::channelDown() & 15));
+            }
+
+            if(_note_effect2_type & 1) {
+                channel = channel + 16;
+                v_off = _note_VST2_plugin2_off;
+                v_on = _note_VST2_plugin2_on;
+            } else {
+                v_off = _note_VST2_plugin1_off;
+                v_on = _note_VST2_plugin1_on;
+            }
+
+            if(v_off < 0) v_off = 0x7f;
+
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
+                if(!_note_effect2_fkeypressed) {
+                    message->at(0) = 0xf0;
+                    message->at(1) = 6;
+                    message->at(2) = channel;
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 'W');
+                    message->insert(message->end(), (unsigned char) v_off);
+                    message->insert(message->end(), (unsigned char) 0xF7);
+                    return 2;
+
+                } else if(_note_effect2_fkeypressed) {
+                    message->at(0) = 0; // no event
+                    return 1;
+                }
+            } else if(_note_effect2_fkeypressed && !effect2_on) {
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_off);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            } else if(effect2_on){
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_on);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            }
+
+            message->at(0) = 0;
+            return 1;
+
+        } else {
             message->at(0) = 0;
             return 1;
         }
@@ -2287,7 +3122,75 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0;
             return 1;
-        }else {
+        } else if(_note_effect3_type >= 8 && _note_effect3_type <= 11) { // VST
+
+            int v_off = -1;
+            int v_on = 0;
+
+            if(_note_effect3_type >= 10) {
+
+                channel = ((MidiInControl::channelDown() < 0)
+                               ? ((MidiInControl::channelUp() < 0)
+                                  ? MidiOutput::standardChannel()
+                                  : (MidiInControl::channelUp() & 15))
+                               : (MidiInControl::channelDown() & 15));
+            }
+
+            if(_note_effect3_type & 1) {
+                channel = channel + 16;
+                v_off = _note_VST3_plugin2_off;
+                v_on = _note_VST3_plugin2_on;
+            } else {
+                v_off = _note_VST3_plugin1_off;
+                v_on = _note_VST3_plugin1_on;
+            }
+
+            if(v_off < 0) v_off = 0x7f;
+
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
+                if(!_note_effect3_fkeypressed) {
+                    message->at(0) = 0xf0;
+                    message->at(1) = 6;
+                    message->at(2) = channel;
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 'W');
+                    message->insert(message->end(), (unsigned char) v_off);
+                    message->insert(message->end(), (unsigned char) 0xF7);
+                    return 2;
+
+                } else if(_note_effect3_fkeypressed) {
+                    message->at(0) = 0; // no event
+                    return 1;
+                }
+            } else if(_note_effect3_fkeypressed && !effect3_on) {
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_off);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            } else if(effect3_on){
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_on);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            }
+
+            message->at(0) = 0;
+            return 1;
+
+        } else {
             message->at(0) = 0;
             return 1;
         }
@@ -2403,6 +3306,74 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0;
             return 1;
+        } else if(_note_effect4_type >= 8 && _note_effect4_type <= 11) { // VST
+
+            int v_off = -1;
+            int v_on = 0;
+
+            if(_note_effect4_type >= 10) {
+
+                channel = ((MidiInControl::channelDown() < 0)
+                               ? ((MidiInControl::channelUp() < 0)
+                                  ? MidiOutput::standardChannel()
+                                  : (MidiInControl::channelUp() & 15))
+                               : (MidiInControl::channelDown() & 15));
+            }
+
+            if(_note_effect4_type & 1) {
+                channel = channel + 16;
+                v_off = _note_VST4_plugin2_off;
+                v_on = _note_VST4_plugin2_on;
+            } else {
+                v_off = _note_VST4_plugin1_off;
+                v_on = _note_VST4_plugin1_on;
+            }
+
+            if(v_off < 0) v_off = 0x7f;
+
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
+                if(!_note_effect4_fkeypressed) {
+                    message->at(0) = 0xf0;
+                    message->at(1) = 6;
+                    message->at(2) = channel;
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 0x66);
+                    message->insert(message->end(), (unsigned char) 'W');
+                    message->insert(message->end(), (unsigned char) v_off);
+                    message->insert(message->end(), (unsigned char) 0xF7);
+                    return 2;
+
+                } else if(_note_effect4_fkeypressed) {
+                    message->at(0) = 0; // no event
+                    return 1;
+                }
+            } else if(_note_effect4_fkeypressed && !effect4_on) {
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_off);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            } else if(effect4_on){
+                message->at(0) = 0xf0;
+                message->at(1) = 6;
+                message->at(2) = channel;
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 0x66);
+                message->insert(message->end(), (unsigned char) 'W');
+                message->insert(message->end(), (unsigned char) v_on);
+                message->insert(message->end(), (unsigned char) 0xF7);
+                return 2;
+
+            }
+
+            message->at(0) = 0;
+            return 1;
+
         } else {
             message->at(0) = 0;
             return 1;

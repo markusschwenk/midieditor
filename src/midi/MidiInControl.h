@@ -84,6 +84,7 @@ public:
 public slots:
     void paintEvent(QPaintEvent *) override;
 
+    void VST_reset();
     void update_checks();
     void set_split_enable(bool v);
     void set_inchannelUp(int v);
@@ -137,6 +138,7 @@ public slots:
 
 public:
     QDialog * MIDIin;
+    QComboBox *MIDI_INPUT;
     QDialogButtonBox *buttonBox;
     QGroupBox *SplitBox;
     QComboBox *NoteBoxCut;
@@ -183,6 +185,8 @@ public:
     QSlider *horizontalSliderPitch1;
     QLabel *labelPitch1;
     QLabel *VlabelPitch1;
+    QComboBox *VSTBoxPresetOff1;
+    QComboBox *VSTBoxPresetOn1;
 
     QComboBox *typeBoxEffect2;
     QCheckBox *LEDBoxEffect2;
@@ -193,6 +197,8 @@ public:
     QSlider *horizontalSliderPitch2;
     QLabel *labelPitch2;
     QLabel *VlabelPitch2;
+    QComboBox *VSTBoxPresetOff2;
+    QComboBox *VSTBoxPresetOn2;
 
     QComboBox *typeBoxEffect3;
     QCheckBox *LEDBoxEffect3;
@@ -203,6 +209,8 @@ public:
     QSlider *horizontalSliderPitch3;
     QLabel *labelPitch3;
     QLabel *VlabelPitch3;
+    QComboBox *VSTBoxPresetOff3;
+    QComboBox *VSTBoxPresetOn3;
 
     QComboBox *typeBoxEffect4;
     QCheckBox *LEDBoxEffect4;
@@ -213,6 +221,8 @@ public:
     QSlider *horizontalSliderPitch4;
     QLabel *labelPitch4;
     QLabel *VlabelPitch4;
+    QComboBox *VSTBoxPresetOff4;
+    QComboBox *VSTBoxPresetOn4;
 
     QCheckBox *checkBoxPrgBank;
     QCheckBox *bankskipcheckBox;

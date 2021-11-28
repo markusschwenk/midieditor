@@ -192,16 +192,24 @@ void MainWindow::addInstrumentNames()
 
 MainWindow::~MainWindow() {
 
+    if (MidiPlayer::isPlaying() || MidiInput::recording()) {
+        stop();
+    }
+
     MidiInControl::my_exit();
     MyInstrument::exit_and_clean_MyInstrument();
 
 #ifdef USE_FLUIDSYNTH
+
+    VST_proc::VST_exit();
+
     if(fluid_output) {
 
         delete fluid_output;
+        fluid_output = NULL;
     }
 
-    VST_proc::VST_exit();
+
 #endif
 }
 
@@ -300,6 +308,10 @@ MainWindow::MainWindow(QString initFile)
     _recentFilePaths = _settings->value("recent_file_list").toStringList();
 
     EditorTool::setMainWindow(this);
+
+#ifdef USE_FLUIDSYNTH
+    main_widget = this;
+#endif
 
     setWindowTitle(QApplication::applicationName() + " " + QApplication::applicationVersion());
     setWindowIcon(QIcon(":/run_environment/graphics/icon.png"));
@@ -781,19 +793,6 @@ void MainWindow::play()
     for(int n = 0; n < PRE_CHAN; n++) {
 
         VST_proc::VST_DisableButtons(n, true);
-
-        QByteArray vst_sel;
-
-        vst_sel.append((char) 0xF0);
-        vst_sel.append((char) 0x6);
-        vst_sel.append((char) n);
-        vst_sel.append((char) 0x66);
-        vst_sel.append((char) 0x66);
-        vst_sel.append((char) 'W');
-        vst_sel.append((char) 0x0);
-        vst_sel.append((char) 0xF7);
-
-        MidiOutput::sendCommand(vst_sel);
 
     }
 
@@ -4439,10 +4438,21 @@ void MainWindow::DMidiInControl() {
         MidiInControl::MidiIn_toexit(MidiIn_control);
     }
 
+    if(!MidiIn_control) return;
+
+    MidiIn_control->MIDI_INPUT->clear();
+
+    foreach (QString name, MidiInput::inputPorts()) {
+
+        MidiIn_control->MIDI_INPUT->addItem(name);
+    }
+
     if(fl)
         MidiIn_control->setDisabled(true);
     else
         MidiIn_control->setDisabled(false);
+
+    MidiIn_control->VST_reset();
 
     MidiIn_control->setModal(false);
     MidiIn_control->show();

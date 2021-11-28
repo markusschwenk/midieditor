@@ -39,6 +39,10 @@
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QStackedWidget>
 #include <QtWidgets/QDesktopWidget>
+#include <QSemaphore>
+#include <QMutex>
+
+extern QWidget *main_widget;
 
 #define PRE_CHAN 32 // 16 chans * number of VST Plugins
 
@@ -68,13 +72,16 @@ typedef struct {
 
     int send_preset;
 
+    QMutex *mux;
+
 } VST_preset_data_type;
 
 class VSTDialog: public QDialog
 {
     Q_OBJECT
-public:
-    QGroupBox *groupBox;
+
+private:
+
     QPushButton *pushButtonSave;
     QPushButton *pushButtonReset;
     QPushButton *pushButtonDelete;
@@ -82,19 +89,25 @@ public:
     QPushButton *pushButtonDis;
     QPushButton *pushButtonUnset;
     QLabel *labelPreset;
-    QSpinBox *SpinBoxPreset;
+    QWidget* _parent;
 
+    QTimer *time_updat;
+    QSemaphore *semaf;
+    bool _dis_change;
+
+public:
+    QGroupBox *groupBox;
+    QSpinBox *SpinBoxPreset;
     QScrollArea *scrollArea;
     QWidget *subWindow;
 
-    QWidget* _parent;
-
     int channel;
-
-    QTimer *time_updat;
 
     VSTDialog(QWidget* parent, int chan);
     ~VSTDialog();
+
+signals:
+    void setPreset(int preset);
 
 public slots:
     void Save();
@@ -105,6 +118,7 @@ public slots:
     void Unset();
     void ChangePreset(int sel);
     void ChangeFastPresetI(int sel);
+    void ChangeFastPresetI2(int sel);
     void ChangeFastPreset(int sel);
     void timer_update();
 
@@ -119,6 +133,12 @@ public:
     ~VST_proc();
 
     static void VST_setParent(QWidget *parent);
+
+    static intptr_t dispatcher(int chan, int b, int c, intptr_t d, void * e, float f);
+    static void process(int chan, float * * b, float * * c, int d);
+    static void setParameter(int chan, int b, float c);
+    static float getParameter(int chan, int b);
+    static void processReplacing(int chan, float * * b, float * * c, int d);
 
     static int VST_load(int chan, const QString pathModule);
     static int VST_unload(int chan);
@@ -146,14 +166,16 @@ public:
     static int VST_LoadfromMIDIfile();
     static int VST_UpdatefromMIDIfile();
 
+    static bool VST_isEnabled(int chan);
 
 };
-
 
 class VST_chan: public QDialog
 {
     Q_OBJECT
-public:
+
+private:
+
     QDialogButtonBox *buttonBox;
     QPushButton *pushVSTDirectory;
     QGroupBox *GroupBoxVST;
@@ -166,6 +188,8 @@ public:
     int curVST_index;
     int chan;
     int chan_loaded;
+
+public:
 
     VST_chan(QWidget* parent, int channel, int flag);
 
