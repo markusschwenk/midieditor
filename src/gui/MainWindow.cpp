@@ -210,7 +210,6 @@ MainWindow::~MainWindow() {
 
     remote_VST_exit();
 
-
 #endif
 }
 
