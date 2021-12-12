@@ -47,6 +47,17 @@
 #include "../MidiEvent/ControlChangeEvent.h"
 #include <QMutex>
 #include <QWaitCondition>
+#include <QSystemSemaphore>
+#include <QProcess>
+#include <QSharedMemory>
+
+extern QProcess *process;
+extern QSharedMemory *sharedAudioBuffer;
+extern QSharedMemory *sharedVSText;
+
+extern QSystemSemaphore *sys_sema_in;
+extern QSystemSemaphore *sys_sema_out;
+extern QSystemSemaphore *sys_sema_inW;
 
 // maximun samples loop Output buffer (minimum 512 = Input Low Latency)
 #define FLUID_OUT_SAMPLES  2048
@@ -245,7 +256,6 @@ private:
     int fluid_out_samples;  // size of samples loop buffer
     int _float_is_supported;
     int output_float;
-
 };
 
 class fluid_Thread_playerWAV : public QThread {

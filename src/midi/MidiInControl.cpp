@@ -1256,7 +1256,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
         if(curr == 9  || curr == 11) {
             _note_VST2_plugin2_on = val;
             _settings->setValue("MIDIin_note_VST2_plugin2_on", _note_VST2_plugin2_on);
-            qWarning("pacorrr %i", val);
+
         }
 
     });

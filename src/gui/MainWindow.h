@@ -25,6 +25,7 @@
 #include <QSettings>
 #include <QSplitter>
 #include <QDateTime>
+#include <QSemaphore>
 
 class MatrixWidget;
 class MidiEvent;
@@ -86,10 +87,14 @@ public:
     ChannelListWidget* channelWidget;
 
 protected:
-    void dropEvent(QDropEvent* ev);
-    void dragEnterEvent(QDragEnterEvent* ev);
+    void dropEvent(QDropEvent* ev) override;
+    void dragEnterEvent(QDragEnterEvent* ev) override;
+
+#ifdef USE_FLUIDSYNTH
 signals:
-    int s_remote_event(QByteArray cmd);
+    int signal_remote_VST();
+    void ToggleViewVST(int channel, bool on);
+#endif
 
 public slots:
     void setChordVelocityProp();
@@ -196,6 +201,8 @@ public slots:
     void setSoundEffectForChannel(int i);
 #ifdef USE_FLUIDSYNTH
     void setLoadVSTForChannel(int channel, int flag);
+    void remote_VST();
+    void remote_VST_exit();
 #endif
 
     void message_timeout(QString title, QString message);
@@ -290,9 +297,11 @@ public slots:
     void navigateSelectionRight();
 
 protected:
-    void closeEvent(QCloseEvent* event);
-    void keyPressEvent(QKeyEvent* e);
-    void keyReleaseEvent(QKeyEvent* event);
+    void closeEvent(QCloseEvent* event) override;
+    void keyPressEvent(QKeyEvent* e) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+
 
 private:
 #ifdef USE_FLUIDSYNTH

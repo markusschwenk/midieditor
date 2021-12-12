@@ -189,7 +189,6 @@ void MainWindow::addInstrumentNames()
 
 }
 
-
 MainWindow::~MainWindow() {
 
     if (MidiPlayer::isPlaying() || MidiInput::recording()) {
@@ -209,7 +208,15 @@ MainWindow::~MainWindow() {
         fluid_output = NULL;
     }
 
+    remote_VST_exit();
 
+
+#endif
+}
+
+void MainWindow::mousePressEvent(QMouseEvent* ) {
+#ifdef USE_FLUIDSYNTH
+    VST_proc::VST_external_show(-1); // force to see external windows
 #endif
 }
 
@@ -227,7 +234,10 @@ MainWindow::MainWindow(QString initFile)
     rightSplitterMode = _settings->value("rightSplitterMode", true).toBool();
     if(rightSplitterMode) EventSplitterTabPos = 2; else EventSplitterTabPos = 1;
 
-    for (int i = 0; i < 17; i++) {Bank_MIDI[i]=0;Prog_MIDI[i]=0;}
+    for (int i = 0; i < 17; i++) {
+        Bank_MIDI[i]=0;
+        Prog_MIDI[i]=0;
+    }
 
     _moveSelectedEventsToChannelMenu = 0;
     _moveSelectedNotesToChannelMenu = 0;
@@ -564,6 +574,8 @@ MainWindow::MainWindow(QString initFile)
     connect(channelWidget, SIGNAL(selectSoundEffectClicked(int)), this, SLOT(setSoundEffectForChannel(int)), Qt::QueuedConnection);
 #ifdef USE_FLUIDSYNTH
     connect(channelWidget, SIGNAL(LoadVSTClicked(int, int)), this, SLOT(setLoadVSTForChannel(int, int)), Qt::QueuedConnection);
+    connect(this, SIGNAL(ToggleViewVST(int, bool)), channelWidget, SLOT(ToggleViewVST(int, bool)), Qt::QueuedConnection);
+
 #endif
     channelsLayout->addWidget(channelWidget, 1, 0, 1, 1);
     upperTabWidget->addTab(channels, "Channels");
@@ -675,6 +687,8 @@ MainWindow::MainWindow(QString initFile)
     if (numStart == 10 && !UpdateManager::autoCheckForUpdates()) {
         QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
+
+    connect(this, SIGNAL(signal_remote_VST()), this, SLOT(remote_VST()), Qt::BlockingQueuedConnection);
 
 }
 
@@ -796,6 +810,8 @@ void MainWindow::play()
 
     }
 
+    VST_proc::VST_external_show(-1);
+
     fluid_output->frames = fluid_output->time_frame.msecsSinceStartOfDay();
 
     if(MidiOutput::outputPort()==FLUID_SYNTH_NAME) {
@@ -914,12 +930,20 @@ void MainWindow::pause()
             stop(false, false, false);
         }
     }
+
+#ifdef USE_FLUIDSYNTH
+    VST_proc::VST_external_show(-1);
+#endif
+
 }
 
 void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
 {
 
     if (!file) {
+#ifdef USE_FLUIDSYNTH
+        VST_proc::VST_external_show(-1);
+#endif
         return;
     }
 
@@ -937,6 +961,7 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
         FluidActionExportWav->setEnabled(true);
         FluidActionExportMp3->setEnabled(true);
         FluidActionExportFlac->setEnabled(true);
+
 #endif
         _miscWidget->setEnabled(true);
         channelWidget->setEnabled(true);
@@ -968,10 +993,14 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
             }
 
             VST_proc::VST_MIDIend();
+
+            VST_proc::VST_external_show(-1);
+
         #endif
     }
 
     MidiTrack* track = file->track(NewNoteTool::editTrack());
+
     if (!track) {
         return;
     }

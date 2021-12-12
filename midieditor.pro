@@ -7,8 +7,8 @@ QT += core \
     xml \
     multimedia
 #DEFINES += ENABLE_REMOTE
-HEADERS += $$files(**.h, true)
-SOURCES += $$files(**.cpp, true)
+HEADERS += $$files(src/*.h, true) $$files(fluidsynth/*.h, true)
+SOURCES += $$files(src/*.cpp, true)
 FORMS += 
 RESOURCES += resources.qrc
 message(get arch)

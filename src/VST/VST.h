@@ -42,13 +42,17 @@
 #include <QSemaphore>
 #include <QMutex>
 
+#define DELETE(x) {if(x) delete x; x= NULL;}
+
 extern QWidget *main_widget;
+extern QMutex * externalMux;
 
 #define PRE_CHAN 32 // 16 chans * number of VST Plugins
 
 typedef struct {
     bool on;
     int type;
+    int external;
     bool needIdle;
     bool needUpdate;
 
@@ -60,9 +64,9 @@ typedef struct {
     QLibrary *vstLib;
 
     QString filename;
-    unsigned int uniqueID;
-    unsigned int version;
-    unsigned int numParams;
+    int uniqueID;
+    int version;
+    int numParams;
     int type_data;
     bool disabled;
     bool closed;
@@ -74,7 +78,26 @@ typedef struct {
 
     QMutex *mux;
 
+    int external_winid;
+    int external_winid2;
+
 } VST_preset_data_type;
+
+class VST_EXT : public QThread {
+    Q_OBJECT
+public:
+
+    VST_EXT(MainWindow *w);
+    ~VST_EXT();
+
+    void run() override;
+
+signals:
+    void sendVSTDialog(int chan, int button, int val);
+
+private:
+    MainWindow *win;
+};
 
 class VSTDialog: public QDialog
 {
@@ -110,6 +133,7 @@ signals:
     void setPreset(int preset);
 
 public slots:
+    void recVSTDialog(int chan, int button, int val);
     void Save();
     void Reset();
     void Delete();
@@ -144,7 +168,7 @@ public:
     static int VST_unload(int chan);
     static void VST_Resize(int chan, int w, int h);
     static int VST_exit();
-    static int VST_mix(float**in, int nchans, int deltaframe, int nsamples);
+    static int VST_mix(float**in, int nchans, int samplerate, int nsamples);
     static int VST_isLoaded(int chan);
 
     static bool VST_isMIDI(int chan);
@@ -168,6 +192,17 @@ public:
 
     static bool VST_isEnabled(int chan);
 
+    static int VST_external_load(int chan, const QString pathModule);
+    static int VST_external_unload(int chan);
+    static int VST_external_mix(int samplerate, int nsamples);
+    static int VST_external_idle(int chan, int cmd);
+    static int VST_external_save_preset(int chan, int preset, QByteArray data = 0);
+    static QByteArray VST_external_load_preset(int chan, int preset);
+    static int VST_external_show(int chan, int ms = 0);
+    static void VST_external_MIDIcmd(int chan, int ms, QByteArray cmd);
+    static void VST_external_send_message(int chan, int message, int data1 = 0, int data2 = 0);
+
+    //static intptr_t external_dispatcher(int chan, int b, int c, intptr_t d, int addr, float f);
 };
 
 class VST_chan: public QDialog
@@ -178,6 +213,9 @@ private:
 
     QDialogButtonBox *buttonBox;
     QPushButton *pushVSTDirectory;
+#ifdef __ARCH64__
+    QPushButton *pushVSTDirectory2;
+#endif
     QGroupBox *GroupBoxVST;
     QPushButton *pushButtonSetVST;
     QPushButton *viewVST;
@@ -192,14 +230,17 @@ private:
 public:
 
     VST_chan(QWidget* parent, int channel, int flag);
+    void Addfiles();
 
 public slots:
     void load_plugin(QListWidgetItem* i);
     void setVSTDirectory();
+#ifdef __ARCH64__
+    void setVSTDirectory2();
+#endif
     void SetVST();
     void DeleteVST();
     void viewVSTfun();
-
 };
 #endif
 #endif

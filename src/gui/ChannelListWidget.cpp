@@ -109,14 +109,13 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
 
         int x = toolBar->width() + 2;
 
-        QPushButton *viewVST = new QPushButton(toolBar);
-        viewVST->setToolTip("View VST plugin 1 window");
-        viewVST->setObjectName(QString::fromUtf8("pushButtonviewVST"));
-        viewVST->setGeometry(QRect(x, 3, 32, 17));
-        viewVST->setText("View");
-        viewVST->setStyleSheet(QString::fromUtf8("background-color: #6080ff80;"));
-
-        connect(viewVST, SIGNAL(clicked()), this, SLOT(viewVST1()));
+        bViewVST1 = new QPushButton(toolBar);
+        bViewVST1->setToolTip("View VST plugin 1 window");
+        bViewVST1->setObjectName(QString::fromUtf8("pushButtonviewVST"));
+        bViewVST1->setGeometry(QRect(x, 3, 32, 17));
+        bViewVST1->setText("View");
+        bViewVST1->setStyleSheet(QString::fromUtf8("background-color: #2080ff80;"));
+        connect(bViewVST1, SIGNAL(clicked()), this, SLOT(viewVST1()));
 
         x+= 32;
 
@@ -131,14 +130,15 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
 
         x+= 39;
 
-        QPushButton *viewVST2 = new QPushButton(toolBar);
-        viewVST2->setToolTip("View VST plugin 2 window");
-        viewVST2->setObjectName(QString::fromUtf8("pushButtonviewVST2"));
-        viewVST2->setGeometry(QRect(x, 3, 32, 17));
-        viewVST2->setText("View");
-        viewVST2->setStyleSheet(QString::fromUtf8("background-color: #6040ffff;"));
+        bViewVST2 = new QPushButton(toolBar);
+        bViewVST2->setToolTip("View VST plugin 2 window");
+        bViewVST2->setObjectName(QString::fromUtf8("pushButtonviewVST2"));
+        bViewVST2->setGeometry(QRect(x, 3, 32, 17));
+        bViewVST2->setText("View");
+        bViewVST2->setStyleSheet(QString::fromUtf8("background-color: #2040ffff;"));
 
-        connect(viewVST2, SIGNAL(clicked()), this, SLOT(viewVST2()));
+        connect(bViewVST2, SIGNAL(clicked()), this, SLOT(viewVST2()));
+
 
         x+= 32;
 
@@ -210,6 +210,14 @@ void ChannelListItem::SoundEffect()
 }
 
 #ifdef USE_FLUIDSYNTH
+
+void ChannelListItem::ToggleViewVST1(bool on) {
+    if(on)
+        bViewVST1->setStyleSheet(QString::fromUtf8("background-color: #6080ff80;"));
+    else
+        bViewVST1->setStyleSheet(QString::fromUtf8("background-color: #2080ff80;"));
+}
+
 void ChannelListItem::LoadVST1()
 {
     if(visibleAction->isChecked())
@@ -220,6 +228,13 @@ void ChannelListItem::viewVST1()
 {
     if(visibleAction->isChecked())
     emit LoadVSTClicked(channel, 1);
+}
+
+void ChannelListItem::ToggleViewVST2(bool on) {
+    if(on)
+        bViewVST2->setStyleSheet(QString::fromUtf8("background-color: #6040ffff;"));
+    else
+        bViewVST2->setStyleSheet(QString::fromUtf8("background-color: #2040ffff;"));
 }
 
 void ChannelListItem::LoadVST2()
@@ -284,6 +299,16 @@ void ChannelListItem::onBeforeUpdate()
         emit channelStateChanged();
     }
 }
+
+#ifdef USE_FLUIDSYNTH
+void ChannelListWidget::ToggleViewVST(int channel, bool on) {
+
+    if(channel < 16)
+        items.at(channel & 15)->ToggleViewVST1(on);
+    else
+        items.at(channel & 15)->ToggleViewVST2(on);
+}
+#endif
 
 void ChannelListWidget::isDoubleClicked(QListWidgetItem *item)
 {

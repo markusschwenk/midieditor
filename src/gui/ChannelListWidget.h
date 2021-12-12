@@ -25,6 +25,7 @@
 #include <QPaintEvent>
 #include <QResizeEvent>
 #include <QWidget>
+#include <QtWidgets/QPushButton>
 
 class QAction;
 class MidiFile;
@@ -57,13 +58,19 @@ public slots:
     void instrument();
     void SoundEffect();
 #ifdef USE_FLUIDSYNTH
+    void ToggleViewVST1(bool on);
     void LoadVST1();
     void viewVST1();
+    void ToggleViewVST2(bool on);
     void LoadVST2();
     void viewVST2();
 #endif
 
 private:
+#ifdef USE_FLUIDSYNTH
+    QPushButton *bViewVST1;
+    QPushButton *bViewVST2;
+#endif
     QLabel* instrumentLabel;
     ChannelListWidget* channelList;
     int channel;
@@ -91,8 +98,9 @@ signals:
 public slots:
     void update();
     void isDoubleClicked(QListWidgetItem *item);
-
-
+#ifdef USE_FLUIDSYNTH
+    void ToggleViewVST(int channel, bool on);
+#endif
 private:
     MidiFile* file;
     QList<ChannelListItem*> items;

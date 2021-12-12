@@ -431,6 +431,7 @@ fluidsynth_proc::~fluidsynth_proc()
         QThread::msleep(5);
         mixer->terminate();
         lock_audio.unlock();
+        mixer->wait(1000);
         delete mixer;
     }
 
@@ -825,7 +826,7 @@ fluid_Thread::fluid_Thread(fluidsynth_proc *proc) : QThread(proc){
 
 fluid_Thread::~fluid_Thread() {
 
-    if(fbuf) delete[] fbuf;
+    if(fbuf && !sharedAudioBuffer) delete[] fbuf;
     if(dry) delete[] dry;
     if(fx) delete[] fx; 
     delete[] buffer;
@@ -834,7 +835,6 @@ fluid_Thread::~fluid_Thread() {
     qWarning("fluid_Thread() destructor");
 
 }
-
 
 void fluid_Thread::run()
 {
@@ -856,7 +856,10 @@ void fluid_Thread::run()
     MSG_OUT("fluid_Thread: fluid_out_samples: %i\n", fluid_out_samples);
 
     int szbuf = FLUID_OUT_SAMPLES * 2 * (n_aud_chan + n_fx_chan);
-    fbuf = new float[szbuf];
+    if(sharedAudioBuffer)
+        fbuf = (float *) sharedAudioBuffer->data();
+    else
+        fbuf = new float[szbuf];
     if(!fbuf) {
         MSG_ERR("Error! fluid_Thread: !fbuf\n");
         _proc->set_error(666, "FATAL ERROR: out of memory creating fbuf"); return;
@@ -926,6 +929,7 @@ void fluid_Thread::run()
 
      MSG_OUT("fluid_Thread: loop");
      _proc->frames = 0;
+
      while(1) {
 
          if(_proc->_player_status == 2) {
@@ -945,8 +949,13 @@ void fluid_Thread::run()
          QThread::usleep(1);
 
          // test if out buffer changed
-         if(fluid_out_samples != _proc->fluid_out_samples) {
+         if((sharedAudioBuffer && sharedAudioBuffer->data() != fbuf) || fluid_out_samples != _proc->fluid_out_samples) {
              fluid_out_samples = _proc->fluid_out_samples;
+
+             if(sharedAudioBuffer && sharedAudioBuffer->data() != fbuf) {
+                 free(fbuf);
+                 fbuf = (float *) sharedAudioBuffer->data();
+             }
 
              memset((void *) fbuf, 0, sizeof(float) * szbuf);
              memset(buffer, 0, sizeof(short) * FLUID_OUT_SAMPLES * 2);
@@ -974,7 +983,7 @@ void fluid_Thread::run()
 
          //if(!_float_is_supported) _proc->output_float = 0;
 
-         if(/*_float_is_supported && */output_float != _proc->output_float) {
+         if(output_float != _proc->output_float) {
              QAudioOutput *out_sound2;
              QIODevice * out_sound_io2;
              QAudioFormat format;
@@ -1070,6 +1079,9 @@ void fluid_Thread::run()
 
          //
          VST_proc::VST_mix(dry, /*n_aud_chan*/PRE_CHAN, (_proc->_player_wav) ? _proc->_wave_sample_rate : _proc->_sample_rate, fluid_out_samples);
+         if(sharedAudioBuffer)
+            VST_proc::VST_external_mix((_proc->_player_wav) ? _proc->_wave_sample_rate : _proc->_sample_rate, fluid_out_samples);
+
          _proc->frames= _proc->time_frame.msecsSinceStartOfDay();
 
 
@@ -1720,6 +1732,11 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
 
     while(*p!=0) {
         QThread::msleep(50); // waits WAV thread ends
+    }
+
+    if(player) {
+        player->terminate();
+        player->wait(1000);
     }
 
     fluid_output->wavDIS = true;

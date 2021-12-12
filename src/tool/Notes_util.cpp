@@ -1593,4 +1593,197 @@ void MainWindow::midi_marker_edit() {
     delete d;
 }
 
+#ifdef USE_FLUIDSYNTH
+
+QProcess *VSTprocess = NULL;
+
+#include <QSharedMemory>
+
+QSharedMemory *sharedVSText = NULL;
+QSharedMemory *sharedAudioBuffer = NULL;
+
+QSystemSemaphore *sys_sema_in = NULL;
+QSystemSemaphore *sys_sema_out = NULL;
+QSystemSemaphore *sys_sema_inW = NULL;
+
+QMutex * externalMux = NULL;
+
+VST_EXT *vst_ext = NULL;
+
+void MainWindow::remote_VST_exit() {
+
+    if(vst_ext) {
+        vst_ext->terminate();
+        vst_ext->wait(1000);
+    }
+
+    DELETE(vst_ext);
+
+    if(externalMux) {
+        externalMux->lock();
+        externalMux->unlock();
+    }
+
+    DELETE(externalMux) // first this (disable fluidsynth VST_proc::VST_external_mix ())
+    DELETE(sys_sema_in) // and now this
+    DELETE(sys_sema_out)
+
+    DELETE(sys_sema_inW)
+
+    if(sharedVSText)
+        sharedVSText->detach();
+
+    if(sharedAudioBuffer)
+        sharedAudioBuffer->detach();
+
+    DELETE(sharedVSText)
+    DELETE(sharedAudioBuffer)
+
+    if(VSTprocess) {
+        VSTprocess->terminate();
+        VSTprocess->waitForFinished(1000);
+    }
+
+    DELETE(VSTprocess)
+
+}
+
+void MainWindow::remote_VST() {
+
+    if(sys_sema_in) return;
+
+    QString key = QString::number(this->centralWidget()->winId());
+
+    sharedVSText = new QSharedMemory("remoteVST_mess" + key);
+
+    if(sharedVSText && sharedVSText->attach()) {
+        // previous remoteVST working!
+        int * dat = ((int *) sharedVSText->data());
+        sys_sema_inW = new QSystemSemaphore("VST_MAIN_SemaIn" + key);
+        if(sys_sema_inW) { // Ask if other MidiEditor is working
+            dat[0] = 0x1234;
+            dat[1] = 0;
+            dat[0x39] = 0;
+            sys_sema_inW->release();
+            QThread::msleep(200); // wait a time...
+            if(dat[0x39] == (int) 0xCACABACA) {
+                dat[0x39] = 0;
+                // other Midieditor is working here!
+                QMessageBox::information(this, "remoteVST", "You cannot use remoteVST for 32 bits plugings because other Midieditor instance is using it!");
+                DELETE(sharedVSText)
+                DELETE(sys_sema_inW)
+                return;
+            }
+
+            else sys_sema_inW->acquire();
+
+            DELETE(sys_sema_inW)
+        }
+
+        QSystemSemaphore *sys_sema_in2 = new QSystemSemaphore("VST_IN_SemaIn" + key);
+        if(sys_sema_in2) {
+            int ret = 0;
+            dat[0x1000] = 0;
+            dat[0x40] = (int) 0xCACABACA; // send an exit message to remoteVST
+            sys_sema_in2->release();
+
+            QThread::msleep(50); // wait a short time...
+
+            if(dat[0x1000] == (int) 0xCACABACA) {
+                sharedVSText = NULL;
+
+                // exiting from remoteVST
+                QThread::msleep(2000); // wait a time...
+                ret = 1;
+                qDebug("remoteVST exiting...");
+            }
+
+            if(ret == 0) {
+                QMessageBox::information(this, "remoteVST", "You cannot use remoteVST for 32 bits plugings because other remoteVST process is hang!");
+                return;
+            }
+        }
+
+
+    }
+    DELETE(sharedVSText)
+
+    VSTprocess = new QProcess(this);
+    if(!VSTprocess) exit(-66);
+    QStringList args;
+    args.append(QString::number(this->centralWidget()->winId()));
+
+    VSTprocess->start(QApplication::applicationDirPath() + "/encoders/remoteVST.exe", args);
+
+    if(!VSTprocess->waitForStarted()) {
+        qWarning("remoteVST Process cannot start");
+        DELETE(VSTprocess);
+        //exit(-1);
+    }
+
+    if(VSTprocess) {
+        int error = VSTprocess->error();
+        if(error == QProcess::FailedToStart || error == QProcess::Crashed) {
+            qWarning("remoteVST Process cannot start");
+            DELETE(VSTprocess);
+            //exit(-1);
+        }
+    }
+
+    if(VSTprocess && VSTprocess->exitStatus()) {
+        qWarning("remoteVST Process cannot start");
+        DELETE(VSTprocess);
+        //exit(-1);
+    }
+
+
+    QMutex *Mux = new QMutex(QMutex::NonRecursive);
+    QSystemSemaphore * _sys_sema_in = new QSystemSemaphore("VST_IN_SemaIn" + key, 0);
+    sys_sema_out = new QSystemSemaphore("VST_IN_SemaOut" + key, 0);
+    sys_sema_inW = new QSystemSemaphore("VST_MAIN_SemaIn" + key, 0);
+
+    if(!VSTprocess)
+        goto exit_with_error;
+
+    if(!_sys_sema_in || !sys_sema_out || !sys_sema_inW) goto exit_with_error;
+    //exit(-67);
+
+    sys_sema_out->acquire(); // wait to external process
+
+    sharedVSText = new QSharedMemory("remoteVST_mess" + key);
+
+    if(!sharedVSText || !sharedVSText->attach()) {
+        exit(-16);
+    }
+
+    sharedAudioBuffer = new QSharedMemory("remoteVST_audio" + key);
+
+    if(!sharedAudioBuffer || !sharedAudioBuffer->attach()) {
+        exit(-17);
+    }
+
+    vst_ext = new VST_EXT(this);
+    vst_ext->start(QThread::NormalPriority);
+
+    sys_sema_in = _sys_sema_in;
+    externalMux = Mux;
+
+    return;
+
+exit_with_error:
+
+    DELETE(Mux)
+    DELETE(_sys_sema_in)
+    DELETE(sys_sema_in)
+    DELETE(sys_sema_out)
+    DELETE(sys_sema_inW)
+    DELETE(sharedVSText)
+    DELETE(sharedAudioBuffer)
+
+    QMessageBox::critical(this, "remoteVST", "fail starting remoteVST for 32 bits");
+
+    return;
+}
+
+#endif
 
