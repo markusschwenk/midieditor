@@ -228,10 +228,25 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                 }
             }
 
+            // sysEX uses VLQ as length! (https://en.wikipedia.org/wiki/Variable-length_quantity)
+
+            unsigned int length = 0;
+            int index = 0;
+
+            for(; index < 4; index++) {
+                if(array[index] & 128) {
+                   length = (length + (array[index] & 127)) * 128;
+                } else {
+                    length += array[index];
+                    break;
+                }
+            }
 
             *ok = true;
-            if((array.size()) == array[0]) // sysEx have lenght...
-                return new SysExEvent(channel, QByteArray(array.constData() + 1, array.count() - 1), track);
+            if(array.size() == (int) (length + index)) // sysEx have length...
+            {
+                return new SysExEvent(channel, QByteArray(array.constData() + index + 1, array.size() - index - 1), track);
+            }
             // for old compatibility
             return new SysExEvent(channel, array, track);
         }
@@ -342,7 +357,7 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
    bad conversion/encoding of the text from olds MIDIs, ecc.
 
    ASCII section (0 to 127 ch) is the same thing, but 128+ in
-   UTF8 characters is codified as 2 to 4 bytes lenght and you
+   UTF8 characters is codified as 2 to 4 bytes length and you
    can try to detect this encode method to import correctly
    UTF8 characters, assuming Local8Bit (i have some .kar/.mid
    in this format and works fine) as alternative.
