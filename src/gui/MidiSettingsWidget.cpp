@@ -67,27 +67,47 @@ AdditionalMidiSettingsWidget::AdditionalMidiSettingsWidget(QSettings* settings, 
 
     layout->addWidget(separator(), 5, 0, 1, 6);
 
-    layout->addWidget(new QLabel("Metronome loudness:", this), 6, 0, 1, 2);
+    MidiOutput::omitSysExLength = _settings->value("omitSysExLength", false).toBool();
+
+    _sendSysExWithoutLength = new QCheckBox("Send SysEx without length datas", this);
+    _sendSysExWithoutLength->setChecked(MidiOutput::omitSysExLength);
+
+    connect(_sendSysExWithoutLength, SIGNAL(toggled(bool)), this, SLOT(omitSysExtLength(bool)));
+    layout->addWidget(_sendSysExWithoutLength, 6, 0, 1, 6);
+
+    QWidget* SysExWithoutLengthInfo = createInfoBox("Omit thes SysEx lenght variable datas");
+    layout->addWidget(SysExWithoutLengthInfo, 7, 0, 1, 6);
+
+    layout->addWidget(separator(), 8, 0, 1, 6);
+
+    layout->addWidget(new QLabel("Metronome loudness:", this), 9, 0, 1, 2);
     _metronomeLoudnessBox = new QSpinBox(this);
     _metronomeLoudnessBox->setMinimum(10);
     _metronomeLoudnessBox->setMaximum(100);
     _metronomeLoudnessBox->setValue(Metronome::loudness());
     connect(_metronomeLoudnessBox, SIGNAL(valueChanged(int)), this, SLOT(setMetronomeLoudness(int)));
-    layout->addWidget(_metronomeLoudnessBox, 6, 2, 1, 4);
+    layout->addWidget(_metronomeLoudnessBox, 10, 2, 1, 4);
 
-    layout->addWidget(separator(), 7, 0, 1, 6);
+    layout->addWidget(separator(), 11, 0, 1, 6);
 
-    layout->addWidget(new QLabel("Start command:", this), 8, 0, 1, 2);
+    layout->addWidget(new QLabel("Start command:", this), 12, 0, 1, 2);
     startCmd = new QLineEdit(this);
-    layout->addWidget(startCmd, 8, 2, 1, 4);
+    layout->addWidget(startCmd, 13, 2, 1, 4);
 
     QWidget* startCmdInfo = createInfoBox("The start command can be used to start additional software components (e.g. Midi synthesizers) each time, MidiEditor is started. You can see the output of the started software / script in the field below.");
-    layout->addWidget(startCmdInfo, 9, 0, 1, 6);
+    layout->addWidget(startCmdInfo, 14, 0, 1, 6);
 
     layout->addWidget(Terminal::terminal()->console(), 10, 0, 1, 6);
 
     startCmd->setText(_settings->value("start_cmd", "").toString());
     layout->setRowStretch(3, 1);
+}
+
+void AdditionalMidiSettingsWidget::omitSysExtLength(bool enable)
+{
+    MidiOutput::omitSysExLength = enable;
+    _settings->setValue("omitSysExLength", enable);
+
 }
 
 void AdditionalMidiSettingsWidget::manualModeToggled(bool enable)

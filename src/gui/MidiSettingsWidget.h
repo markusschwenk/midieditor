@@ -41,8 +41,10 @@ public slots:
     void manualModeToggled(bool enable);
     void setDefaultTimePerQuarter(int value);
     void setMetronomeLoudness(int value);
+    void omitSysExtLength(bool enable);
 private:
     QCheckBox* _alternativePlayerModeBox;
+    QCheckBox* _sendSysExWithoutLength;
     QSettings* _settings;
     QLineEdit* startCmd;
     QSpinBox* _tpqBox;

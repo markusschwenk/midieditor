@@ -44,6 +44,7 @@ QString MidiOutput::_outPort = "";
 SenderThread* MidiOutput::_sender = new SenderThread();
 QMap<int, QList<int> > MidiOutput::playedNotes = QMap<int, QList<int> >();
 bool MidiOutput::isAlternativePlayer = false;
+bool MidiOutput::omitSysExLength = false;
 
 int MidiOutput::_stdChannel = 0;
 
@@ -137,7 +138,7 @@ bool MidiOutput::setOutputPort(QString name)
                 _midiOut->openPort(i);
                 _outPort = name;
 #ifdef USE_FLUIDSYNTH
-                if(fluid_output) fluid_output->use_fluidsynt=false;
+                if(fluid_output) fluid_output->use_fluidsynt = false;
 #endif
                 return true;
             }
@@ -148,7 +149,7 @@ bool MidiOutput::setOutputPort(QString name)
 
 #ifdef USE_FLUIDSYNTH
     if (FLUID_SYNTH_NAME == name.toStdString()) {
-        if(fluid_output && !fluid_output->disabled) fluid_output->use_fluidsynt=true;
+        if(fluid_output && !fluid_output->disabled) fluid_output->use_fluidsynt = true;
         _midiOut->closePort();
         _outPort = FLUID_SYNTH_NAME;
          return true;
@@ -182,6 +183,13 @@ void MidiOutput::sendEnqueuedCommand(QByteArray array)
 
         // convert data to std::vector
         std::vector<unsigned char> message;
+
+        if(array[0] == (char) 0xF0 && MidiOutput::omitSysExLength) { // sysEx without len
+            int ind = 1;
+            while(array[ind] & 128)
+                ind++;
+            array.remove(1, ind);
+        }
 
         foreach (char byte, array) {
             message.push_back(byte);

@@ -41,6 +41,7 @@ public:
     static QString outputPort();
     static void sendEnqueuedCommand(QByteArray array);
     static bool isAlternativePlayer;
+    static bool omitSysExLength;
     static QMap<int, QList<int> > playedNotes;
     static void setStandardChannel(int channel);
     static int standardChannel();
