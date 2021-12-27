@@ -144,10 +144,10 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
             ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
             ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
             if (fctrl && ctrl && ctrl->control()==0x0) { // bank selected
-                Bank_MIDI[i]=ctrl->value(); fctrl=0;
+                Bank_MIDI[i] = ctrl->value(); fctrl=0;
             }
             if (fprg && prg) {
-                Prog_MIDI[i]=prg->program(); fprg=0;
+                Prog_MIDI[i] = prg->program(); fprg=0;
             }
         }
     }
