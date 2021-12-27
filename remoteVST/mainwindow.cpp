@@ -76,20 +76,20 @@ MainWindow::MainWindow(QWidget *parent, QString key)
     connect(vst_in, SIGNAL(force_exit()), this, SLOT(force_exit()), Qt::QueuedConnection);
 
     vst_in->start(QThread::TimeCriticalPriority);
+
 }
 
 void MainWindow::force_exit() {
     // do something...
 
     exit(0);
-
 }
 
 MainWindow::~MainWindow() {
 
     if(vst_in) {
         vst_in->terminate();
-        vst_in->wait(100);
+        vst_in->wait(1000);
         delete vst_in;
         VST_proc::VST_exit();
     }
@@ -107,6 +107,8 @@ MainWindow::~MainWindow() {
 
     DELETE(sharedVSText)
     DELETE(sharedAudioBuffer)
+
+    exit(0);
 
 }
 

@@ -33,6 +33,7 @@
 #include <QCloseEvent>
 #include <QSystemSemaphore>
 
+int flag_exit = 0;
 QSharedMemory *sharedVSText = NULL;
 QSharedMemory *sharedAudioBuffer = NULL;
 
@@ -240,6 +241,7 @@ void VSTDialog::Save() {
 }
 
 void VSTDialog::Reset() {
+
     sVST_EXT->acquire();
     int * dat = ((int *) sharedVSText->data());
     sharedVSText->lock();
@@ -259,7 +261,7 @@ void VSTDialog::Delete() {
     if(!VST_preset_data[channel]->vstEffect) return;
 
    // setStyleSheet(QString::fromUtf8("background-color: #E5E5E5;"));
-    int r = QMessageBox::question(_parentS, "Delete preset", "Are you sure?");
+    int r = QMessageBox::question(_parentS, "Delete preset", "Are you sure?                         ");
     setStyleSheet(QString::fromUtf8("background-color: #FF000040;"));
     if(r != QMessageBox::Yes) return;
 
@@ -1561,8 +1563,9 @@ VST_IN::~VST_IN() {
 void VST_IN::run() {
 
     while(1) {
-
+        if(flag_exit) break;
         if(!sys_sema_in->acquire()) break;
+        if(flag_exit) break;
         sharedVSText->lock();
         int * dat = ((int *) sharedVSText->data()) + 0x40;
 
@@ -1607,8 +1610,12 @@ void VST_IN::run() {
         sema->acquire();
         sharedVSText->unlock();
         if(!sys_sema_out->release()) break;
+        if(flag_exit) break;
 
     }
+
+    flag_exit = 1;
+    emit run_cmd_events(); // to MainWindow event to process the cmds
 }
 
 #include "mainwindow.h"
@@ -1619,6 +1626,11 @@ void MainWindow::run_cmd_events() {
     // from VST_IN emit
 
     // sys_sema_in->acquire();
+
+    if(flag_exit) {
+        this->deleteLater();
+        return;
+    }
 
     int * dat = ((int *) sharedVSText->data()) + 0x40;
     sharedVSText->lock();
@@ -1909,6 +1921,16 @@ skip:
 
         int message = dat[2];
         int sel = dat[3];
+
+        if(message == 0xAD105) {
+            flag_exit = 1;
+            sema->release();
+            for(int n = 0; n <= PRE_CHAN; n++) {
+                VST_proc::VST_unload(n);
+            }
+            this->deleteLater();
+            return;
+        }
 
         VST_preset_data[chan]->disabled = dat[8];
         VST_preset_data[chan]->needUpdate = dat[9];
