@@ -245,6 +245,10 @@ public slots:
 
     void timer_update();
     void reject();
+
+    void changeVolBalanceGain(int index, int vol, int balance, int gain);
+    void changeMainVolume(int vol);
+    void changeFilterValue(int index, int channel);
   protected:
     void mousePressEvent(QMouseEvent* event);
 

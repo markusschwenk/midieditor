@@ -214,9 +214,15 @@ public:
     QMutex lock_audio;
     QMutex mutex_fluid;
     QWaitCondition audio_waits;
+
 signals:
     void pause_player();
     void message_timeout(QString title, QString message);
+    void changeVolBalanceGain(int index, int vol, int balance, int gain);
+    void changeMainVolume(int vol);
+    void changeFilterValue(int index, int channel);
+    void MidiIn_set_events_to_down(bool f);
+
 private:
 
     static void fluid_log_function(int level, const char *message, void *data);
@@ -286,6 +292,9 @@ private:
 signals:
     void setBar(int num);
     void endBar();
+    void changeVolBalanceGain(int index, int vol, int balance, int gain);
+    void changeMainVolume(int vol);
+    void changeFilterValue(int index, int channel);
 
 };
 

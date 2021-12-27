@@ -26,6 +26,7 @@
 //#include "../fluid/FluidDialog.h"
 #include "../MidiEvent/TempoChangeEvent.h"
 #include "../midi/MidiChannel.h"
+#include "../midi/MidiInControl.h"
 #include "math.h"
 #include <QMessageBox>
 #include <QSemaphore>
@@ -88,6 +89,7 @@ static int handle_midi_event(void* /*data*/, fluid_midi_event_t* event)
 int addInstrumentNamesFromSF2(const char *filename);
 
 int fluidsynth_proc::change_synth(int freq, int flag) {
+
     int disabled = 0;
 
     mutex_fluid.lock();
@@ -234,8 +236,7 @@ fluidsynth_proc::fluidsynth_proc()
 
     sf2_name = NULL;
 
-
-    _player_status=0;
+    _player_status = 0;
     _player_wav =NULL;
 
     wait_signal = 0;
@@ -251,7 +252,7 @@ fluidsynth_proc::fluidsynth_proc()
         audio_chanbalance[n] = 0;
         audio_changain[n] = 0;
         audio_chanmute[n] = false;
-        isNoteOn[n]=0;
+        isNoteOn[n] = 0;
 
         filter_dist_on[n] = false;
         filter_dist_gain[n] = 0.0;
@@ -357,11 +358,14 @@ fluidsynth_proc::fluidsynth_proc()
 
     MSG_OUT("audio output:\n    sample_rate: %i use float %i\n", _sample_rate, output_float);
 
-    //for(int n=0; n < 32; n++) // test if memory leak of fluid synth (version < 2.1.6)
+    //for(int n = 0; n < 32; n++) // test if memory leak of fluid synth (version < 2.1.6)
     disabled = change_synth(_sample_rate, 0);
-    if(disabled ==-1) return;
+
+    if(disabled == -1) return;
+
     if(!disabled) {
         status_fluid_err = 0;
+
         for(int n = 0; n < 16; n++) {
             if(!disabled) fluid_synth_cc(synth, n , 11, synth_chanvolume[n]);         
         }
@@ -370,11 +374,14 @@ fluidsynth_proc::fluidsynth_proc()
             out_sound= new QAudioOutput(devices.at(def), format);
 
         if(out_sound) {
+
             out_sound_io = out_sound->start();
+
             if(!out_sound_io) {
                 status_audio_err = 2;
                 MSG_ERR("FATAL ERROR: error in QAudioOutput()");
             } else status_audio_err = 0;
+
         } else {
             status_audio_err = 1;
             MSG_ERR("FATAL ERROR: error in QAudioOutput()");
@@ -382,12 +389,14 @@ fluidsynth_proc::fluidsynth_proc()
 
         if(!status_fluid_err)
             mixer = new fluid_Thread(this);
-        else mixer = NULL;
+        else
+            mixer = NULL;
 
         if(!mixer)  {
             status_fluid_err = 4;
             set_error(666, "FATAL ERROR: error creating fluid_Thread()"); return;
-        } else status_fluid_err = 0;
+        } else
+            status_fluid_err = 0;
 
         mixer->start(QThread::TimeCriticalPriority);
 
@@ -404,7 +413,8 @@ int fluidsynth_proc::MIDIconnect(int on) {
     if(on) {
         if(synth) mdriver= new_fluid_midi_driver(settings, handle_midi_event, NULL);
         if(!synth || !mdriver) return -1;
-    } else if(mdriver) {delete_fluid_midi_driver(mdriver); mdriver = NULL;}
+    } else
+        if(mdriver) {delete_fluid_midi_driver(mdriver); mdriver = NULL;}
 
 return 0;
 }
@@ -456,15 +466,24 @@ fluidsynth_proc::~fluidsynth_proc()
 
 void fluidsynth_proc::set_error(int level, const char * err) {
 
-    if(!err) {error_string[0]=0;it_have_error = 0; return;} // reset
+    if(!err) { // reset
+        error_string[0] = 0;
+        it_have_error = 0;
+        return;
+    }
 
     if(it_have_error == 2) return; // ignore others errors
 
-    error_string[0]=0;
+    error_string[0] = 0;
     strcpy(error_string, err);
-    if(level == 666) it_have_error = 2; else it_have_error = 1;
+
+    if(level == 666)
+        it_have_error = 2;
+    else
+        it_have_error = 1;
 }
 
+int strange = 0;
 
 int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 {
@@ -472,51 +491,249 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
     int channel = array[0] & 0xf;
     int ret = 0;
 
-    if(block_midi_events) return 0;
-    if(sf2_id == FLUID_FAILED || !synth) return -1;
+    if(block_midi_events)
+        return 0;
+    if(sf2_id == FLUID_FAILED || !synth)
+        return -1;
 
     wakeup_audio();
 
     switch(type) {
 
         case 0x90: // note on
+
             isNoteOn[channel] = 4;
             ret = 0;
+
+            if(strange) array[1] = array[1]/3 * 3 + 3 - (array[1] % 3);
 
             if(VST_proc::VST_isMIDI(channel) && mixer) VST_proc::VST_MIDIcmd(channel,
                                                             ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) / 1000
                                                             , array);
+
             ret = fluid_synth_noteon(synth, channel, array[1], array[2]);
-        break;
+            break;
+
         case 0x80: // note off
 
             ret = 0;
+
+            if(strange) array[1] = array[1]/3 * 3 + 3 - (array[1] % 3);
+
             if(VST_proc::VST_isMIDI(channel) && mixer) VST_proc::VST_MIDIcmd(channel,
                                                             ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) /1000
                                                             , array);
-            ret = fluid_synth_noteoff(synth, channel, array[1]);
-        break;
-        case 0xB0: // control
-            if((unsigned) array[1]==11) array[2]= synth_chanvolume[channel]; //ignore song expresion
-            if((unsigned) array[1]==121) {
-                fluid_synth_cc(synth, channel, array[1], array[2]);
-                array[1]=11; // set expresion
-                array[2]= synth_chanvolume[channel];
-            }
-            if((unsigned) array[1]==124) return 0; // omni off skip
 
-             return fluid_synth_cc(synth, channel, array[1], array[2]);
+            ret = fluid_synth_noteoff(synth, channel, array[1]);
+            break;
+
+        case 0xB0: // control
+
+            if((unsigned) array[1] == 11)  //ignore song expresion
+                array[2]= synth_chanvolume[channel];
+
+            else if((unsigned) array[1] == 121) {
+
+                fluid_synth_cc(synth, channel, array[1], array[2]);
+                array[1] = 11; // set expresion
+                array[2] = synth_chanvolume[channel];
+
+            } else if((unsigned) array[1] == 124) // omni off skip
+                return 0;
+
+            // Fluid Synth MIDI custom CC
+
+            else if((unsigned) array[1] == 20) { // change volume of channel
+
+                synth_chanvolume[channel] = array[2];
+                setSynthChanVolume(channel, synth_chanvolume[channel]);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeVolBalanceGain(channel | (1<<4), getSynthChanVolume(channel) * 100 / 127,
+                                              getAudioBalance(channel), getAudioGain(channel));
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 21) { // change balance of channel
+
+                audio_chanbalance[channel] = array[2] * 200 / 127 - 100;
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeVolBalanceGain(channel | (2<<4), getSynthChanVolume(channel)* 100 / 127,
+                                              getAudioBalance(channel), getAudioGain(channel));
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 22) { // change gain  of channel
+
+                audio_changain[channel] = array[2] * 2000 / 127 - 1000;
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeVolBalanceGain(channel | (3<<4), getSynthChanVolume(channel)* 100 / 127,
+                                              getAudioBalance(channel), getAudioGain(channel));
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 23) { // distortion gain  of channel
+
+                int gain = (unsigned) array[2] * 300 / 127;
+
+                fluid_output->setAudioDistortionFilter( (gain > 0), channel, gain);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeFilterValue(0, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 24) { // Low Cut gain  of channel
+
+                int gain = (unsigned) array[2] * 200 / 127;
+
+                //gain = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
+                int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
+                int res = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+
+                setAudioLowPassFilter((gain > 0), channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeFilterValue(1, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 25) { // Low Cut freq  of channel
+
+                int freq = 50 + ((unsigned) array[2] * 2450 / 127);
+
+                int gain = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
+                //int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
+                int res = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+
+                setAudioLowPassFilter(1, channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeFilterValue(1, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 26) { // High Cut gain  of channel
+
+                int gain = (unsigned) array[2] * 200 / 127;
+
+                //gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
+                int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
+                int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+
+                setAudioHighPassFilter((gain > 0), channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeFilterValue(2, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 27) { // High Cut freq  of channel
+
+                int freq = 500 + ((unsigned) array[2] )* 4500 / 127;
+
+                int gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
+                //int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
+                int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+
+                setAudioHighPassFilter(1, channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeFilterValue(2, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 28) { // Low Cut Resonance of channel
+
+                int res = (unsigned) array[2] * 250 / 127;
+
+                int gain = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
+                int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
+                //int res = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+
+                setAudioLowPassFilter(1, channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeFilterValue(1, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 29) { // High Cut Resonance of channel
+
+                int res = (unsigned) array[2] * 250 / 127;
+
+                int gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
+                int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
+                //int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+
+                setAudioHighPassFilter(1, channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeFilterValue(2, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 30) { // Main Volume
+
+                synth_gain = ((float) ((unsigned) array[2] * 2000 / 127)) / 1000.0;
+
+                fluid_synth_set_gain(synth, (float) synth_gain);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeMainVolume(getSynthGain());
+                }
+
+                return 0;
+
+            } else if((unsigned) array[1] == 31) { // switch effect events up/down
+
+                MidiInControl::set_events_to_down((unsigned) array[2] >= (unsigned) 64);
+
+                emit MidiIn_set_events_to_down((unsigned) array[2] >= (unsigned) 64);
+
+                return 0;
+
+            }
+
+
+            return fluid_synth_cc(synth, channel, array[1], array[2]);
 
         case 0xC0: // program
-             ret = fluid_synth_program_change(synth, channel, array[1]);
-        break;
+
+            ret = fluid_synth_program_change(synth, channel, array[1]);
+            break;
+
         case 0xE0: // pitch bend
-             ret = fluid_synth_pitch_bend(synth, channel, (array[1] & 0x7f) | (array[2]<<7));
-        break;
+
+            ret = fluid_synth_pitch_bend(synth, channel, (array[1] & 0x7f) | (array[2]<<7));
+            break;
 
         case 0xF0: // systemEX
         {
-            char id2[4]= {0x0, 0x66, 0x66, 'P'}; // global mixer
+            char id2[4] = {0x0, 0x66, 0x66, 'P'}; // global mixer
 
             if(fluid_control) { // anti-crash!
                 fluid_control->disable_mainmenu = true;
@@ -525,7 +742,7 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
             }
 
             // new sysEx old compatibility
-            if(array[2]==id2[0] && array[3]==id2[1] && array[4]==id2[2] && array[5]=='P') {
+            if(array[2] == id2[0] && array[3] == id2[1] && array[4] == id2[2] && array[5] == 'P') {
 
                 int entries = 13 * 16 + 1;
                 char id[4];
@@ -539,19 +756,19 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                 qd.readRawData((char *) id, 1);
                 qd.readRawData((char *) id, 4);
 
-                if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2]) {
+                if(id[0] != id2[0] || id[1] != id2[1] || id[2] != id2[2]) {
                     return 0;
                 }
 
 
-                if(id[3]!='P') return 0;
+                if(id[3] != 'P') return 0;
 
-                if(decode_sys_format(qd, (void *) &entries)<0) {
+                if(decode_sys_format(qd, (void *) &entries) < 0) {
 
                     return 0;
                 }
 
-                if(entries!=13 * 16 + 1) {
+                if(entries != 13 * 16 + 1) {
                     return 0;
                 }
 
@@ -559,6 +776,7 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                 decode_sys_format(qd, (void *) &synth_gain);
 
                 for(int n = 0; n < 16; n++) {
+
                     audio_chanmute[n]= false;
                     decode_sys_format(qd, (void *) &synth_chanvolume[n]);
                     decode_sys_format(qd, (void *) &audio_changain[n]);
@@ -583,38 +801,42 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                     setSynthChanVolume(n, synth_chanvolume[n]);
 
                     int gain = get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_GAIN);
+
                     if(get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_ON)!=0)
                         setAudioDistortionFilter(1, n, gain);
-                    else setAudioDistortionFilter(0, n, gain);
+                    else
+                        setAudioDistortionFilter(0, n, gain);
 
                     gain = get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_GAIN);
                     int freq = get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_FREQ);
                     int res = get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_RES);
 
-                    if(get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_ON)!=0)
+                    if(get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_ON) != 0)
                         setAudioLowPassFilter(1, n, freq, gain, res);
-                    else setAudioLowPassFilter(0, n, freq, gain, res);
+                    else
+                        setAudioLowPassFilter(0, n, freq, gain, res);
 
                     gain = get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_GAIN);
                     freq = get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_FREQ);
                     res = get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_RES);
 
-                    if(get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON)!=0)
+                    if(get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON) != 0)
                         setAudioHighPassFilter(1, n, freq, gain, res);
-                    else setAudioHighPassFilter(0, n, freq, gain, res);
+                    else
+                        setAudioHighPassFilter(0, n, freq, gain, res);
+
                     if(fluid_control && !fluid_control->disable_mainmenu) {
-                        fluid_control->ChanVol[n]->setValue(getSynthChanVolume(n)*100/127);
-                        fluid_control->BalanceSlider[n]->setValue(getAudioBalance(n));
-                        fluid_control->chanGain[n]->setValue(getAudioGain(n));
+
+                        emit changeVolBalanceGain(channel, getSynthChanVolume(n) * 100 / 127,
+                                                  getAudioBalance(n), getAudioGain(n));
                     }
                 }
 
                 fluid_synth_set_gain(synth, (float) synth_gain);
 
                 if(fluid_control && !fluid_control->disable_mainmenu) {
-                    fluid_control->MainVol->setValue(getSynthGain());
-                    fluid_control->spinChan->valueChanged(15);
-                    fluid_control->spinChan->valueChanged(0);
+
+                    emit changeMainVolume(getSynthGain());
                 }
 
             } else
@@ -644,19 +866,20 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                 }
 
                 int flag = 1;
-                int n= id[3] & 15;
+                int n = id[3] & 15;
+
                 if(id[3] == 'R') {
                     flag = 2;
-                    n= id[0] & 15;
+                    n = id[0] & 15;
                 }
 
-                if(decode_sys_format(qd, (void *) &entries)<0) {
+                if(decode_sys_format(qd, (void *) &entries) < 0) {
 
                     return 0;
                 }
 
-                if((flag == 1 && entries !=13) ||
-                    (flag == 2 && entries != 13 + (n==0))) {
+                if((flag == 1 && entries != 13) ||
+                    (flag == 2 && entries != 13 + (n == 0))) {
                     return 0;
                 }
 
@@ -687,7 +910,7 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                 setSynthChanVolume(n, synth_chanvolume[n]);
 
                 int gain = get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_GAIN);
-                if(get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_ON)!=0)
+                if(get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_ON) != 0)
                     setAudioDistortionFilter(1, n, gain);
                 else setAudioDistortionFilter(0, n, gain);
 
@@ -695,32 +918,35 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                 int freq = get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_FREQ);
                 int res = get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_RES);
 
-                if(get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_ON)!=0)
+                if(get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_ON) != 0)
                     setAudioLowPassFilter(1, n, freq, gain, res);
-                else setAudioLowPassFilter(0, n, freq, gain, res);
+                else
+                    setAudioLowPassFilter(0, n, freq, gain, res);
 
                 gain = get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_GAIN);
                 freq = get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_FREQ);
                 res = get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_RES);
 
-                if(get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON)!=0)
+                if(get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON) != 0)
                     setAudioHighPassFilter(1, n, freq, gain, res);
-                else setAudioHighPassFilter(0, n, freq, gain, res);
-                if(fluid_control && !fluid_control->disable_mainmenu) {
-                    fluid_control->ChanVol[n]->setValue(getSynthChanVolume(n)*100/127);
-                    fluid_control->BalanceSlider[n]->setValue(getAudioBalance(n));
-                    fluid_control->chanGain[n]->setValue(getAudioGain(n));
+                else
+                    setAudioHighPassFilter(0, n, freq, gain, res);
 
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeVolBalanceGain(channel, getSynthChanVolume(n)* 100 / 127,
+                                              getAudioBalance(n), getAudioGain(n));
                 }
 
                 if(fluid_control && !fluid_control->disable_mainmenu) {
-                    fluid_control->MainVol->setValue(getSynthGain());
-                    emit fluid_control->spinChan->valueChanged(15);
-                    emit fluid_control->spinChan->valueChanged(0);
+
+                    emit changeMainVolume(getSynthGain());
+
                 }
 
             } else if(/*array[2] == id2[0] &&*/ array[3] == id2[1]
                  && array[4] == id2[2] && (array[5] == 'V' || array[5] == 'W')) {
+
                     VST_proc::VST_LoadParameterStream(array);
             }
         //
@@ -747,6 +973,7 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 void fluidsynth_proc::new_sound_thread(int freq) {
 
     if(mixer) {
+
         qWarning("error: mixer is defined\n");
 
         exit(-1);
@@ -755,12 +982,15 @@ void fluidsynth_proc::new_sound_thread(int freq) {
     disabled = change_synth(freq, 1);
 
     if(!disabled) {
+
         wait_signal = 0;
+
         int *p = &iswaiting_signal;
         *p = 0;
         set_error(0, NULL);
 
         mixer = new fluid_Thread(this);
+
         if(!mixer)  {
             status_fluid_err = 4;
             set_error(666, "FATAL ERROR: error creating fluid_Thread()"); return;
@@ -768,44 +998,58 @@ void fluidsynth_proc::new_sound_thread(int freq) {
 
         if(out_sound && out_sound_io)
             status_audio_err = 0;
+
         mixer->start(QThread::TimeCriticalPriority);
         while(*p != 555) QThread::msleep(5);
         *p = 0;
     }
+
     QThread::msleep(150);
 
 }
 void fluidsynth_proc::stop_audio(bool stop) {
 
     if(stop) { // stops the audio loop
+
         block_midi_events = 1;
+
         if(mixer) {
+
             int *p = &iswaiting_signal;
-            wait_signal = 2;
+
+            wait_signal = 2;   
             *p = 0;
             audio_waits.wakeOne();
+
             while(*p != 2) QThread::msleep(5); // waits to sound thread receives the signal
+
             lock_audio.lock();
+
             while(!mixer->isFinished()) QThread::msleep(5);
             QThread::msleep(5);
+
             delete mixer;
             mixer = NULL;
             disabled = 0;
+
         } else {
 
             lock_audio.lock();
+
             wait_signal = 0;
             iswaiting_signal = 0;
             disabled = 0;
         }
 
     } else { // release lock audio
+
         lock_audio.unlock();
         block_midi_events = 0;
     }
 }
 
 void fluidsynth_proc::wakeup_audio() {
+
     audio_waits.wakeOne();
 }
 
@@ -821,6 +1065,7 @@ fluid_Thread::fluid_Thread(fluidsynth_proc *proc) : QThread(proc){
     fx = NULL;
     buffer = NULL;
     mix_buffer = NULL;
+
     for(int n = 0; n < 16; n++) PROC[n] = NULL;
 }
 
@@ -831,7 +1076,9 @@ fluid_Thread::~fluid_Thread() {
     if(fx) delete[] fx; 
     delete[] buffer;
     delete[] mix_buffer;
+
     for(int n = 0; n < 16; n++) delete PROC[n];
+
     qWarning("fluid_Thread() destructor");
 
 }
@@ -840,10 +1087,12 @@ void fluid_Thread::run()
 {
 
     if(!_proc->synth) {
+
         MSG_ERR("Error! fluid_Thread: !_proc->synth\n");
         _proc->iswaiting_signal = 2;
         exit(0);
     }
+
     int n_aud_chan = fluid_synth_count_audio_channels(_proc->synth);
     //MSG_OUT("audio channels: %i\n", n_aud_chan);
     int n_fx_chan = fluid_synth_count_effects_channels(_proc->synth);
@@ -856,14 +1105,19 @@ void fluid_Thread::run()
     MSG_OUT("fluid_Thread: fluid_out_samples: %i\n", fluid_out_samples);
 
     int szbuf = FLUID_OUT_SAMPLES * 2 * (n_aud_chan + n_fx_chan);
+
     if(sharedAudioBuffer)
         fbuf = (float *) sharedAudioBuffer->data();
     else
         fbuf = new float[szbuf];
+
     if(!fbuf) {
+
         MSG_ERR("Error! fluid_Thread: !fbuf\n");
         _proc->set_error(666, "FATAL ERROR: out of memory creating fbuf"); return;
-    } else memset((void *) fbuf, 0, sizeof(float) * szbuf);
+
+    } else
+        memset((void *) fbuf, 0, sizeof(float) * szbuf);
 
     // array of buffers
     dry = new float*[n_aud_chan * 2];
@@ -894,19 +1148,24 @@ void fluid_Thread::run()
      }
 
      for(int n = 0; n < 16; n++) {
-         PROC[n]= new PROC_filter(100, 2500, _proc->_sample_rate, 0.0, 0.0, 0.0);
+
+         PROC[n] = new PROC_filter(100, 2500, _proc->_sample_rate, 0.0, 0.0, 0.0);
+
          if(!PROC[n]) {
+
              MSG_ERR("Error! fluid_Thread: !PROC[%i]\n", n);
-             _proc->set_error(666, "FATAL ERROR: out of memory creating PROC[n]"); return;
+             _proc->set_error(666, "FATAL ERROR: out of memory creating PROC[n]");
+
+             return;
          }
 
      }
 
      recalculate_filters(_proc->_sample_rate);
 
-     buffer= new short[FLUID_OUT_SAMPLES*2];
+     buffer= new short[FLUID_OUT_SAMPLES * 2];
 
-     mix_buffer= new float[FLUID_OUT_SAMPLES*2];
+     mix_buffer= new float[FLUID_OUT_SAMPLES * 2];
 
      if(!buffer || !mix_buffer) {
          MSG_ERR("Error! fluid_Thread: !buffer || !mix_buffer\n");
@@ -950,6 +1209,7 @@ void fluid_Thread::run()
 
          // test if out buffer changed
          if((sharedAudioBuffer && sharedAudioBuffer->data() != fbuf) || fluid_out_samples != _proc->fluid_out_samples) {
+
              fluid_out_samples = _proc->fluid_out_samples;
 
              if(sharedAudioBuffer && sharedAudioBuffer->data() != fbuf) {
@@ -984,6 +1244,7 @@ void fluid_Thread::run()
          //if(!_float_is_supported) _proc->output_float = 0;
 
          if(output_float != _proc->output_float) {
+
              QAudioOutput *out_sound2;
              QIODevice * out_sound_io2;
              QAudioFormat format;
@@ -1003,17 +1264,22 @@ void fluid_Thread::run()
                  format.setSampleType(QAudioFormat::SignedInt);
              }
 
-             out_sound2= new QAudioOutput(_proc->current_sound, format);
+             out_sound2 = new QAudioOutput(_proc->current_sound, format);
 
              if(out_sound2) {
+
                  out_sound_io2 = out_sound2->start();
+
                  if(out_sound_io2) {
+
                      if(_proc->out_sound_io) _proc->out_sound_io->close();
+
                      if(_proc->out_sound) {
                          _proc->out_sound->stop();
                          _proc->out_sound->disconnect(this);
                          delete _proc->out_sound;
                      }
+
                      _proc->out_sound = out_sound2;
                      _proc->out_sound_io = out_sound_io2;
 
@@ -1023,10 +1289,13 @@ void fluid_Thread::run()
                      MSG_OUT("fluid_Thread: audio output:\n    sample_rate: %i use float %i\n", _proc->_sample_rate, output_float);
 
                  } else {
+
                      delete out_sound2;
                      _proc->output_float = output_float;
                  }
-             } else _proc->output_float = output_float;
+
+             } else
+                 _proc->output_float = output_float;
 
          }
 
@@ -1053,6 +1322,7 @@ void fluid_Thread::run()
              }
 
              QThread::msleep(20);
+
              continue; // waits SF2 is loaded
          }
 
@@ -1062,7 +1332,9 @@ void fluid_Thread::run()
          memset(fbuf, 0, szbuf*sizeof(float));
 
          _proc->mutex_fluid.lock();
+
          int err =-1;
+
          if(_proc->synth) {
              err = fluid_synth_process(_proc->synth, fluid_out_samples, n_fx_chan * n_fx_groups * 2, fx, n_aud_chan * 2, dry);
          }
@@ -1079,40 +1351,43 @@ void fluid_Thread::run()
 
          //
          VST_proc::VST_mix(dry, /*n_aud_chan*/PRE_CHAN, (_proc->_player_wav) ? _proc->_wave_sample_rate : _proc->_sample_rate, fluid_out_samples);
+
          if(sharedAudioBuffer)
             VST_proc::VST_external_mix((_proc->_player_wav) ? _proc->_wave_sample_rate : _proc->_sample_rate, fluid_out_samples);
 
-         _proc->frames= _proc->time_frame.msecsSinceStartOfDay();
+         _proc->frames = _proc->time_frame.msecsSinceStartOfDay();
 
 
          // mix audio channels
-         for(m = 0; m < (n_aud_chan * 2); m+= 2) {
+         for(m = 0; m < (n_aud_chan * 2); m += 2) {
 
-             if(_proc->audio_chanmute[m>>1]) continue; //skip channel
+             if(_proc->audio_chanmute[m >> 1]) //skip channel
+                 continue;
 
              float *leftz = dry[m];
-             float *rightz = dry[m+1];
+             float *rightz = dry[m + 1];
 
              PROC_filter *filter = NULL;
 
-             if(PROC[m>>1] && PROC[m>>1]->PROC_get_type()!=0)
-                 filter = PROC[m>>1];
+             if(PROC[m >> 1] && PROC[m >> 1]->PROC_get_type() != 0)
+                 filter = PROC[m >> 1];
 
-             int gain= _proc->audio_changain[m>>1] / 100;
+             int gain = _proc->audio_changain[m >> 1] / 100;
              float gainl = 1.0;
+
              if(gain > 0) gainl = 1.0 * ((float) gain);
              if(gain < 0) gainl = 1.0 / ((float) -gain);
 
              float gainr = gainl;
-             float ball = ((float) (100 - _proc->audio_chanbalance[m>>1])) / 200.0;
+             float ball = ((float) (100 - _proc->audio_chanbalance[m >> 1])) / 200.0;
              float balr = 1.0f - ball;
 
-             gainl*= ball;
-             gainr*= balr;
+             gainl *= ball;
+             gainr *= balr;
 
-             for(n = 0; n <  fluid_out_samples;n++) {
+             for(n = 0; n <  fluid_out_samples; n++) {
                  float left = *(leftz++), right = *(rightz++);
-                 float *out = &mix_buffer[(n<<1)];
+                 float *out = &mix_buffer[(n << 1)];
 
                  if(filter) filter->PROC_samples(&left, &right);
 
@@ -1131,7 +1406,7 @@ void fluid_Thread::run()
          for(n = 0; n < fluid_out_samples * 2; n++) {
 
              if(*f < -1.0f) *f = -1.0f;
-             else if(*f  >1.0f) *f = 1.0f;
+             else if(*f  > 1.0f) *f = 1.0f;
 
              if(n & 1) {
                  if(*f < 0) addr-= *f; else addr+= *f;
@@ -1143,15 +1418,15 @@ void fluid_Thread::run()
 
          }
 
-         _proc->cleft = 40.0 * log(addl*200.0 / 512.0);
-         _proc->cright = 40.0 * log(addr*200.0 / 512.0);
+         _proc->cleft = 40.0 * log(addl * 200.0 / 512.0);
+         _proc->cright = 40.0 * log(addr * 200.0 / 512.0);
 
          if(_proc->cleft > 200)  _proc->cleft = 200;
          if(_proc->cright > 200)  _proc->cright = 200;
 
          // write samples to audio device
-         int pos=0;
-         int total= ((_proc->_player_wav && _proc->wav_is_float) ||
+         int pos = 0;
+         int total = ((_proc->_player_wav && _proc->wav_is_float) ||
                      (!_proc->_player_wav && _proc->output_float))
                  ? fluid_out_samples * 8
                  : fluid_out_samples * 4;
@@ -1168,36 +1443,47 @@ void fluid_Thread::run()
          while (total > 0) {
 
              if(_proc->_player_wav) { // alternative for WAV files
-                 if(_proc->_player_status == 2) break;
-                 if(_proc->_player_status == 666) len=-1;
+
+                 if(_proc->_player_status == 2)
+                     break;
+
+                 if(_proc->_player_status == 666)
+
+                     len = -1;
+
                  else {
-                     if(_proc->wavDIS)
-                        {len = 0; break;}
-                     else
-                        len = _proc->_player_wav->write(((const char  *)buff+pos), total);
+
+                     if(_proc->wavDIS) {
+                         len = 0;
+                         break;
+                     } else
+                         len = _proc->_player_wav->write(((const char  *) buff + pos), total);
                  }
 
                  if(len < 0) {
 
-                     _proc->_player_status=666;
+                     _proc->_player_status = 666;
 
-                 } else _proc->total_wav_write += len;
+                 } else
+                     _proc->total_wav_write += len;
 
              } else // write audio stream
-                 len= _proc->out_sound_io->write(((const char  *)buff2+pos), total);
+                 len= _proc->out_sound_io->write(((const char  *) buff2 + pos), total);
 
              int stat = _proc->out_sound->state();
 
-             if(len < 0 || _proc->out_sound->error() || stat == QAudio::SuspendedState ||
+             if((len < 0 || _proc->out_sound->error() || stat == QAudio::SuspendedState ||
                 stat == QAudio::InterruptedState ||
-                stat == QAudio::StoppedState)
-                if (MidiPlayer::isPlaying()) {
+                stat == QAudio::StoppedState) && MidiPlayer::isPlaying()) {
+
                     emit _proc->pause_player();
                     QThread::usleep(2);
                 }
 
              if(len == 0) {
+
                  QThread::usleep(2);
+
                  // timeout at 2 seconds
                  if(((int) (QDateTime::currentMSecsSinceEpoch() - _system_time)) >= 2000) {
                      if (MidiPlayer::isPlaying())
@@ -1209,7 +1495,8 @@ void fluid_Thread::run()
              }
 
              if(len < 0) break;
-             pos+= len;total-= len;
+             pos+= len;
+             total-= len;
 
          }
 
@@ -1234,6 +1521,7 @@ void fluid_Thread::recalculate_filters(int freq) {
 
 
     for(int chan = 0; chan < 16; chan++) {
+
         if(!PROC[chan]) continue;
 
         PROC[chan]->PROC_set_sample_rate(freq);
@@ -1263,7 +1551,7 @@ void fluid_Thread::recalculate_filters(int freq) {
 void PROC_filter::PROC_set_type(int type, float gain, float gain2) {
 
     if(type & PROC_FILTER_DISTORTION) {
-        _type|=PROC_FILTER_DISTORTION;
+        _type |= PROC_FILTER_DISTORTION;
 
         PROC_Change_filter(0, 0, 0, 0, gain);
         return;
@@ -1272,6 +1560,7 @@ void PROC_filter::PROC_set_type(int type, float gain, float gain2) {
     if(type & PROC_FILTER_LOW_PASS) {
         _type|= PROC_FILTER_LOW_PASS; _gain = gain + 1.0;
     }
+
     if(type & PROC_FILTER_HIGH_PASS) {
         _type|= PROC_FILTER_HIGH_PASS; _gain2 = gain2 + 1.0;
     }
@@ -1281,7 +1570,7 @@ void PROC_filter::PROC_set_type(int type, float gain, float gain2) {
 
 void PROC_filter::PROC_unset_type(int type) {
 
-    _type&= ~(type);
+    _type &= ~(type);
 }
 int PROC_filter::PROC_get_type() {
     return _type;
@@ -1289,10 +1578,13 @@ int PROC_filter::PROC_get_type() {
 
 void PROC_filter::PROC_Change_filter(float freq, float freq2,
                        float gain, float gain2, float gain_dist) {
+
     if(_type & PROC_FILTER_DISTORTION) {
-        _gain3= 1.0+gain_dist/10.0f;
+
+        _gain3 = 1.0 + gain_dist / 10.0f;
+
         for(int n = 0; n <= MAX_DIST_DEF; n++) {
-            _distortion_tab[n] = (1.0 - exp(-(_gain3 * (float) n)/MAX_DIST_DEF))* (1.0 / ((1.0 - exp(-_gain3))));
+            _distortion_tab[n] = (1.0 - exp(-(_gain3 * (float) n) / MAX_DIST_DEF)) * (1.0 / ((1.0 - exp(-_gain3))));
         }
     }
 
@@ -1314,13 +1606,16 @@ https://www.musicdsp.org/en/latest/Filters/180-cool-sounding-lowpass-with-decibe
     //PROC_FILTER_LOW_PASS
 
     if(freq) {
+
         _type|= PROC_FILTER_LOW_PASS;
 
-        resonance = 2.0*powf(10.0f, -(_resdB * 0.05f));
+        resonance = 2.0 * powf(10.0f, -(_resdB * 0.05f));
         q = sqrt(2.0f) * resonance;
 
         c = 1.0f / (tanf(M_PI * (freq / _sample_rate)));
+
         csq = c * c;
+
         _Icoefs[0] = 1.0f / (1.0f + (q * c) + (csq));
         _Icoefs[1] = 2.0f * _Icoefs[0];
         _Icoefs[2] = _Icoefs[0];
@@ -1329,14 +1624,18 @@ https://www.musicdsp.org/en/latest/Filters/180-cool-sounding-lowpass-with-decibe
     }
 
    // PROC_FILTER_HIGH_PASS
+
     if(freq2) {
         _type|= PROC_FILTER_HIGH_PASS;
 
-        resonance = 2.0*powf(10.0f, -(_resdB2 * 0.05f));
+        resonance = 2.0 * powf(10.0f, -(_resdB2 * 0.05f));
+
         q = sqrt(2.0f) * resonance;
 
         c = tanf(M_PI * (freq2 / _sample_rate));
+
         csq = c * c;
+
         _I2coefs[0] = 1.0f / (1.0f + (q * c) + (csq));
         _I2coefs[1] = -2.0f * _I2coefs[0];
         _I2coefs[2] = _I2coefs[0];
@@ -1370,6 +1669,7 @@ PROC_filter::PROC_filter(float freq, float freq2, float sample_rate,
 
 
 void PROC_filter::PROC_samples(float *left, float *right){
+
     float accul = 0.0f;
     float accur = 0.0f;
     float _left = *left;
@@ -1378,27 +1678,35 @@ void PROC_filter::PROC_samples(float *left, float *right){
     // distorsion
     if(_type & PROC_FILTER_DISTORTION) {
 
-        if(_left<-1.0f) _left=-1.0f;
-        else if(_left>1.0f) _left=1.0f;
+        if(_left < -1.0f)
+            _left = -1.0f;
+        else if(_left > 1.0f)
+            _left = 1.0f;
 
-        if(_right<-1.0f) _right=-1.0f;
-        else if(_right>1.0f) _right=1.0f;
+        if(_right < -1.0f)
+            _right = -1.0f;
+        else if(_right > 1.0f)
+            _right = 1.0f;
 
         if(_left < 0.0)
-            _left =-_distortion_tab[(int) (-_left*255.0f) & MAX_DIST_DEF]+_left/255.0;
+            _left = -_distortion_tab[(int) (-_left * 255.0f) & MAX_DIST_DEF] + _left / 255.0;
         else
-            _left =_distortion_tab[(int) (_left*255.0f) & MAX_DIST_DEF]+_left/255.0;
+            _left = _distortion_tab[(int) (_left * 255.0f) & MAX_DIST_DEF] + _left / 255.0;
 
         if(_right < 0.0)
-            _right =-_distortion_tab[(int) (-_right*255.0f) & MAX_DIST_DEF]+_right/255.0;
+            _right = -_distortion_tab[(int) (-_right * 255.0f) & MAX_DIST_DEF] + _right / 255.0;
         else
-            _right =_distortion_tab[(int) (_right*255.0f) & MAX_DIST_DEF]+_right/255.0;
+            _right = _distortion_tab[(int) (_right * 255.0f) & MAX_DIST_DEF] + _right / 255.0;
 
-        if(_left<-1.0f) _left=-1.0f;
-        else if(_left>1.0f) _left=1.0f;
+        if(_left < -1.0f)
+            _left = -1.0f;
+        else if(_left > 1.0f)
+            _left = 1.0f;
 
-        if(_right<-1.0f) _right=-1.0f;
-        else if(_right>1.0f) _right=1.0f;
+        if(_right < -1.0f)
+            _right = -1.0f;
+        else if(_right > 1.0f)
+            _right = 1.0f;
 
     }
 
@@ -1408,138 +1716,152 @@ void PROC_filter::PROC_samples(float *left, float *right){
 
     if(_type & PROC_FILTER_LOW_PASS) {
 
-        _Isleft[2]=_Isleft[1];
-        _Isleft[1]=_Isleft[0];
+        _Isleft[2] = _Isleft[1];
+        _Isleft[1] = _Isleft[0];
         _Isleft[0] = _left;
 
-        _Isright[2]=_Isright[1];
-        _Isright[1]=_Isright[0];
+        _Isright[2] = _Isright[1];
+        _Isright[1] = _Isright[0];
         _Isright[0] = _right;
 
-        accul= _Isleft[0]*_Icoefs[0];
-        accul+=_Isleft[1]*_Icoefs[1]-_Osleft[0]*_Ocoefs[0];
-        accul+=_Isleft[2]*_Icoefs[2]-_Osleft[1]*_Ocoefs[1];
+        accul =  _Isleft[0] * _Icoefs[0];
+        accul += _Isleft[1] * _Icoefs[1] - _Osleft[0] * _Ocoefs[0];
+        accul += _Isleft[2] * _Icoefs[2] - _Osleft[1] * _Ocoefs[1];
 
-        accur= _Isright[0]*_Icoefs[0];
-        accur+=_Isright[1]*_Icoefs[1]-_Osright[0]*_Ocoefs[0];
-        accur+=_Isright[2]*_Icoefs[2]-_Osright[1]*_Ocoefs[1];
+        accur  = _Isright[0] *_Icoefs[0];
+        accur += _Isright[1] *_Icoefs[1] - _Osright[0] * _Ocoefs[0];
+        accur += _Isright[2] *_Icoefs[2] - _Osright[1] * _Ocoefs[1];
 
-        _Osleft[1]=_Osleft[0];
+        _Osleft[1] = _Osleft[0];
         _Osleft[0] = accul;
 
-        _Osright[1]=_Osright[0];
+        _Osright[1] = _Osright[0];
         _Osright[0] = accur;
 
-        _left= accul * _gain;
+        _left =  accul * _gain;
         _right = accur * _gain ;
 
     } else {
-        _left =_right = 0.0;
+
+        _left = _right = 0.0;
     }
 
     if(_type & PROC_FILTER_HIGH_PASS) {
 
-        _I2sleft[2]=_I2sleft[1];
-        _I2sleft[1]=_I2sleft[0];
+        _I2sleft[2] = _I2sleft[1];
+        _I2sleft[1] = _I2sleft[0];
         _I2sleft[0] = _left2;
 
-        _I2sright[2]=_I2sright[1];
-        _I2sright[1]=_I2sright[0];
+        _I2sright[2] = _I2sright[1];
+        _I2sright[1] = _I2sright[0];
         _I2sright[0] = _right2;
 
-        accul= _I2sleft[0]*_I2coefs[0];
-        accul+=_I2sleft[1]*_I2coefs[1]-_O2sleft[0]*_O2coefs[0];
-        accul+=_I2sleft[2]*_I2coefs[2]-_O2sleft[1]*_O2coefs[1];
+        accul =  _I2sleft[0] * _I2coefs[0];
+        accul += _I2sleft[1] * _I2coefs[1] - _O2sleft[0] * _O2coefs[0];
+        accul += _I2sleft[2] * _I2coefs[2] - _O2sleft[1] * _O2coefs[1];
 
-        accur= _I2sright[0]*_I2coefs[0];
-        accur+=_I2sright[1]*_I2coefs[1]-_O2sright[0]*_O2coefs[0];
-        accur+=_I2sright[2]*_I2coefs[2]-_O2sright[1]*_O2coefs[1];
+        accur =  _I2sright[0] * _I2coefs[0];
+        accur += _I2sright[1] * _I2coefs[1] - _O2sright[0] * _O2coefs[0];
+        accur += _I2sright[2] * _I2coefs[2] - _O2sright[1] * _O2coefs[1];
 
-        _O2sleft[1]=_O2sleft[0];
+        _O2sleft[1] = _O2sleft[0];
         _O2sleft[0] = accul;
 
-        _O2sright[1]=_O2sright[0];
+        _O2sright[1] = _O2sright[0];
         _O2sright[0] = accur;
 
-        _left2= accul * _gain2;
+        _left2  = accul * _gain2;
         _right2 = accur * _gain2 ;
 
     }  else {
-        if((_type & 7) != PROC_FILTER_DISTORTION) {_left2 =_right2 = 0.0;}
+
+        if((_type & 7) != PROC_FILTER_DISTORTION) {
+            _left2 =_right2 = 0.0;
+        }
     }
 
-    _left+= _left2;
-    _right+= _right2;
+    _left  += _left2;
+    _right += _right2;
 
     if((_type & 3) == 3) {
-       _left/= 2.0;
-       _right/=2.0;
+
+       _left  /= 2.0;
+       _right /= 2.0;
     }
 
-    ///
-
-    *left = _left;
+    *left  = _left;
     *right = _right;
 
 }
 
 int fluidsynth_proc::getSynthChanVolume(int chan) {
+
     return synth_chanvolume[chan];
 }
 
 
 void fluidsynth_proc::setSynthChanVolume(int chan, int volume) {
+
     synth_chanvolume[chan] = volume & 127;
     fluid_synth_cc(synth, chan , 11, volume & 127);
 
 }
 
 void fluidsynth_proc::setAudioGain(int chan, int gain){
+
     audio_changain[chan & 15] = gain;
 }
 
 int fluidsynth_proc::getAudioGain(int chan){
+
     return audio_changain[chan & 15];
 }
 
 void fluidsynth_proc::setAudioBalance(int chan, int balance){
-    audio_chanbalance[chan & 15]= balance;
+
+    audio_chanbalance[chan & 15] = balance;
 }
 
 int fluidsynth_proc::getAudioBalance(int chan){
+
     return audio_chanbalance[chan & 15];
 }
 
 void fluidsynth_proc::setAudioMute(int chan, bool mute){
-    audio_chanmute[chan & 15]= mute;
+
+    audio_chanmute[chan & 15] = mute;
 }
 
 bool fluidsynth_proc::getAudioMute(int chan){
+
     return audio_chanmute[chan & 15];
 }
 
 void fluidsynth_proc::setSynthGain(int gain){
-    synth_gain = ((float) gain)/100.0;
+    synth_gain = ((float) gain) / 100.0;
     fluid_synth_set_gain(synth, (float) synth_gain);
 }
 
 int fluidsynth_proc::getSynthGain(){
-    return (int) (synth_gain*100.0);
+    return (int) (synth_gain * 100.0);
 }
 
 void fluidsynth_proc::setAudioDistortionFilter(int on, int chan, int gain) {
 
     chan &= 15;
 
-    filter_dist_gain[chan]= ((float) gain);
+    filter_dist_gain[chan] = ((float) gain);
 
     if(on) {
-        filter_dist_on[chan] = true;
 
+        filter_dist_on[chan] = true;
         mixer->PROC[chan]->PROC_set_type(PROC_FILTER_DISTORTION, filter_dist_gain[chan], 0);
+
     } else {
+
         filter_dist_on[chan] = false;
         mixer->PROC[chan]->PROC_unset_type(PROC_FILTER_DISTORTION);
+
     }
 }
 
@@ -1548,17 +1870,21 @@ void fluidsynth_proc::setAudioLowPassFilter(int on, int chan, int freq, int gain
     chan &= 15;
 
     filter_locut_freq[chan] = (float) freq;
-    filter_locut_gain[chan]= ((float) gain)/100.0;
-    filter_locut_res[chan]= ((float) res)/10.0;
+    filter_locut_gain[chan] = ((float) gain) / 100.0;
+    filter_locut_res[chan]  = ((float) res)  / 10.0;
+
     mixer->PROC[chan]->_resdB = filter_locut_res[chan];
 
     if(on) {
+
         filter_locut_on[chan] = true;
 
         mixer->PROC[chan]->PROC_Change_filter(filter_locut_freq[chan], 0,
                                0, 0, filter_dist_gain[chan]);
         mixer->PROC[chan]->PROC_set_type(PROC_FILTER_LOW_PASS, filter_locut_gain[chan], 0);
+
     } else {
+
         filter_locut_on[chan] = false;
         mixer->PROC[chan]->PROC_unset_type(PROC_FILTER_LOW_PASS);
     }
@@ -1569,18 +1895,22 @@ void fluidsynth_proc::setAudioHighPassFilter(int on, int chan, int freq, int gai
     chan &= 15;
 
     filter_hicut_freq[chan] = (float) freq;
-    filter_hicut_gain[chan]= ((float) gain)/100.0;
-    filter_hicut_res[chan]= ((float) res)/10.0;
+    filter_hicut_gain[chan] = ((float) gain) / 100.0;
+    filter_hicut_res[chan]  = ((float) res)  / 10.0;
+
     mixer->PROC[chan]->_resdB2 = filter_hicut_res[chan];
 
     if(on) {
+
         filter_hicut_on[chan] = true;
 
         mixer->PROC[chan]->PROC_Change_filter(0, filter_hicut_freq[chan],
                                0, 0, filter_dist_gain[chan]);
 
         mixer->PROC[chan]->PROC_set_type(PROC_FILTER_HIGH_PASS, 0, filter_hicut_gain[chan]);
+
     } else {
+
         filter_hicut_on[chan] = false;
         mixer->PROC[chan]->PROC_unset_type(PROC_FILTER_HIGH_PASS);
     }
@@ -1591,12 +1921,18 @@ int fluidsynth_proc::get_param_filter(int type, int chan, int index) {
     chan &= 15;
 
     if(type & PROC_FILTER_DISTORTION) {
+
         switch(index) {
 
         case GET_FILTER_ON:
-            if(filter_dist_on[chan]) return 1; else return 0;
+
+            if(filter_dist_on[chan])
+                return 1;
+            else
+                return 0;
 
         case GET_FILTER_GAIN:
+
             return (int) (filter_dist_gain[chan]);
         }
 
@@ -1608,29 +1944,54 @@ int fluidsynth_proc::get_param_filter(int type, int chan, int index) {
         switch(index) {
 
         case GET_FILTER_ON:
-            if(filter_locut_on[chan]) return 1; else return 0;
+
+            if(filter_locut_on[chan])
+                return 1;
+            else
+                return 0;
+
         case GET_FILTER_FREQ:
+
             return (int) filter_locut_freq[chan];
+
         case GET_FILTER_GAIN:
+
             return (int) (filter_locut_gain[chan] * 100.0);
+
         case GET_FILTER_RES:
+
             return (int) (filter_locut_res[chan] * 10.0);
+
         default:
+
             return 0;
         }
+
     } else {
 
         switch(index) {
 
         case GET_FILTER_ON:
-            if(filter_hicut_on[chan]) return 1; else return 0;
+
+            if(filter_hicut_on[chan])
+                return 1;
+            else
+                return 0;
+
         case GET_FILTER_FREQ:
+
             return (int) filter_hicut_freq[chan];
+
         case GET_FILTER_GAIN:
+
             return (int) (filter_hicut_gain[chan] * 100.0);
+
         case GET_FILTER_RES:
+
             return (int) (filter_hicut_res[chan] * 10.0);
+
         default:
+
             return 0;
         }
 
@@ -1642,9 +2003,11 @@ int fluidsynth_proc::get_param_filter(int type, int chan, int index) {
 
 int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
 
-    if(_player_status) return -1;
+    if(_player_status)
+        return -1;
 
     fluid_output->wavDIS = true;
+
     _file = file;
 
     _file->setPauseTick(0);
@@ -1658,14 +2021,15 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
         VST_proc::VST_show(n, false);
     }
 
-    _bar= new ProgressDialog(parent, QString("Exporting to WAVE File..."));
+    _bar = new ProgressDialog(parent, QString("Exporting to WAVE File..."));
     _bar->setModal(true);
 
     stop_audio(true);
     _player_wav = wav;
     _player_status = 0;
 
-    fluid_Thread_playerWAV *player= new fluid_Thread_playerWAV(this);
+    fluid_Thread_playerWAV *player = new fluid_Thread_playerWAV(this);
+
     if(!player) {
         _player_wav = NULL;
         wav->close();
@@ -1723,18 +2087,22 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
     delete _bar;
     _bar = NULL;
 
-    int *p= &_player_status;
-    if(*p==1) { // progress is canceled
-        *p=666;
+    int *p = &_player_status;
+
+    if(*p == 1) { // progress is canceled
+
+        *p = 666;
         //QMessageBox::critical(NULL, "Error!", "Aborted!");
         emit message_timeout("Error!", "Aborted!");
     }
 
-    while(*p!=0) {
+    while(*p != 0) {
+
         QThread::msleep(50); // waits WAV thread ends
     }
 
     if(player) {
+
         player->terminate();
         player->wait(1000);
     }
@@ -1770,24 +2138,29 @@ ProgressDialog::ProgressDialog(QWidget *parent, QString text)
         PBar->setObjectName(QString::fromUtf8("ProgressBar"));
 
     PBar->resize(446, 173);
+    PBar->setWindowTitle(QCoreApplication::translate("ProgressBar", "Fluid Synth Proc", nullptr));
+
     progressBar = new QProgressBar(PBar);
     progressBar->setObjectName(QString::fromUtf8("progressBar"));
     progressBar->setGeometry(QRect(100, 100, 251, 23));
     progressBar->setValue(0);
+
     label = new QLabel(PBar);
     label->setObjectName(QString::fromUtf8("label"));
     label->setGeometry(QRect(100, 50, 221, 21));
     label->setAlignment(Qt::AlignCenter);
-    PBar->setWindowTitle(QCoreApplication::translate("ProgressBar", "Fluid Synth Proc", nullptr));
     label->setText(text);
+
     QMetaObject::connectSlotsByName(PBar);
 }
 
 void ProgressDialog::setBar(int num) {
+
    progressBar->setValue(num);
 }
 
 void ProgressDialog::reject() {
+
     hide();
 }
 
@@ -1834,7 +2207,7 @@ int fluid_Thread_playerWAV::msOfTick(int tick)
 {
     if(_proc->_file->ticksPerQuarter() == 192) return tick;
 
-    QList<MidiEvent*>* events = NULL;
+    QList<MidiEvent*> * events = NULL;
     int msOfFirstEventInList = 0;
 
     if (!events) {
@@ -1856,7 +2229,9 @@ int fluid_Thread_playerWAV::msOfTick(int tick)
         if (!ev) {
             continue;
         }
+
         count++;
+
         if (!event || ev->midiTime() <= tick) {
             if (!event) {
                 // first event in the list at time msOfFirstEventInList
@@ -1866,8 +2241,11 @@ int fluid_Thread_playerWAV::msOfTick(int tick)
                 timeMs += event->msPerTick() * (ev->midiTime() - event->midiTime());
 
             }
+
             event = ev;
+
         } else {
+
             // end: ev is later than the endTick
 
             break;
@@ -1881,7 +2259,7 @@ int fluid_Thread_playerWAV::msOfTick(int tick)
 
     timeMs += event->msPerTick() * (tick - event->midiTime());
     delete events;
-    return (int)timeMs;
+    return (int) timeMs;
 }
 
 int fluid_Thread_playerWAV::init_sequencer_player(){
@@ -1923,6 +2301,7 @@ int fluid_Thread_playerWAV::init_sequencer_player(){
     QMultiMap<int, MidiEvent*>::iterator it = events2->lowerBound(0);
 
     int n_events = 0;
+
     while (it != events2->end()) {
         int sendPosition = it.key();
         if(sendPosition > sequencer_tick_end) sequencer_tick_end = sendPosition;
@@ -1939,23 +2318,27 @@ int fluid_Thread_playerWAV::init_sequencer_player(){
 int fluid_Thread_playerWAV::sequencer_player(){
 
     int last_time = sequencer_tick_pos+SEQ_FRAME;
+
     semaf->acquire(1);
 
     QMultiMap<int, MidiEvent*>::iterator it = events2->lowerBound(sequencer_tick_pos);
 
-    while (it != events2->end() && it.key() < (sequencer_tick_pos+SEQ_FRAME)) {
+    while (it != events2->end() && it.key() < (sequencer_tick_pos + SEQ_FRAME)) {
 
         // save events for the given tick
         QList<MidiEvent *> onEv, offEv;
         int sendPosition = it.key();
 
         do {
-            if(it.value()->midiTime() > last_time) last_time = it.value()->midiTime();
+            if(it.value()->midiTime() > last_time)
+                last_time = it.value()->midiTime();
+
             if (it.value()->isOnEvent()) {
                 onEv.append(it.value());
             } else {
                 offEv.append(it.value());
             }
+
             it++;
         } while (it != events2->end() && it.key() == sendPosition);
 
@@ -1972,24 +2355,30 @@ int fluid_Thread_playerWAV::sequencer_player(){
 
 
     int fluid_res;
-    sequence_callback(sequencer_tick_pos+SEQ_FRAME);
+
+    sequence_callback(sequencer_tick_pos + SEQ_FRAME);
     if(fluid_res < 0) return fluid_res;
 
-    sequencer_tick_pos+=SEQ_FRAME;
-    //sequencer_tick_pos = last_time;
+    sequencer_tick_pos += SEQ_FRAME;
+
     if(it == events2->end()) {
         MSG_OUT("sequencer_player() ends\n    tick: %i", sequencer_tick_pos);
 
         sequencer_tick_end = last_time;
+
         semaf->acquire(1);
+
         for(int n = 0; n < 16; n++) {
-            int event_ticks= sequencer_tick_end +1;
+
+            int event_ticks= sequencer_tick_end + 1;
             sequence_command(fluid_event_control_change(evt, n, 123, 127))
             if(fluid_res < 0) return fluid_res;
         }
-        //
+
         sequence_callback(sequencer_tick_end + 1);
+
         if(fluid_res < 0) return fluid_res;
+
         semaf->acquire(1);
         return 1;
     }
@@ -1998,7 +2387,7 @@ int fluid_Thread_playerWAV::sequencer_player(){
 
 void fluid_Thread_playerWAV::run()
 {
-    _proc->_player_status =1;
+    _proc->_player_status = 1;
     _proc->total_wav_write= 0;
 
     fluid_output->wavDIS = false;
@@ -2013,30 +2402,30 @@ void fluid_Thread_playerWAV::run()
 
     while(1) {
 
-        if(_proc->_player_status ==1) { // playing
+        if(_proc->_player_status == 1) { // playing
 
-            int ret= sequencer_player();
+            int ret = sequencer_player();
 
-            if(ret==1) {
-                _proc->_player_status=2; break; // end of file
+            if(ret == 1) {
+                _proc->_player_status = 2; break; // end of file
             }
-            if(ret<0) {
-                _proc->_player_status=666; break; // error!
+            if(ret < 0) {
+                _proc->_player_status = 666; break; // error!
             }
         }
 
-        if(_proc->_player_status== 666) break; // external error
+        if(_proc->_player_status == 666) break; // external error
 
         if(_proc->_bar) {
             emit setBar(100 * sequencer_tick_pos / sequencer_tick_end);
         }
 
-    QThread::usleep(1);
+        QThread::usleep(1);
     }
 
     if(_proc->_player_status == 2) { // ok
         int *p = &_proc->iswaiting_signal;
-        while(*p!=1) QThread::msleep(5);
+        while(*p != 1) QThread::msleep(5);
         _proc->_player_wav->seek(0);
         fluid_output->wavDIS = true;
         QFile *wav = _proc->_player_wav;
@@ -2049,12 +2438,13 @@ void fluid_Thread_playerWAV::run()
         if( _proc->_bar) {
             emit endBar();
         }
+
     } else {
         fluid_output->wavDIS = true;
         QFile *wav = _proc->_player_wav;
         //_proc->_player_wav = NULL;
         wav->remove();
-        _proc->_player_status=0;
+        _proc->_player_status = 0;
 
         if( _proc->_bar) {
             emit endBar();
@@ -2064,6 +2454,7 @@ void fluid_Thread_playerWAV::run()
     fluid_output->wavDIS = true;
 
     QThread::msleep(1000);
+
     for(int n = 0; n < 16; n++){
         fluid_synth_all_sounds_off(_proc->synth, n);
         fluid_synth_all_notes_off(_proc->synth, n);
@@ -2077,55 +2468,238 @@ void fluid_Thread_playerWAV::run()
 #define u32 unsigned int
 
 int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
+
     QByteArray data = event->save();
 
-    int type= data[0] & 0xf0;
+    int type = data[0] & 0xf0;
     int channel = data[0] & 0xf;
     int fluid_res;
     int event_ticks = event->midiTime();
 
     _proc->wakeup_audio();
 
-    if(type==0xB0) {  // control
-        if((unsigned) data[1]==11) data[2]= _proc->synth_chanvolume[channel]; //ignore song expresion
-        if((unsigned) data[1]==121) {
+    if(type == 0xB0) {  // control
+
+        if((unsigned) data[1] == 11)  //ignore song expresion
+
+            data[2] = _proc->synth_chanvolume[channel];
+
+        else if((unsigned) data[1] == 121) {
+
             sequence_command(fluid_event_control_change(evt, (u32) channel, (u32) data[1], (u32) data[2]))
-                    if(fluid_res < 0) return fluid_res;
-            data[1]=11; // set expresion
+            if(fluid_res < 0) return fluid_res;
+
+            data[1] = 11; // set expresion
             data[2]= _proc->synth_chanvolume[channel];
+        } else if((unsigned) data[1] == 124) {// ignore Omni off
+            return 0;
+
+            // Fluid Synth MIDI custom CC
+
+        } else if((unsigned) data[1] == 20) { // change volume of channel
+
+                fluid_output->synth_chanvolume[channel] = data[2];
+                fluid_output->setSynthChanVolume(channel, fluid_output->synth_chanvolume[channel]);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit fluid_output->changeVolBalanceGain(channel | (1<<4), fluid_output->getSynthChanVolume(channel) * 100 / 127,
+                                              fluid_output->getAudioBalance(channel), fluid_output->getAudioGain(channel));
+                }
+
+                return 0;
+
+            } else if((unsigned) data[1] == 21) { // change balance of channel
+
+                fluid_output->audio_chanbalance[channel] = data[2] * 200 / 127 - 100;
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit fluid_output->changeVolBalanceGain(channel | (2<<4), fluid_output->getSynthChanVolume(channel)* 100 / 127,
+                                              fluid_output->getAudioBalance(channel), fluid_output->getAudioGain(channel));
+                }
+
+                return 0;
+
+            } else if((unsigned) data[1] == 22) { // change gain  of channel
+
+                fluid_output->audio_changain[channel] = data[2] * 2000 / 127 - 1000;
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit fluid_output->changeVolBalanceGain(channel | (3<<4), fluid_output->getSynthChanVolume(channel) * 100 / 127,
+                                             fluid_output->getAudioBalance(channel), fluid_output->getAudioGain(channel));
+                }
+
+                return 0;
+
+            } else if((unsigned) data[1] == 23) { // distortion gain  of channel
+
+                int gain = (unsigned) data[2] * 300 / 127;
+
+                fluid_output->setAudioDistortionFilter( (gain > 0), channel, gain);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit fluid_output->changeFilterValue(0, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) data[1] == 24) { // Low Cut gain  of channel
+
+                int gain = (unsigned) data[2] * 200 / 127;
+
+                //gain = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
+                int freq = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
+                int res = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+
+                fluid_output->setAudioLowPassFilter((gain > 0), channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit fluid_output->changeFilterValue(1, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) data[1] == 25) { // Low Cut freq  of channel
+
+                int freq = 50 + ((unsigned) data[2] * 2450 / 127);
+
+                int gain = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
+                //int freq = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
+                int res = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+
+                fluid_output->setAudioLowPassFilter(1, channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit fluid_output->changeFilterValue(1, channel);
+                }
+
+                return 0;
+
+            } else if((unsigned) data[1] == 26) { // High Cut gain  of channel
+
+                int gain = (unsigned) data[2] * 200 / 127;
+
+                //gain = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
+                int freq = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
+                int res = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+
+                fluid_output->setAudioHighPassFilter((gain > 0), channel, freq, gain, res);
+
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit fluid_output->changeFilterValue(2, channel);
+                }
+
+                return 0;
+
+        } else if((unsigned) data[1] == 27) { // High Cut freq  of channel
+
+            int freq = 500 + ((unsigned) data[2] )* 4500 / 127;
+
+            int gain = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
+            //int freq = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
+            int res = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+
+            fluid_output->setAudioHighPassFilter(1, channel, freq, gain, res);
+
+            if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                emit fluid_output->changeFilterValue(2, channel);
+            }
+
+            return 0;
+
+        } else if((unsigned) data[1] == 28) { // Low Cut Resonance of channel
+
+            int res = (unsigned) data[2] * 250 / 127;
+
+            int gain = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
+            int freq = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
+            //int res = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+
+            fluid_output->setAudioLowPassFilter(1, channel, freq, gain, res);
+
+            if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                emit fluid_output->changeFilterValue(1, channel);
+            }
+
+            return 0;
+
+        } else if((unsigned) data[1] == 29) { // High Cut Resonance of channel
+
+            int res = (unsigned) data[2] * 250 / 127;
+
+            int gain = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
+            int freq = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
+            //int res = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+
+            fluid_output->setAudioHighPassFilter(1, channel, freq, gain, res);
+
+            if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                emit fluid_output->changeFilterValue(2, channel);
+            }
+
+            return 0;
+
+        } else if((unsigned) data[1] == 30) { // Main Volume
+
+            fluid_output->synth_gain = ((float) ((unsigned) data[2] * 2000 / 127)) / 1000.0;
+
+            fluid_synth_set_gain(fluid_output->synth, (float) fluid_output->synth_gain);
+
+            if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                emit fluid_output->changeMainVolume(fluid_output->getSynthGain());
+            }
+
+            return 0;
+
+        } else if((unsigned) data[1] == 31) { // switch effect events up/down
+
+            MidiInControl::set_events_to_down((unsigned) data[2] >= (unsigned) 64);
+            emit fluid_output->MidiIn_set_events_to_down((unsigned) data[2] >= (unsigned) 64);
+
+            return 0;
+
         }
-        if((unsigned) data[1]==124) return 0; // ignore Omni off
+
         sequence_command(fluid_event_control_change(evt, (u32) channel, (u32) data[1], (unsigned int) data[2]))
                 if(fluid_res < 0) return fluid_res;
-    }
 
+    } else if(type == 0x90) { // note on
 
-    if(type==0x90) {
-
-        if(VST_proc::VST_isMIDI(channel)) VST_proc::VST_MIDIcmd(channel,((msOfTick(event_ticks) % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000, data);
+        if(VST_proc::VST_isMIDI(channel))
+            VST_proc::VST_MIDIcmd(channel,((msOfTick(event_ticks) % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000, data);
 
         sequence_command(fluid_event_noteon(evt, (u32) channel, (u32) data[1], (u32) data[2]))
         if(fluid_res < 0) return fluid_res;
 
-    }
-    if(type==0x80) {
-        if(VST_proc::VST_isMIDI(channel)) VST_proc::VST_MIDIcmd(channel,((msOfTick(event_ticks) % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000 , data);
+    } else if(type == 0x80) { // note off
+
+        if(VST_proc::VST_isMIDI(channel))
+            VST_proc::VST_MIDIcmd(channel,((msOfTick(event_ticks) % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000 , data);
 
         sequence_command(fluid_event_noteoff(evt, (u32) channel, (u32) data[1]))
         if(fluid_res < 0) return fluid_res;
 
-    }
-    if(type==0xC0) { // program
+    } else if(type == 0xC0) { // program
+
         sequence_command(fluid_event_program_change(evt, (u32) channel, (u32)  data[1]))
         if(fluid_res < 0) return fluid_res;
-    }
 
-    if(type==0xE0) { // pitch bend
+    } else if(type==0xE0) { // pitch bend
         sequence_command(fluid_event_pitch_bend(evt, channel, (data[1] & 0x7f) | (data[2]<<7)))
         if(fluid_res < 0) return fluid_res;
     }
     // system EX for fluid mixer
-    if(data[0]== (char) 0xF0) // systemEX
+    if(data[0] == (char) 0xF0) // systemEX
     {
         char id2[4]= {0x0, 0x66, 0x66, 'P'}; // global mixer
 
@@ -2136,11 +2710,12 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
         }
 
         // new sysEx old compatibility
-        if(data[2]==id2[0] && data[3]==id2[1] && data[4]==id2[2] && data[5]=='P') {
+        if(data[2] == id2[0] && data[3] == id2[1] && data[4] == id2[2] && data[5] == 'P') {
 
             int fluid_res;
             sequence_callback(event_ticks); // I needs to send previous commands
             if(fluid_res < 0) return fluid_res;
+
             semaf->acquire(1);
 
             int entries = 13 * 16 + 1;
@@ -2157,13 +2732,14 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
             qd.readRawData((char *) id, 4);
 
 
-            if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2]) {
+            if(id[0] != id2[0] || id[1] != id2[1] || id[2] != id2[2]) {
+
                 goto skip;
             }
 
+            if(id[3] != 'P')
 
-            if(id[3]!='P') goto skip;
-
+                goto skip;
 
             if(decode_sys_format(qd, (void *) &entries)<0) {
 
@@ -2171,7 +2747,8 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
             }
 
 
-            if(entries!=13 * 16 + 1){
+            if(entries != 13 * 16 + 1){
+
                 goto skip;
             }
 
@@ -2179,7 +2756,8 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
             decode_sys_format(qd, (void *) &fluid_output->synth_gain);
 
             for(int n = 0; n < 16; n++) {
-                fluid_output->audio_chanmute[n]= false;
+
+                fluid_output->audio_chanmute[n] = false;
                 decode_sys_format(qd, (void *) &fluid_output->synth_chanvolume[n]);
                 decode_sys_format(qd, (void *) &fluid_output->audio_changain[n]);
                 decode_sys_format(qd, (void *) &fluid_output->audio_chanbalance[n]);
@@ -2203,7 +2781,7 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 fluid_output->setSynthChanVolume(n, fluid_output->synth_chanvolume[n]);
 
                 int gain = fluid_output->get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_GAIN);
-                if(fluid_output->get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_ON)!=0)
+                if(fluid_output->get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_ON) != 0)
                     fluid_output->setAudioDistortionFilter(1, n, gain);
                 else fluid_output->setAudioDistortionFilter(0, n, gain);
 
@@ -2211,7 +2789,7 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 int freq =fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_FREQ);
                 int res =fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_RES);
 
-                if(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_ON)!=0)
+                if(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_ON) != 0)
                     fluid_output->setAudioLowPassFilter(1, n, freq, gain, res);
                 else fluid_output->setAudioLowPassFilter(0, n, freq, gain, res);
 
@@ -2219,23 +2797,22 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 freq =fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_FREQ);
                 res =fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_RES);
 
-                if(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON)!=0)
+                if(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON) != 0)
                     fluid_output->setAudioHighPassFilter(1, n, freq, gain, res);
-                else fluid_output->setAudioHighPassFilter(0, n, freq, gain, res);
-                if(fluid_control && !fluid_control->disable_mainmenu) {
-                    fluid_control->ChanVol[n]->setValue(fluid_output->getSynthChanVolume(n)*100/127);
-                    fluid_control->BalanceSlider[n]->setValue(fluid_output->getAudioBalance(n));
-                    fluid_control->chanGain[n]->setValue(fluid_output->getAudioGain(n));
+                else
+                    fluid_output->setAudioHighPassFilter(0, n, freq, gain, res);
 
+                if(fluid_control && !fluid_control->disable_mainmenu) {
+
+                    emit changeVolBalanceGain(channel, fluid_output->getSynthChanVolume(n) * 100 / 127,
+                                              fluid_output->getAudioBalance(n), fluid_output->getAudioGain(n));
                 }
             }
 
             fluid_synth_set_gain(fluid_output->synth, (float) fluid_output->synth_gain);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
-                fluid_control->MainVol->setValue(fluid_output->getSynthGain());
-                emit fluid_control->spinChan->valueChanged(15);
-                emit fluid_control->spinChan->valueChanged(0);
+                emit changeMainVolume(fluid_output->getSynthGain());
             }
 
         } else
@@ -2270,10 +2847,11 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
             }
 
             int flag = 1;
-            int n= id[3] & 15;
+            int n = id[3] & 15;
+
             if(id[3] == 'R') {
                 flag = 2;
-                n= id[0] & 15;
+                n = id[0] & 15;
             }
 
 
@@ -2282,8 +2860,8 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 goto skip;
             }
 
-            if((flag == 1 && entries !=13) ||
-                (flag == 2 && entries != 13 + (n==0))) {
+            if((flag == 1 && entries != 13) ||
+                (flag == 2 && entries != 13 + (n == 0))) {
                 goto skip;
             }
 
@@ -2297,17 +2875,17 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 decode_sys_format(qd, (void *) &fluid_output->audio_chanbalance[n]);
 
                 decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_dist_on[n]= (BOOL) ? true : false;
+                fluid_output->filter_dist_on[n] = (BOOL) ? true : false;
                 decode_sys_format(qd, (void *) &fluid_output->filter_dist_gain[n]);
 
                 decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_locut_on[n]= (BOOL) ? true : false;
+                fluid_output->filter_locut_on[n] = (BOOL) ? true : false;
                 decode_sys_format(qd, (void *) &fluid_output->filter_locut_freq[n]);
                 decode_sys_format(qd, (void *) &fluid_output->filter_locut_gain[n]);
                 decode_sys_format(qd, (void *) &fluid_output->filter_locut_res[n]);
 
                 decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_hicut_on[n]= (BOOL) ? true : false;
+                fluid_output->filter_hicut_on[n] = (BOOL) ? true : false;
                 decode_sys_format(qd, (void *) &fluid_output->filter_hicut_freq[n]);
                 decode_sys_format(qd, (void *) &fluid_output->filter_hicut_gain[n]);
                 decode_sys_format(qd, (void *) &fluid_output->filter_hicut_res[n]);
@@ -2315,9 +2893,11 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 fluid_output->setSynthChanVolume(n, fluid_output->synth_chanvolume[n]);
 
                 int gain = fluid_output->get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_GAIN);
-                if(fluid_output->get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_ON)!=0)
+
+                if(fluid_output->get_param_filter(PROC_FILTER_DISTORTION, n, GET_FILTER_ON) != 0)
                     fluid_output->setAudioDistortionFilter(1, n, gain);
-                else fluid_output->setAudioDistortionFilter(0, n, gain);
+                else
+                    fluid_output->setAudioDistortionFilter(0, n, gain);
 
                 gain = fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_GAIN);
                 int freq =fluid_output->get_param_filter(PROC_FILTER_LOW_PASS, n, GET_FILTER_FREQ);
@@ -2328,31 +2908,35 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
                 else fluid_output->setAudioLowPassFilter(0, n, freq, gain, res);
 
                 gain = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_GAIN);
-                freq =fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_FREQ);
-                res =fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_RES);
+                freq = fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_FREQ);
+                res =  fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_RES);
 
-                if(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON)!=0)
+                if(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS, n, GET_FILTER_ON) != 0)
                     fluid_output->setAudioHighPassFilter(1, n, freq, gain, res);
                 else fluid_output->setAudioHighPassFilter(0, n, freq, gain, res);
+
                 if(fluid_control && !fluid_control->disable_mainmenu) {
-                    fluid_control->ChanVol[n]->setValue(fluid_output->getSynthChanVolume(n)*100/127);
-                    fluid_control->BalanceSlider[n]->setValue(fluid_output->getAudioBalance(n));
-                    fluid_control->chanGain[n]->setValue(fluid_output->getAudioGain(n));
+
+                    emit changeVolBalanceGain(channel, fluid_output->getSynthChanVolume(n) * 100 / 127,
+                                              fluid_output->getAudioBalance(n), fluid_output->getAudioGain(n));
 
                 }
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
-                fluid_control->MainVol->setValue(fluid_output->getSynthGain());
-                emit fluid_control->spinChan->valueChanged(15);
-                emit fluid_control->spinChan->valueChanged(0);
+
+                emit changeMainVolume(fluid_output->getSynthGain());
             }
+
         }  else if(/*data[2] == id2[0] &&*/ data[3] == id2[1]
                    && data[4] == id2[2] && (data[5] == 'V' || data[5] == 'W')) {
 
                     if(data[5] == 'W') {
+
                         int fluid_res;
+
                         sequence_callback(event_ticks); // I needs to send previous commands
                         if(fluid_res < 0) return fluid_res;
+
                         semaf->acquire(1);
                     }
 
@@ -2366,6 +2950,7 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event) {
 }
 
 void fluid_Thread_playerWAV::write_header(QFile *f, int size, int sample_rate, int bits, int channels) {
+
     char riff[]="RIFF";
     char wave[]="WAVE";
     char fmt[]="fmt ";
@@ -2373,25 +2958,34 @@ void fluid_Thread_playerWAV::write_header(QFile *f, int size, int sample_rate, i
     int dat;
     short dat2;
 
-    if(bits==0) riff[0]=riff[1]=riff[2]=riff[3] =0;
+    if(bits == 0)
+        riff[0] = riff[1] = riff[2] = riff[3] = 0;
+
     f->write((const char  *) riff, 4);
-    dat = size+44;
+
+    dat = size + 44;
+
     f->write((const char  *) &dat, 4);
     f->write((const char  *) wave, 4);
     f->write((const char  *) fmt, 4);
+
     dat = 16;
     f->write((const char  *) &dat, 4);
-    dat2= (bits == 32) ? 3 : 1; // tipo
+
+    dat2 = (bits == 32) ? 3 : 1; // tipo
     f->write((const char  *) &dat2, 2);
-    dat2= channels; // channels
+
+    dat2 = channels; // channels
     f->write((const char  *) &dat2, 2);
 
     f->write((const char  *) &sample_rate, 4);
-    dat= sample_rate*bits/8*channels; // bits per sec
+
+    dat = sample_rate * bits / 8 * channels; // bits per sec
     f->write((const char  *) &dat, 4);
 
-    dat2= channels * bits/8; // align
+    dat2= channels * bits / 8; // align
     f->write((const char  *) &dat2, 2);
+
     f->write((const char  *) &bits, 2); // bits per sample
     f->write((const char  *) d, 4);
     f->write((const char  *) &size, 4);

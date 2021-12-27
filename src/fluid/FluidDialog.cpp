@@ -102,6 +102,9 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
     time_updat->setSingleShot(false);
     time_updat->start(50);
 
+    connect(fluid_output, SIGNAL(changeVolBalanceGain(int , int , int , int)), this, SLOT(changeVolBalanceGain(int , int , int , int)), Qt::QueuedConnection);
+    connect(fluid_output, SIGNAL(changeMainVolume(int)), this, SLOT(changeMainVolume(int)), Qt::QueuedConnection);
+    connect(fluid_output, SIGNAL(changeFilterValue(int , int)), this, SLOT(changeFilterValue(int , int)), Qt::QueuedConnection);
 
     QMetaObject::connectSlotsByName(FluidDialog);
 
@@ -114,6 +117,110 @@ void FluidDialog::reject() {
         fluid_output->fluid_settings->setValue("mp3_artist", MP3_lineEdit_artist->text());
     hide();
     _cur_edit = -1;
+}
+
+void FluidDialog::changeVolBalanceGain(int index, int vol, int balance, int gain) {
+    int fl = (index >> 4) & 3;
+
+    if(fl == 0 || fl == 1) {
+        emit ChanVol[index & 15]->valueChanged(vol);
+        ChanVol[index & 15]->setValue(vol);
+    }
+
+    if(fl == 0 || fl == 2) {
+        emit BalanceSlider[index & 15]->valueChanged(balance);
+        BalanceSlider[index & 15]->setValue(balance);
+    }
+
+    if(fl == 0 || fl == 3) {
+        emit chanGain[index & 15]->valueChanged(gain);
+        chanGain[index & 15]->setValue(gain);
+    }
+
+    emit spinChan->valueChanged(15);
+    emit spinChan->valueChanged(0);
+    spinChan->setValue(0);
+    update();
+}
+
+void FluidDialog::changeMainVolume(int vol) {
+
+    MainVol->setValue(vol);
+    emit spinChan->valueChanged(15);
+    emit spinChan->valueChanged(0);
+    spinChan->setValue(0);
+    update();
+}
+
+void FluidDialog::changeFilterValue(int index, int channel) {
+
+    if(index == 0) {
+
+        emit DistortionGain->valueChanged(fluid_output->get_param_filter(PROC_FILTER_DISTORTION,
+                    channel, GET_FILTER_GAIN));
+
+        emit DistortionButton->toggled(fluid_output->get_param_filter(PROC_FILTER_DISTORTION,
+                                                                      channel, GET_FILTER_ON));
+        DistortionButton->setChecked(fluid_output->get_param_filter(PROC_FILTER_DISTORTION,
+                                                                         channel, GET_FILTER_ON));
+        DistortionGain->setValue(fluid_output->get_param_filter(PROC_FILTER_DISTORTION,
+                                                                     channel, GET_FILTER_GAIN));
+
+    } else if(index == 1) {
+
+        emit LowCutGain->valueChanged(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                    channel, GET_FILTER_GAIN));
+        emit LowCutFreq->valueChanged(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                                                            channel, GET_FILTER_FREQ));
+
+        emit LowCutRes->valueChanged(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                                                            channel, GET_FILTER_RES));
+
+        emit LowCutButton->toggled(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                                                                      channel, GET_FILTER_ON));
+        LowCutButton->setChecked(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                                                                      channel, GET_FILTER_ON));
+
+        LowCutGain->setValue(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                    channel, GET_FILTER_GAIN));
+
+        LowCutFreq->setValue(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                                                            channel, GET_FILTER_FREQ));
+
+        LowCutRes->setValue(fluid_output->get_param_filter(PROC_FILTER_LOW_PASS,
+                                                            channel, GET_FILTER_RES));
+
+
+    } else if(index == 2) {
+
+        emit HighCutGain->valueChanged(
+                    fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                    channel, GET_FILTER_GAIN));
+
+        emit HighCutFreq->valueChanged(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                                                            channel, GET_FILTER_FREQ));
+
+        emit HighCutRes->valueChanged(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                                                            channel, GET_FILTER_RES));
+
+        emit HighCutButton->toggled(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                                                                      channel, GET_FILTER_ON));
+
+        HighCutButton->setChecked(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                                                                      channel, GET_FILTER_ON));
+        HighCutGain->setValue(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                    channel, GET_FILTER_GAIN));
+
+        HighCutFreq->setValue(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                                                            channel, GET_FILTER_FREQ));
+
+        HighCutRes->setValue(fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
+                                                            channel, GET_FILTER_RES));  
+    }
+
+    emit spinChan->valueChanged(channel);
+    spinChan->setValue(channel);
+    update();
 }
 
 #endif
