@@ -770,7 +770,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         connect(chanGain[n], QOverload<int>::of(&QDial::valueChanged), [=](int num)
         {
             chanGainLabel[n]->setText(QString().setNum(((float)(num / 10))/10.0, 'f', 2));
-            fluid_output->setAudioGain(n,num);
+            fluid_output->setAudioGain(n, num);
             groupE->update();
         });
 
