@@ -992,7 +992,7 @@ void VSTDialog::Delete() {
     if(!VST_preset_data[chan]->external) {
 
         setStyleSheet(QString::fromUtf8("background-color: #E5E5E5;"));
-        int r = QMessageBox::question(this, "Delete preset", "Are you sure?");
+        int r = QMessageBox::question(this, "Delete preset", "Are you sure?                         ");
 
         setStyleSheet(QString::fromUtf8("background-color: #FF000040;"));
         if(r != QMessageBox::Yes) return;
@@ -1210,7 +1210,7 @@ intptr_t AudioMaster(AEffect * effect,
                      int32_t index,
                      intptr_t value,
                      void * ptr,
-                     float opt){
+                     float/* opt*/){
     int mCurrentEffectID = 0;
 
     VST_preset_data_type * VSTpre = NULL;
@@ -1685,7 +1685,7 @@ float VST_proc::getParameter(int chan, int b) {
     if(mux)
         mux->lock();
     else
-        return NULL;
+        return 0.0f;
 
     float r = temp ? temp->getParameter(temp, b) : 0.0f;
 
@@ -3694,7 +3694,7 @@ void VST_chan::DeleteVST() {
 
     if(curVST_index!= -1) {
 
-        int r = QMessageBox::question(this, "Delete VST plugin", "Are you sure?");
+        int r = QMessageBox::question(this, "Delete VST plugin", "Are you sure?                         ");
 
         if(r!=QMessageBox::Yes) return;
 
@@ -3962,8 +3962,9 @@ QByteArray VST_proc::VST_external_load_preset(int chan, int preset) {
 
 void VST_proc::VST_external_send_message(int chan, int message, int data1, int data2) {
 
-    if(externalMux && sys_sema_in) {
-        externalMux->lock();
+    if((message == 0xAD105 || externalMux) && sys_sema_in) {
+        if(message != 0xAD105)
+            externalMux->lock();
         int * dat = ((int *) sharedVSText->data()) + 0x40;
         sharedVSText->lock();
         dat[0] = 0x35;
@@ -3971,14 +3972,20 @@ void VST_proc::VST_external_send_message(int chan, int message, int data1, int d
         dat[2] = message;
         dat[3] = data1;
         dat[4] = data2;
-        dat[8] = VST_preset_data[chan]->disabled;
-        dat[9] = VST_preset_data[chan]->needUpdate;
-        dat[10] = VST_preset_data[chan]->send_preset;
+        if(message != 0xAD105) {
+            dat[8] = VST_preset_data[chan]->disabled;
+            dat[9] = VST_preset_data[chan]->needUpdate;
+            dat[10] = VST_preset_data[chan]->send_preset;
+        }
+
         sharedVSText->unlock();
         sys_sema_in->release();
-        sys_sema_out->acquire();
 
-        externalMux->unlock();
+        if(message != 0xAD105) {
+            sys_sema_out->acquire();
+            externalMux->unlock();
+        } else
+            QThread::msleep(200);
 
     }
 
