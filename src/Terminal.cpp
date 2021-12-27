@@ -71,7 +71,8 @@ void Terminal::execute(QString startString, QString inPort, QString outPort)
             SLOT(printErrorToTerminal()));
         connect(_process, SIGNAL(started()), this, SLOT(processStarted()));
 
-        _process->start(startString);
+        QStringList args;
+        _process->start(startString, args);
     } else {
         processStarted();
     }

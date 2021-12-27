@@ -35,7 +35,7 @@
 #endif
 #include "UpdateSettingsWidget.h"
 
-SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer* server, QWidget* parent)
+SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer* /*server*/, QWidget* parent)
     : QDialog(parent)
 {
 

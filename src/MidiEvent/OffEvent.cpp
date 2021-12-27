@@ -78,7 +78,7 @@ void OffEvent::setMidiTime(int t, bool toProtocol)
 
 void OffEvent::enterOnEvent(OnEvent* event)
 {
-    onEvents->insertMulti(event->line(), event);
+    onEvents->insert(event->line(), event);
 }
 
 void OffEvent::clearOnEvents()

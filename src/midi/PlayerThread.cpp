@@ -148,7 +148,7 @@ void PlayerThread::timeout()
 {
 
     if (!time) {
-        time = new QTime();
+        time = new QElapsedTimer();
         time->start();
     }
 

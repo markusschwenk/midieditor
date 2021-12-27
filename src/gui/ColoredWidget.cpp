@@ -11,7 +11,7 @@ ColoredWidget::ColoredWidget(QColor color, QWidget* parent)
     setContentsMargins(0, 0, 0, 0);
 }
 
-void ColoredWidget::paintEvent(QPaintEvent* event)
+void ColoredWidget::paintEvent(QPaintEvent*)
 {
     QPainter p;
     int l = width() - 1;
@@ -28,6 +28,6 @@ void ColoredWidget::paintEvent(QPaintEvent* event)
     p.fillRect(0, 0, width(), height(), Qt::white);
     p.setPen(Qt::lightGray);
     p.setBrush(_color);
-    p.drawRoundRect(x, y, l, l, 30, 30);
+    p.drawRoundedRect(x, y, l, l, 30, 30, Qt::RelativeSize);
     p.end();
 }

@@ -66,7 +66,7 @@ void GraphicObject::setHeight(int h)
     _height = h;
 }
 
-void GraphicObject::draw(QPainter* p, QColor c)
+void GraphicObject::draw(QPainter*, QColor)
 {
     return;
 }
