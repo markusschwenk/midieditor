@@ -26,6 +26,7 @@
 #include <QSplitter>
 #include <QDateTime>
 #include <QSemaphore>
+#include "../tool/FingerPatternDialog.h"
 
 class MatrixWidget;
 class MidiEvent;
@@ -196,6 +197,7 @@ public slots:
     void volumeoff_effect();
     void choppy_audio_effect();
     void conv_pattern_note();
+    void finger_pattern();
 
     void setInstrumentForChannel(int i);
     void setSoundEffectForChannel(int i);
@@ -352,6 +354,8 @@ private:
 
     TweakTarget* currentTweakTarget;
     SelectionNavigator* selectionNavigator;
+
+    FingerPatternDialog *finger_main;
 };
 
 #endif

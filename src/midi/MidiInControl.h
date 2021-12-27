@@ -34,6 +34,7 @@
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QSpinBox>
+#include <QtWidgets/QDial>
 #include <QSettings>
 #include <QTimer>
 
@@ -76,10 +77,26 @@ public:
     static void set_leds(bool up, bool down);
     static int autoChordfunUp(int index, int note, int vel);
     static int autoChordfunDown(int index, int note, int vel);
+    static int GetNoteChord(int type, int index, int note);
 
     static int set_effect(std::vector<unsigned char>* message);
 
     static void send_live_events();
+
+    // finger
+    static int finger_func(std::vector<unsigned char>* message);
+
+    static int key_live;
+    static int key_flag;
+
+    static bool VelocityUP_enable;
+    static bool VelocityDOWN_enable;
+    static int VelocityUP_scale;
+    static int VelocityDOWN_scale;
+    static int VelocityUP_cut;
+    static int VelocityDOWN_cut;
+    static int expression_mode;
+    static int aftertouch_mode;
 
 public slots:
     void paintEvent(QPaintEvent *) override;
@@ -96,7 +113,7 @@ public slots:
     void set_autoChordUp(bool v);
     void set_autoChordDown(bool v);
     void set_notes_only(bool v);
-    void set_events_to_down(bool v);
+    static void set_events_to_down(bool v);
     void set_transpose_note_up(int v);
     void set_transpose_note_down(int v);
 
@@ -132,12 +149,28 @@ public slots:
     void setChordDialogUp();
     void setChordDialogDown();
 
-    void reject();
-    void accept();
-
+    void reject() override;
+    void accept() override;
 
 public:
     QDialog * MIDIin;
+
+    QGroupBox *groupBoxNote;
+    QComboBox *comboBoxExpression;
+    QComboBox *comboBoxAfterTouch;
+    QPushButton *pushButtonFinger;
+    QPushButton *pushButtonMessage;
+    QGroupBox *groupBoxVelocityUP;
+    QLabel *labelViewVelocityUP;
+    QDial *dialVelocityUP;
+    QLabel *labelViewScaleVelocityUP;
+    QDial *dialScaleVelocityUP;
+    QGroupBox *groupBoxVelocityDOWN;
+    QLabel *labelViewVelocityDOWN;
+    QDial *dialVelocityDOWN;
+    QLabel *labelViewScaleVelocityDOWN;
+    QDial *dialScaleVelocityDOWN;
+
     QComboBox *MIDI_INPUT;
     QDialogButtonBox *buttonBox;
     QGroupBox *SplitBox;
@@ -230,9 +263,10 @@ public:
 
     MidiInControl(QWidget* parent);
     ~MidiInControl();
+
     static void my_exit();
 
-    int get_key();
+    static int get_key();
 
     static int wait_record(QWidget *parent);
     static int wait_record_thread();

@@ -69,24 +69,76 @@ void MidiInput::cleanKeyMaps() {
 
 #define DELAYED_BREAK 1000
 
-void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>* message, void* /*userData*/)
+// from FingerPatternDialog
+
+extern int finger_token;
+extern bool _note_finger_disabled;
+
+void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>* message, void* userData)
 {
 
     int is_effect = 0;
     int no_record = 0;
 
+    int note_finger = -1;
+
     static int _is_recursive = 0;
+    int is_finger_token = 0;
+
+    if(((void *) &finger_token) == userData)
+        is_finger_token = 1;
 
     if (message->size() > 1) {
-        int evt = message->at(0) & 0xF0;
+
+        int evt = message->at(0);
+
+        int ch = evt & 0xF;
+
+        evt&= 0xF0;
+
+        int is_note = 0;
+
+
+        if(evt== 0x80 || evt== 0x90) {
+            is_note = 1;
+            MidiInControl::key_live = 1; // used for no sleep the computer
+           // qDebug("note 0x%x chan %i %i", evt, ch, is_finger_token);
+        }
+        /*
+        else {
+            if(evt == 0xb0) {
+                qDebug("event 0x%x ch: %i %i %i", evt, ch, message->at(1), message->at(2));
+            } else {
+                if(evt == 0xE0) {
+                    qDebug("event 0x%x ch: %i %i %i", evt, ch, message->at(1), message->at(2));
+                } else
+                qDebug("event 0x%x", evt);
+            }
+        }
+        */
 
         if(!_is_recursive) {
             if(evt == 0x90) { // read key on
                 MidiInControl::set_key((int) message->at(1));
             }
 
+            if(evt == 0xB0 && message->at(1) == 11) { // expression
+                int mode = MidiInControl::expression_mode;
+                if(mode == 0) return; // ignore
+                if(mode == 1)
+                    message->at(1) = 64; // expression pedal to sustain
+            }
 
-            if(MidiInControl::key_effect()) { // apply effect event
+            if(evt == 0xD0 || evt == 0xA0) { // aftertouch
+                int mode = MidiInControl::aftertouch_mode;
+                if(mode == 0) return; // ignore
+
+            }
+
+            // notes from 0 to 23 and 96 to 127 from DRUM channel can be used for effects
+            if((!is_note || (is_note && ch != 9) ||
+                (is_note && ch == 9 && ( message->at(1) < 24 ||  message->at(1) >= 96)))
+                    && MidiInControl::key_effect()) { // apply effect event
 
                 if((evt == 0xB0 && message->at(1) == 64)) { // test pedal
                     int chan = message->at(0) & 0xF;
@@ -96,7 +148,12 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                             return;
                 }
 
-                is_effect = MidiInControl::set_effect(message);
+                is_effect = 0;
+
+                if(!is_finger_token ||
+                        (is_finger_token && evt != 0x80 && evt != 0x90))
+                    is_effect = MidiInControl::set_effect(message);
+
                 if(is_effect) {
                     evt = message->at(0) & 0xF0;
                     if(evt == 0) return; // skip
@@ -108,6 +165,8 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                         return;
                     }
                 }
+
+
             } else if(MidiInControl::split_enable()) {
 
                 if((evt == 0xB0 && message->at(1) == 64)) { // test pedal
@@ -141,8 +200,38 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                     && message->at(1) == 0) message->at(2) = 0;
         }
 
+        // finger
 
-        if(MidiInControl::split_enable()) {
+        if(!_note_finger_disabled) {
+
+            if(!is_finger_token) {
+
+                if(evt == 0x80 || evt == 0x90) {
+
+                    if(MidiInControl::finger_func(message))
+                        return;
+
+                    is_finger_token = 2;
+
+                    evt = message->at(0);
+
+                    ch = evt & 0xF;
+
+                    evt&= 0xF0;
+
+                }
+
+            }
+
+            if(is_finger_token) {
+
+                 note_finger = finger_token;
+            }
+        }
+
+        // ignore DRUM channel...
+
+        if((!is_note ||  (is_note && ch != 9)) && MidiInControl::split_enable()) {
 
             if(evt == 0x80 || evt == 0x90) {
 
@@ -153,6 +242,7 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                 int note_master = note;
 
                 int note_up = -1;
+
                 int ch_up = ((MidiInControl::channelUp() < 0)
                              ? MidiOutput::standardChannel()
                              : MidiInControl::channelUp()) & 15;
@@ -167,11 +257,44 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
 
                 /********** down (sub keyboard) **********/
 
+                int play_down = 0;
+                int play_up = 0;
+
+                if(note_finger < 0)
+                    note_finger = note;
+
+                if(is_finger_token && input_chan == ch_down) {
+
+                    play_down = 1;
+
+                }
+
+                if(is_finger_token && input_chan == ch_up ) {
+
+                    play_up = 1;
+
+                }
+
+                if(MidiInControl::note_duo())
+                    play_down = 1;
+                else if(input_chan == ch_down && ch_up == ch_down)
+                    play_down = 0;
+
+
                 int finput = ((input_chan == MidiInControl::inchannelDown()) || MidiInControl::inchannelDown() == -1);
-                if(finput && ((ch_up != ch_down) && (MidiInControl::note_duo() || note < MidiInControl::note_cut()))) {
+
+                if(!_note_finger_disabled && is_finger_token) finput = 0;
+
+                if(evt == 0x90)
+                    MidiInControl::key_flag = 0;
+
+                if(play_down || (finput && ((ch_up != ch_down) && (MidiInControl::note_duo() || note < MidiInControl::note_cut())))) {
 
                     note_down =  note // transpose
                             + MidiInControl::transpose_note_down();
+
+                    if(evt == 0x90)
+                        MidiInControl::key_flag = 1;
 
                     if(note_down < 0) note_down = 0;
                     if(note_down > 127) note_down = 127;
@@ -183,12 +306,24 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
 
                     if(MidiInControl::fixVelDown()) { // fix velocity
                         if(evt == 0x90 && velocity != 0)
-                            vel_send = 100;
+                            vel_send = (MidiInControl::VelocityDOWN_enable) ? MidiInControl::VelocityDOWN_cut : 100;
                         else
                             vel_send = 0;
-                    } else  vel_send = velocity;
 
+                    } else  {
 
+                        vel_send = velocity;
+
+                        if(MidiInControl::VelocityDOWN_enable && velocity != 0) {
+                            vel_send += (vel_send * (MidiInControl::VelocityDOWN_scale % 10)/10);
+                            if(vel_send < (127 * MidiInControl::VelocityDOWN_scale/100))
+                                vel_send = (127 * MidiInControl::VelocityDOWN_scale/100);
+                            if(vel_send > MidiInControl::VelocityDOWN_cut)
+                                vel_send =  MidiInControl::VelocityDOWN_cut;
+                        }
+                    }
+
+                    int vel_send2 = vel_send;
 
                     for(int n = 0; n < MidiInControl::autoChordfunDown(AUTOCHORD_MAX, -1, -1); n++) { // auto chord
                     //U
@@ -200,7 +335,7 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                         message->at(1) = note_send;
 
                         if(evt == 0x90) {
-                            vel_send  = MidiInControl::autoChordfunDown(n, -1, vel_send);
+                            vel_send  = MidiInControl::autoChordfunDown(n, -1, vel_send2);
                             message->at(2) = vel_send;
                         }
 
@@ -208,6 +343,7 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                         no_record = 0;
 
                         if(evt == 0x80) {
+
                             int ch = ch_down;
                             int note = note_send;
 
@@ -275,12 +411,18 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                 /********** up (sub keyboard) **********/
 
                 finput = ((input_chan == MidiInControl::inchannelUp()) || MidiInControl::inchannelUp() == -1);
-                if(finput && (MidiInControl::note_duo() ||
+
+                if(!_note_finger_disabled && is_finger_token) finput = 0;
+
+                if(play_up || (finput && (MidiInControl::note_duo() ||
                         ((ch_up == ch_down) && !MidiInControl::note_duo())
-                        || note >= MidiInControl::note_cut())) {// up
+                        || note >= MidiInControl::note_cut()))) {// up
 
                     note_up = (int) (note) // transpose
                             + MidiInControl::transpose_note_up();
+
+                    if(evt == 0x90)
+                        MidiInControl::key_flag = 2;
 
                     if(note_up < 0) note_up = 0;
                     if(note_up > 127) note_up = 127;
@@ -292,10 +434,23 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
 
                     if(MidiInControl::fixVelUp()) { // fix velocity
                         if(evt == 0x90 && velocity != 0)
-                            vel_send = 100;
+                            vel_send = (MidiInControl::VelocityUP_enable) ? MidiInControl::VelocityUP_cut : 100;
                         else
                             vel_send = 0;
-                    } else  vel_send = velocity;
+
+                    } else   {
+                        vel_send = velocity;
+
+                        if(MidiInControl::VelocityUP_enable && velocity != 0) {
+                            vel_send += (vel_send * (MidiInControl::VelocityUP_scale % 10)/10);
+                            if(vel_send < (127 * MidiInControl::VelocityUP_scale/100))
+                                vel_send = (127 * MidiInControl::VelocityUP_scale/100);
+                            if(vel_send > MidiInControl::VelocityUP_cut)
+                                vel_send =  MidiInControl::VelocityUP_cut;
+                        }
+                    }
+
+                    int vel_send2 = vel_send;
 
                     for(int n = 0; n < MidiInControl::autoChordfunUp(AUTOCHORD_MAX, -1, -1); n++) { // auto chord
                     //U
@@ -307,7 +462,7 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
                         message->at(1) = note_send;
 
                         if(evt == 0x90) {
-                            vel_send  = MidiInControl::autoChordfunUp(n, -1, vel_send);
+                            vel_send  = MidiInControl::autoChordfunUp(n, -1, vel_send2);
                             message->at(2) = vel_send;
                         }
 
@@ -441,6 +596,49 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
             }
         } else { // no split (direct)
 
+
+            int note = message->at(0);
+            int chan = note & 15;
+            note&= 0xf0;
+
+            if(note == 0x90) {
+                int ch_up = ((MidiInControl::channelUp() < 0)
+                             ? MidiOutput::standardChannel()
+                             : MidiInControl::channelUp()) & 15;
+                int ch_down = ((MidiInControl::channelDown() < 0)
+                               ? ((MidiInControl::channelUp() < 0)
+                                  ? MidiOutput::standardChannel()
+                                  : MidiInControl::channelUp())
+                               : MidiInControl::channelDown()) & 0xF;
+                int velocity = message->at(2);
+
+                if(chan == ch_up) {
+
+                    if(MidiInControl::VelocityUP_enable && velocity != 0) {
+                        velocity+= (velocity * (MidiInControl::VelocityUP_scale % 10)/10);
+                        if(velocity < (127 * MidiInControl::VelocityUP_scale/100))
+                            velocity = (127 * MidiInControl::VelocityUP_scale/100);
+                    }
+
+                    if(MidiInControl::VelocityUP_enable && velocity > MidiInControl::VelocityUP_cut)
+                       velocity =  MidiInControl::VelocityUP_cut;
+                    message->at(2) = velocity;
+
+
+                } else if(chan == ch_down) {
+
+                    if(MidiInControl::VelocityDOWN_enable && velocity != 0) {
+                        velocity+= (velocity * (MidiInControl::VelocityDOWN_scale % 10)/10);
+                        if(velocity < (127 * MidiInControl::VelocityDOWN_scale/100))
+                            velocity = (127 * MidiInControl::VelocityDOWN_scale/100);
+                    }
+
+                    if(MidiInControl::VelocityDOWN_enable && velocity > MidiInControl::VelocityDOWN_cut)
+                       velocity =  MidiInControl::VelocityDOWN_cut;
+                    message->at(2) = velocity;
+
+                }
+            }
             _messages->insert(_currentTime, *message);
             if(_thru)
                 send_thru(is_effect,  message);
@@ -452,7 +650,6 @@ void MidiInput::receiveMessage(double /*deltatime*/, std::vector<unsigned char>*
     if(_thru)
         send_thru(is_effect,  message);
 }
-
 
 void MidiInput::send_thru(int is_effect, std::vector<unsigned char>* message)
 {

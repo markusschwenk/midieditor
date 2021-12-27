@@ -38,6 +38,7 @@
 
 #include "../tool/EventTool.h"
 #include "../tool/Selection.h"
+#include "../tool/FingerPatternDialog.h"
 
 #include "../protocol/Protocol.h"
 
@@ -1593,6 +1594,14 @@ void MainWindow::midi_marker_edit() {
     delete d;
 }
 
+void MainWindow::finger_pattern() {
+
+    FingerPatternDialog* d = new FingerPatternDialog(this, _settings);
+
+    d->exec();
+    delete d;
+}
+
 #ifdef USE_FLUIDSYNTH
 
 QProcess *VSTprocess = NULL;
@@ -1612,6 +1621,8 @@ VST_EXT *vst_ext = NULL;
 
 void MainWindow::remote_VST_exit() {
 
+    int ret = 0;
+
     if(vst_ext) {
         vst_ext->terminate();
         vst_ext->wait(1000);
@@ -1625,7 +1636,8 @@ void MainWindow::remote_VST_exit() {
     }
 
     DELETE(externalMux) // first this (disable fluidsynth VST_proc::VST_external_mix ())
-    DELETE(sys_sema_in) // and now this
+    VST_proc::VST_external_send_message(0, 0xAD105, 0, 0); // send 'ADIOS'
+    DELETE(sys_sema_in) // and now delete this
     DELETE(sys_sema_out)
 
     DELETE(sys_sema_inW)
@@ -1641,10 +1653,12 @@ void MainWindow::remote_VST_exit() {
 
     if(VSTprocess) {
         VSTprocess->terminate();
-        VSTprocess->waitForFinished(1000);
+        if(VSTprocess->waitForFinished(2000)) ret = 1;
     }
 
     DELETE(VSTprocess)
+
+    qDebug("remote_VST_exit() %i", ret);
 
 }
 

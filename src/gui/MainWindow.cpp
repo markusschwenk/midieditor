@@ -22,7 +22,6 @@
 #include "../fluid/fluidsynth_proc.h"
 #include "../fluid/FluidDialog.h"
 #include "../VST/VST.h"
-
 #endif
 
 #include <QAction>
@@ -195,6 +194,11 @@ MainWindow::~MainWindow() {
         stop();
     }
 
+    if(finger_main) {
+        delete finger_main;
+        finger_main = NULL;
+    }
+
     MidiInControl::my_exit();
     MyInstrument::exit_and_clean_MyInstrument();
 
@@ -229,6 +233,8 @@ MainWindow::MainWindow(QString initFile)
 
     Notes_util(this);
     MidiInControl::init_MidiInControl(_settings);
+
+    finger_main = new FingerPatternDialog(NULL, _settings); // create timer loop
 
     rightSplitterMode = _settings->value("rightSplitterMode", true).toBool();
     if(rightSplitterMode) EventSplitterTabPos = 2; else EventSplitterTabPos = 1;
@@ -687,8 +693,9 @@ MainWindow::MainWindow(QString initFile)
         QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
 
+#ifdef USE_FLUIDSYNTH
     connect(this, SIGNAL(signal_remote_VST()), this, SLOT(remote_VST()), Qt::BlockingQueuedConnection);
-
+#endif
 }
 
 void MainWindow::loadInitFile()
@@ -1378,8 +1385,6 @@ void MainWindow::openFile(QString filePath)
 
 #ifdef USE_FLUIDSYNTH
 
-        bool fl = false;
-
         if(fluid_control) { // anti-crash!
             fluid_control->disable_mainmenu = true;
             fluid_control->deleteLater();
@@ -1399,7 +1404,7 @@ void MainWindow::openFile(QString filePath)
         if(!s.isEmpty()) {
             s = s.mid(7);
             s = s.left(s.indexOf("\n"));
-            fl = true;
+
             fluid_output->fluid_settings->setValue("mp3_title", s);
         } else {
             QString name;
@@ -1420,7 +1425,7 @@ void MainWindow::openFile(QString filePath)
         if(!s.isEmpty()) {
             s = s.mid(8);
             s = s.left(s.indexOf("\n"));
-            fl = true;
+
             fluid_output->fluid_settings->setValue("mp3_artist", s);
         } /* else
             fluid_output->fluid_settings->setValue("mp3_artist", "");*/
@@ -1429,7 +1434,7 @@ void MainWindow::openFile(QString filePath)
         if(!s.isEmpty()) {
             s = s.mid(7);
             s = s.left(s.indexOf("\n"));
-            //fl = true;
+
             fluid_output->fluid_settings->setValue("mp3_album", s);
         } else
             fluid_output->fluid_settings->setValue("mp3_album", "");
@@ -1438,7 +1443,7 @@ void MainWindow::openFile(QString filePath)
         if(!s.isEmpty()) {
             s = s.mid(7);
             s = s.left(s.indexOf("\n"));
-            //fl = true;
+
             fluid_output->fluid_settings->setValue("mp3_genre", s);
         } else
             fluid_output->fluid_settings->setValue("mp3_genre", "");
@@ -1447,7 +1452,7 @@ void MainWindow::openFile(QString filePath)
         if(!s.isEmpty()) {
             s = s.mid(10);
             s = s.left(s.indexOf("\n"));
-            //fl = true;
+
             fluid_output->fluid_settings->setValue("mp3_year", s.toInt());
         } else
             fluid_output->fluid_settings->setValue("mp3_year", QDate::currentDate().year());
@@ -1456,7 +1461,7 @@ void MainWindow::openFile(QString filePath)
         if(!s.isEmpty()) {
             s = s.mid(11);
             s = s.left(s.indexOf("\n"));
-            //fl = true;
+
             fluid_output->fluid_settings->setValue("mp3_track", s.toInt());
         } else
             fluid_output->fluid_settings->setValue("mp3_track", 1);
@@ -3564,6 +3569,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     connect(pattern_note, SIGNAL(triggered()), this, SLOT(conv_pattern_note()));
     notesMB->addAction(pattern_note);
 
+    QAction* finger_pattern = new QAction("Finger Pattern Utility", this);
+    //_activateWithSelections.append(finger_pattern);
+    connect(finger_pattern, SIGNAL(triggered()), this, SLOT(finger_pattern()));
+    notesMB->addAction(finger_pattern);
+
     // View
     QMenu* zoomMenu = new QMenu("Zoom...", viewMB);
     QAction* zoomHorOutAction = new QAction("Horizontal out", this);
@@ -4468,11 +4478,17 @@ void MainWindow::DMidiInControl() {
 
     if(!MidiIn_control) return;
 
+    int x = (this->width() - MidiIn_control->width())/2;
+    if(x < 0) x = 0;
+
+    MidiIn_control->move(x, 0);
+
     MidiIn_control->MIDI_INPUT->clear();
 
     foreach (QString name, MidiInput::inputPorts()) {
-
+        if(name != MidiInput::inputPort()) continue;
         MidiIn_control->MIDI_INPUT->addItem(name);
+        break;
     }
 
     if(fl)

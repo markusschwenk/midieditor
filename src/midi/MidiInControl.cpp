@@ -31,6 +31,7 @@
 #include "../MidiEvent/ControlChangeEvent.h"
 #include "../gui/InstrumentChooser.h"
 #include "../gui/SoundEffectChooser.h"
+#include "../tool/FingerPatternDialog.h"
 
 #ifdef USE_FLUIDSYNTH
 #include "../VST/VST.h"
@@ -105,7 +106,6 @@ static int _note_VST4_plugin1_on;
 static int _note_VST4_plugin2_off;
 static int _note_VST4_plugin2_on;
 
-
 static bool _skip_prgbanks;
 static bool _skip_bankonly;
 static bool _record_waits;
@@ -120,6 +120,19 @@ static int chordScaleVelocity7Up = 16;
 static int chordScaleVelocity3Down = 14;
 static int chordScaleVelocity5Down = 15;
 static int chordScaleVelocity7Down = 16;
+
+int MidiInControl::key_live = 0;
+int MidiInControl::key_flag = 0;
+
+bool MidiInControl::VelocityUP_enable = true;
+bool MidiInControl::VelocityDOWN_enable = true;
+int MidiInControl::VelocityUP_scale = 0;
+int MidiInControl::VelocityDOWN_scale = 0;
+int MidiInControl::VelocityUP_cut = 100;
+int MidiInControl::VelocityDOWN_cut = 100;
+
+int MidiInControl::expression_mode = 4;
+int MidiInControl::aftertouch_mode = 1;
 
 static MidiFile *file_live = NULL;
 
@@ -203,6 +216,16 @@ void MidiInControl::init_MidiInControl(QSettings *settings) {
     chordScaleVelocity3Down = _settings->value("chordScaleVelocity3Down", 14).toInt();
     chordScaleVelocity5Down = _settings->value("chordScaleVelocity5Down", 15).toInt();
     chordScaleVelocity7Down = _settings->value("chordScaleVelocity7Down", 16).toInt();
+
+    MidiInControl::VelocityUP_enable = _settings->value("MIDIin_VelocityUP_enable", true).toBool();
+    MidiInControl::VelocityUP_scale = _settings->value("MIDIin_VelocityUP_scale", 0).toInt();
+    MidiInControl::VelocityUP_cut = _settings->value("MIDIin_VelocityUP_cut", 100).toInt();
+    MidiInControl::VelocityDOWN_enable = _settings->value("MIDIin_VelocityDOWN_enable", true).toBool();
+    MidiInControl::VelocityDOWN_scale = _settings->value("MIDIin_VelocityDOWN_scale", 0).toInt();
+    MidiInControl::VelocityDOWN_cut = _settings->value("MIDIin_VelocityDOWN_cut", 100).toInt();
+
+    MidiInControl::expression_mode = _settings->value("MIDIin_expression_mode", 4).toInt();
+    MidiInControl::aftertouch_mode = _settings->value("MIDIin_aftertouch_mode", 1).toInt();
 
     if(_note_duo) _note_zero = false;
 
@@ -440,9 +463,12 @@ void MidiInControl::VST_reset() {
     #endif
 }
 
+static QWidget* _parent = NULL;
+
 MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemMenuHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint) {
 
     MIDIin = this;
+    _parent = parent;
 
     effect1_on = 0;
     effect2_on = 0;
@@ -472,7 +498,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     if (MIDIin->objectName().isEmpty())
         MIDIin->setObjectName(QString::fromUtf8("MIDIin"));
 
-    MIDIin->setFixedSize(592, 540 + 40);
+    MIDIin->setFixedSize(592, 540 + 40 + 106);
     MIDIin->setWindowTitle("MIDI In Control");
 
     QFont font;
@@ -504,12 +530,259 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     QFrame *MIDIin2 = new QFrame(MIDIin); // for heritage style sheet
     MIDIin2->setGeometry(QRect(0, 40, width(), height()));
     MIDIin2->setObjectName(QString::fromUtf8("MIDIin2"));
-    MIDIin2->setStyleSheet(QString::fromUtf8("color: white;")); // background-color: #607080;\n"));
+    MIDIin2->setStyleSheet(QString::fromUtf8("color: white;"));
+
+    groupBoxNote = new QGroupBox(MIDIin2);
+    groupBoxNote->setObjectName(QString::fromUtf8("groupBoxNote"));
+    groupBoxNote->setGeometry(QRect(30, 16, 531, 111));
+    groupBoxNote->setTitle("Key/Note Event");
+    groupBoxNote->setStyleSheet(QString::fromUtf8(
+    "QGroupBox QComboBox {color: white; background-color: #9090b3;} \n"
+    "QGroupBox QComboBox:disabled {color: darkGray; background-color: #8080a3;} \n"
+    "QGroupBox QComboBox QAbstractItemView {color: white; background-color: #9090b3; selection-background-color: #24c2c3;} \n"
+    "QGroupBox QSpinBox {color: white; background-color: #9090b3;} \n"
+    "QGroupBox QSpinBox:disabled {color: darkGray; background-color: #9090b3;} \n"
+    "QGroupBox QPushButton {color: black; background-color: #c7c9df;} \n"
+    "QGroupBox QToolTip {color: black;} \n"
+    ));
+
+    groupBoxNote->setToolTip("Expression pedal mode,\n"
+                "aftertouch key & channel pressure mode,\n"
+                "and Velocity cut/scale for channels UP/DOWN");
+
+
+    comboBoxExpression = new QComboBox(groupBoxNote);
+    comboBoxExpression->setObjectName(QString::fromUtf8("comboBoxExpression"));
+    comboBoxExpression->setGeometry(QRect(10, 20, 171, 22));
+    comboBoxExpression->addItem("Disable Expression Pedal");
+    comboBoxExpression->addItem("Expression Pedal as Sustain");
+    comboBoxExpression->addItem("Expression Pedal over Ch. Volume");
+    comboBoxExpression->addItem("Expression Pedal over Gain Volume");
+    comboBoxExpression->addItem("Expression Pedal over Modulation");
+    comboBoxExpression->addItem("Expression Pedal over Pitch Bend");
+    comboBoxExpression->addItem("Expression Pedal over N.Effect 1");
+    comboBoxExpression->addItem("Expression Pedal over N.Effect 2");
+    comboBoxExpression->addItem("Expression Pedal over N.Effect 3");
+    comboBoxExpression->addItem("Expression Pedal over N.Effect 4");
+    comboBoxExpression->setToolTip("Expression pedal mode of working");
+
+    comboBoxExpression->setCurrentIndex(MidiInControl::expression_mode);
+
+    comboBoxAfterTouch = new QComboBox(groupBoxNote);
+    comboBoxAfterTouch->setObjectName(QString::fromUtf8("comboBoxAfterTouch"));
+    comboBoxAfterTouch->setGeometry(QRect(10, 50, 171, 22));
+    comboBoxAfterTouch->addItem("Disable AfterTouch messages");
+    comboBoxAfterTouch->addItem("AfterTouch over Modulation");
+    comboBoxAfterTouch->addItem("AfterTouch over Pitch Bend");
+    comboBoxAfterTouch->setToolTip("AfterTouch mode of working");
+
+    comboBoxAfterTouch->setCurrentIndex(MidiInControl::aftertouch_mode);
+
+    connect(comboBoxExpression, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int num)
+    {
+        MidiInControl::expression_mode = num;
+        _settings->setValue("MIDIin_expression_mode", num);
+    });
+
+    connect(comboBoxAfterTouch, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int num)
+    {
+        MidiInControl::aftertouch_mode = num;
+        _settings->setValue("MIDIin_aftertouch_mode", num);
+    });
+
+
+    pushButtonFinger = new QPushButton(groupBoxNote);
+    pushButtonFinger->setObjectName(QString::fromUtf8("pushButtonFinger"));
+    pushButtonFinger->setGeometry(QRect(10, 80, 81, 23));
+    pushButtonFinger->setText("FINGER");
+    pushButtonFinger->setToolTip("To Finger Pattern Utility Tool");
+
+    connect( pushButtonFinger, QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+    {
+        FingerPatternDialog* d = new FingerPatternDialog(this, _settings);
+
+        d->exec();
+        delete d;
+
+    });
+
+
+    pushButtonMessage = new QPushButton(groupBoxNote);
+    pushButtonMessage->setObjectName(QString::fromUtf8("pushButtonMessage"));
+    pushButtonMessage->setGeometry(QRect(100, 80, 81, 23));
+    pushButtonMessage->setText("DON'T TOUCH");
+    pushButtonMessage->setToolTip("DON'T TOUCH OR DIE!");
+
+    connect(pushButtonMessage, QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+    {
+#ifdef USE_FLUIDSYNTH
+        extern int strange;
+        strange ^= 1;
+#endif
+        QMessageBox::information(this, "ooh no!", "ok, you wanted it ... :p");
+    });
+
+    groupBoxVelocityUP = new QGroupBox(groupBoxNote);
+    groupBoxVelocityUP->setObjectName(QString::fromUtf8("groupBoxVelocityUP"));
+    groupBoxVelocityUP->setGeometry(QRect(190, 12, 161, 91));
+    groupBoxVelocityUP->setAlignment(Qt::AlignCenter);
+    groupBoxVelocityUP->setCheckable(true);
+    groupBoxVelocityUP->setChecked(VelocityUP_enable);
+    groupBoxVelocityUP->setTitle("Velocity UP Scale/Cut");
+    groupBoxVelocityUP->setStyleSheet("margin-top: 0px; background-color:  #60b386;\n");
+    groupBoxVelocityUP->setToolTip("Velocity cut/scale for channels UP");
+
+
+    dialScaleVelocityUP = new QDial(groupBoxVelocityUP);
+    dialScaleVelocityUP->setObjectName(QString::fromUtf8("dialScaleVelocityUP"));
+    dialScaleVelocityUP->setGeometry(QRect(10, 13, 61, 61));
+    dialScaleVelocityUP->setMinimum(0);
+    dialScaleVelocityUP->setMaximum(100);
+    dialScaleVelocityUP->setNotchTarget(10.000000000000000);
+    dialScaleVelocityUP->setNotchesVisible(true);
+    dialScaleVelocityUP->setValue(VelocityUP_scale);
+    dialScaleVelocityUP->setToolTip("Scale Notes UP. Composite number works like this:\n"
+                                    "x.0 to x.9 : increase Velocity from 100% to 190%\n"
+                                    "1.x to 10.x: Multiply 127/10 using this factor and fix it\n"
+                                    "as the minimun Velocity\n\n"
+                                    "Examples (for input velocity 40):\n"
+                                    "    0.0 ->  +0%,   0 as minimun = 40\n"
+                                    "    0.5 -> +50%,   0 as minimun = 60\n"
+                                    "    3.4 -> +40%,  43 as minimun = 56\n"
+                                    "    9.1 -> +10%, 115 as minimun = 115\n");
+
+
+    labelViewScaleVelocityUP = new QLabel(groupBoxVelocityUP);
+    labelViewScaleVelocityUP->setObjectName(QString::fromUtf8("labelViewScaleVelocityUP"));
+    labelViewScaleVelocityUP->setGeometry(QRect(25, 70, 31, 16));
+    labelViewScaleVelocityUP->setFont(font1);
+    labelViewScaleVelocityUP->setAlignment(Qt::AlignCenter);
+    labelViewScaleVelocityUP->setNum(((double) VelocityUP_scale)/10.0f);
+    labelViewScaleVelocityUP->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
+
+    dialVelocityUP = new QDial(groupBoxVelocityUP);
+    dialVelocityUP->setObjectName(QString::fromUtf8("dialVelocityUP"));
+    dialVelocityUP->setGeometry(QRect(90, 13, 61, 61));
+    dialVelocityUP->setMinimum(10);
+    dialVelocityUP->setMaximum(127);
+    dialVelocityUP->setValue(VelocityUP_cut);
+    dialVelocityUP->setNotchTarget(8.000000000000000);
+    dialVelocityUP->setNotchesVisible(true);
+    dialVelocityUP->setToolTip("Velocity Cut for UP\n"
+                               "(maximun velocity for the notes)");
+
+    labelViewVelocityUP = new QLabel(groupBoxVelocityUP);
+    labelViewVelocityUP->setObjectName(QString::fromUtf8("labelViewVelocityUP"));
+    labelViewVelocityUP->setGeometry(QRect(105, 70, 31, 16));
+    QFont font3;
+    font3.setPointSize(10);
+    labelViewVelocityUP->setFont(font3);
+    labelViewVelocityUP->setAlignment(Qt::AlignCenter);
+    labelViewVelocityUP->setNum(VelocityUP_cut);
+    labelViewVelocityUP->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
+
+    groupBoxVelocityDOWN = new QGroupBox(groupBoxNote);
+    groupBoxVelocityDOWN->setObjectName(QString::fromUtf8("groupBoxVelocityDOWN"));
+    groupBoxVelocityDOWN->setGeometry(QRect(360, 13, 161, 91));
+    groupBoxVelocityDOWN->setAlignment(Qt::AlignCenter);
+    groupBoxVelocityDOWN->setCheckable(true);
+    groupBoxVelocityDOWN->setChecked(VelocityDOWN_enable);
+    groupBoxVelocityDOWN->setTitle("Velocity DOWN Scale/Cut");
+    groupBoxVelocityDOWN->setStyleSheet("margin-top: 0px; background-color:  #60b386;");
+    groupBoxVelocityDOWN->setToolTip("Velocity cut/scale for channels DOWN");
+
+    dialScaleVelocityDOWN = new QDial(groupBoxVelocityDOWN);
+    dialScaleVelocityDOWN->setObjectName(QString::fromUtf8("dialScaleVelocityDOWN"));
+    dialScaleVelocityDOWN->setGeometry(QRect(10, 13, 61, 61));
+    dialScaleVelocityDOWN->setMinimum(0);
+    dialScaleVelocityDOWN->setMaximum(100);
+    dialScaleVelocityDOWN->setNotchTarget(10.000000000000000);
+    dialScaleVelocityDOWN->setNotchesVisible(true);
+    dialScaleVelocityDOWN->setValue(VelocityDOWN_scale);
+    dialScaleVelocityDOWN->setToolTip("Scale Notes DOWN. Composite number works like this:\n"
+                                    "x.0 to x.9 : increase Velocity from 100% to 190%\n"
+                                    "1.x to 10.x: Multiply 127/10 using this factor and fix it\n"
+                                    "as the minimun Velocity\n\n"
+                                    "Examples (for input velocity 40):\n"
+                                    "    0.0 ->  +0%,   0 as minimun = 40\n"
+                                    "    0.5 -> +50%,   0 as minimun = 60\n"
+                                    "    3.4 -> +40%,  43 as minimun = 56\n"
+                                    "    9.1 -> +10%, 115 as minimun = 115\n");
+
+    labelViewScaleVelocityDOWN = new QLabel(groupBoxVelocityDOWN);
+    labelViewScaleVelocityDOWN->setObjectName(QString::fromUtf8("labelViewScaleVelocityDOWN"));
+    labelViewScaleVelocityDOWN->setGeometry(QRect(25, 70, 31, 16));
+    labelViewScaleVelocityDOWN->setFont(font1);
+    labelViewScaleVelocityDOWN->setAlignment(Qt::AlignCenter);
+    labelViewScaleVelocityDOWN->setNum(((double) VelocityDOWN_scale)/10.0f);
+    labelViewScaleVelocityDOWN->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
+
+    dialVelocityDOWN = new QDial(groupBoxVelocityDOWN);
+    dialVelocityDOWN->setObjectName(QString::fromUtf8("dialVelocityDOWN"));
+    dialVelocityDOWN->setGeometry(QRect(90, 13, 61, 61));
+    dialVelocityDOWN->setMinimum(10);
+    dialVelocityDOWN->setMaximum(127);
+    dialVelocityDOWN->setValue(VelocityDOWN_cut);
+    dialVelocityDOWN->setNotchTarget(8.000000000000000);
+    dialVelocityDOWN->setNotchesVisible(true);
+    dialVelocityDOWN->setToolTip("Velocity Cut for DOWN\n"
+                               "(maximun velocity for the notes)");
+
+    labelViewVelocityDOWN = new QLabel(groupBoxVelocityDOWN);
+    labelViewVelocityDOWN->setObjectName(QString::fromUtf8("labelViewVelocityDOWN"));
+    labelViewVelocityDOWN->setGeometry(QRect(105, 70, 31, 16));
+    labelViewVelocityDOWN->setFont(font3);
+    labelViewVelocityDOWN->setAlignment(Qt::AlignCenter);
+    labelViewVelocityDOWN->setNum(VelocityDOWN_cut);
+    labelViewVelocityDOWN->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
+
+
+    connect(groupBoxVelocityUP, QOverload<bool>::of(&QGroupBox::toggled), [=](bool f)
+    {
+        MidiInControl::VelocityUP_enable =  f;
+        _settings->setValue("MIDIin_VelocityUP_enable", f);
+    });
+
+    connect(groupBoxVelocityDOWN, QOverload<bool>::of(&QGroupBox::toggled), [=](bool f)
+    {
+        MidiInControl::VelocityDOWN_enable =  f;
+        _settings->setValue("MIDIin_VelocityDOWN_enable", f);
+    });
+
+    connect(dialScaleVelocityUP, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    {
+        MidiInControl::VelocityUP_scale =  v;
+        _settings->setValue("MIDIin_VelocityUP_scale", v);
+        labelViewScaleVelocityUP->setNum(((double) MidiInControl::VelocityUP_scale)/10.0f);
+    });
+
+    connect(dialScaleVelocityDOWN, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    {
+        MidiInControl::VelocityDOWN_scale =  v;
+        _settings->setValue("MIDIin_VelocityDOWN_scale", v);
+        labelViewScaleVelocityDOWN->setNum(((double) MidiInControl::VelocityDOWN_scale)/10.0f);
+    });
+
+    connect(dialVelocityUP, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    {
+        MidiInControl::VelocityUP_cut =  v;
+        _settings->setValue("MIDIin_VelocityUP_cut", v);
+        labelViewVelocityUP->setNum(VelocityUP_cut);
+    });
+
+    connect(dialVelocityDOWN, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    {
+        MidiInControl::VelocityDOWN_cut =  v;
+        _settings->setValue("MIDIin_VelocityDOWN_cut", v);
+        labelViewVelocityDOWN->setNum(MidiInControl::VelocityDOWN_cut);
+    });
+
+    int yyy = 114;
 
     buttonBox = new QDialogButtonBox(MIDIin2);
     buttonBox->setObjectName(QString::fromUtf8("buttonBox"));
     buttonBox->setStyleSheet(QString::fromUtf8("color: white; background: #8695a3; \n"));
-    buttonBox->setGeometry(QRect(340, 500, 221, 32));
+    buttonBox->setGeometry(QRect(340, 500 + yyy, 221, 32));
     buttonBox->setOrientation(Qt::Horizontal);
     buttonBox->setStandardButtons(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);
 
@@ -519,14 +792,15 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     SplitBox->setStyleSheet(QString::fromUtf8(
 "QGroupBox QComboBox {color: white; background-color: #9090b3;} \n"
 "QGroupBox QComboBox:disabled {color: darkGray; background-color: #8080a3;} \n"
-"QGroupBox QComboBox QAbstractItemView {color: white; background-color: #9090b3; selection-background-color: #24c2c3;}"
+"QGroupBox QComboBox QAbstractItemView {color: white; background-color: #9090b3; selection-background-color: #24c2c3;} \n"
 "QGroupBox QSpinBox {color: white; background-color: #9090b3;} \n"
 "QGroupBox QSpinBox:disabled {color: darkGray; background-color: #9090b3;} \n"
 "QGroupBox QPushButton {color: white; background-color: #c7c9df;} \n"
 "QGroupBox QToolTip {color: black;} \n"
 ));
 
-    SplitBox->setGeometry(QRect(30, 20, 531, 151));
+
+    SplitBox->setGeometry(QRect(30, 20 + yyy, 531, 151));
     SplitBox->setCheckable(true);
     SplitBox->setChecked(_split_enable);
     SplitBox->setTitle("Split Keyboard");
@@ -737,7 +1011,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     chordButtonUp->setIconSize(QSize(24, 24));
     chordButtonUp->setText(QString());
     chordButtonUp->setToolTip("Select the chord for auto chord mode"); 
-    QObject::connect(chordButtonUp, SIGNAL(clicked()), this, SLOT(setChordDialogUp()));
+    connect(chordButtonUp, SIGNAL(clicked()), this, SLOT(setChordDialogUp()));
 
     chordButtonDown = new QPushButton(SplitBox);
     chordButtonDown->setObjectName(QString::fromUtf8("chordButtonDown"));
@@ -746,16 +1020,16 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     chordButtonDown->setIconSize(QSize(24, 24));
     chordButtonDown->setText(QString());
     chordButtonDown->setToolTip("Select the chord for auto chord mode");
-    QObject::connect(chordButtonDown, SIGNAL(clicked()), this, SLOT(setChordDialogDown()));
+    connect(chordButtonDown, SIGNAL(clicked()), this, SLOT(setChordDialogDown()));
 
     inlabelUp = new QLabel(MIDIin2);
     inlabelUp->setObjectName(QString::fromUtf8("inlabelUp"));
-    inlabelUp->setGeometry(QRect(170, 170, 81, 20));
+    inlabelUp->setGeometry(QRect(170, 170 + yyy, 81, 20));
     inlabelUp->setAlignment(Qt::AlignCenter);
     inlabelUp->setText("Channel Up IN");
     inlabelDown = new QLabel(MIDIin2);
     inlabelDown->setObjectName(QString::fromUtf8("inlabelDown"));
-    inlabelDown->setGeometry(QRect(280, 170, 91, 20));
+    inlabelDown->setGeometry(QRect(280, 170 + yyy, 91, 20));
     inlabelDown->setAlignment(Qt::AlignCenter);
     inlabelDown->setText("Channel Down IN");
 
@@ -763,11 +1037,11 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     inchannelBoxUp->setObjectName(QString::fromUtf8("inchannelBoxUp"));
     inchannelBoxUp->setStyleSheet(QString::fromUtf8(
             "QComboBox {color: white; background-color: #8695a3;} \n"
-            "QComboBox QAbstractItemView {color: white; background-color: #8695a3; selection-background-color: #24c2c3;}"
+            "QComboBox QAbstractItemView {color: white; background-color: #8695a3; selection-background-color: #24c2c3;} \n"
             "QComboBox:disabled {color: darkGray; background-color: #8695a3;} \n"
             "QToolTip {color: black;} \n"));
     inchannelBoxUp->setToolTip("Input Channel from MIDI Keyboard");
-    inchannelBoxUp->setGeometry(QRect(170, 190, 81, 31));
+    inchannelBoxUp->setGeometry(QRect(170, 190 + yyy, 81, 31));
     inchannelBoxUp->setFont(font);
     inchannelBoxUp->addItem("ALL", -1);
     for(int n = 0; n < 16; n++) {
@@ -779,11 +1053,11 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     inchannelBoxDown->setObjectName(QString::fromUtf8("inchannelBoxDown"));
     inchannelBoxDown->setStyleSheet(QString::fromUtf8(
         "QComboBox {color: white; background-color: #8695a3} \n"
-        "QComboBox QAbstractItemView {color: white; background-color: #8695a3; selection-background-color: #24c2c3;}"
+        "QComboBox QAbstractItemView {color: white; background-color: #8695a3; selection-background-color: #24c2c3;} \n"
         "QComboBox:disabled {color: darkGray; background-color: #8695a3;} \n"
         "QToolTip {color: black;} \n"));
     inchannelBoxDown->setToolTip("Input Channel from MIDI Keyboard");
-    inchannelBoxDown->setGeometry(QRect(280, 190, 81, 31));
+    inchannelBoxDown->setGeometry(QRect(280, 190 + yyy, 81, 31));
     inchannelBoxDown->setFont(font);
     inchannelBoxDown->addItem("ALL", -1);
     for(int n = 0; n < 16; n++) {
@@ -799,7 +1073,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
             "QPushButton {color: black; background-color: #c7c9df;} \n"
             "QPushButton::disabled { color: gray;}"
             "QToolTip {color: black;} \n"));
-    rstButton->setGeometry(QRect(440, 190, 51, 31));
+    rstButton->setGeometry(QRect(440, 190 + yyy, 51, 31));
     rstButton->setToolTip("Reset Parameters");
     rstButton->setText("Reset");
     rstButton->setToolTip("Deletes the Split parameters\n"
@@ -807,7 +1081,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
 
     PanicButton = new QPushButton(MIDIin2);
     PanicButton->setObjectName(QString::fromUtf8("PanicButton"));
-    PanicButton->setGeometry(QRect(510, 190, 51, 31));
+    PanicButton->setGeometry(QRect(510, 190 + yyy, 51, 31));
     PanicButton->setStyleSheet(QString::fromUtf8(
         "QPushButton {color: white; background-color: #c7c9df;} \n"
         "QToolTip {color: black;} \n"));
@@ -824,12 +1098,12 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     groupBoxEffect->setStyleSheet(QString::fromUtf8(
     "QGroupBox QComboBox {color: white; background-color: #60b386;} \n"
     "QGroupBox QComboBox:disabled {color: darkGray; background-color: #50a376;} \n"
-    "QGroupBox QComboBox QAbstractItemView {color: white; background-color: #60b386; selection-background-color: #24c2c3;}"
+    "QGroupBox QComboBox QAbstractItemView {color: white; background-color: #60b386; selection-background-color: #24c2c3;} \n"
     "QGroupBox QSpinBox {color: white; background-color: #60b386;} \n"
     "QGroupBox QPushButton {color: white; background-color: #c7c9df;} \n"
     "QGroupBox QToolTip {color: black;} \n"
     ));
-    groupBoxEffect->setGeometry(QRect(30, 220, 531, 261));
+    groupBoxEffect->setGeometry(QRect(30, 220 + yyy, 531, 261));
     groupBoxEffect->setCheckable(true);
     groupBoxEffect->setChecked(_key_effect);
     groupBoxEffect->setTitle("Key Effects");
@@ -848,7 +1122,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     NoteBoxEffect1->setToolTip("Record the activation note from \n"
                                "the MIDI keyboard clicking\n"
                                "'Get It' and pressing one.\n"
-                               "Expression pedal (sustain) works here");
+                               "Sustain pedal works here");
 
     NoteBoxEffect1->addItem("Get It", -1);
     if(_note_effect1 >= 0) {
@@ -881,7 +1155,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect1->addItem("VST DOWN Plug 1", 0);
     typeBoxEffect1->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect1->setCurrentIndex(-1);
-    QObject::connect(typeBoxEffect1, SIGNAL(currentIndexChanged(QString)), labelPitch1, SLOT(setText(QString)));
+    connect(typeBoxEffect1, SIGNAL(currentIndexChanged(QString)), labelPitch1, SLOT(setText(QString)));
 
     useVelocityBoxEffect1 = new QCheckBox(groupBoxEffect);
     useVelocityBoxEffect1->setObjectName(QString::fromUtf8("useVelocityBoxEffect1"));
@@ -890,7 +1164,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     useVelocityBoxEffect1->setChecked(_note_effect1_usevel);
     useVelocityBoxEffect1->setToolTip("Use the velocity from the note as value\n"
                                        "For pressure sensitive MIDI keyboards");
-    QObject::connect(useVelocityBoxEffect1, SIGNAL(clicked(bool)), this, SLOT(set_note_effect1_usevel(bool)));
+    connect(useVelocityBoxEffect1, SIGNAL(clicked(bool)), this, SLOT(set_note_effect1_usevel(bool)));
 
     pressedBoxEffect1 = new QCheckBox(groupBoxEffect);
     pressedBoxEffect1->setObjectName(QString::fromUtf8("pressedBoxEffect1"));
@@ -919,7 +1193,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     labelEffect1->setToolTip("Record the activation note from \n"
                                "the MIDI keyboard clicking\n"
                                "'Get It' and pressing one.\n"
-                               "Expression pedal (sustain) works here");
+                               "Sustain pedal works here");
 
     VlabelPitch1 = new QLabel(groupBoxEffect);
     VlabelPitch1->setObjectName(QString::fromUtf8("VlabelPitch1"));
@@ -936,7 +1210,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     horizontalSliderPitch1->setTickPosition(QSlider::TicksAbove);
     horizontalSliderPitch1->setTickInterval(99);
     horizontalSliderPitch1->setValue(-1);
-    QObject::connect(horizontalSliderPitch1, SIGNAL(valueChanged(int)), VlabelPitch1, SLOT(setNum(int)));
+    connect(horizontalSliderPitch1, SIGNAL(valueChanged(int)), VlabelPitch1, SLOT(setNum(int)));
     horizontalSliderPitch1->setValue(_note_effect1_value);
     horizontalSliderPitch1->setToolTip("Effect value to setting. When key\n"
                                        "velocity is used, this is the scale value\n"
@@ -1077,7 +1351,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
         _settings->setValue("MIDIin_note_effect1_value", _note_effect1_value);
     });
 
-    QObject::connect(pressedBoxEffect1, SIGNAL(clicked(bool)), this, SLOT(set_note_effect1_fkeypressed(bool)));
+    connect(pressedBoxEffect1, SIGNAL(clicked(bool)), this, SLOT(set_note_effect1_fkeypressed(bool)));
 
     xx = 290;
     NoteBoxEffect2 = new QComboBox(groupBoxEffect);
@@ -1116,7 +1390,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect2->addItem("VST DOWN Plug 1", 0);
     typeBoxEffect2->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect2->setCurrentIndex(-1);
-    QObject::connect(typeBoxEffect2, SIGNAL(currentIndexChanged(QString)), labelPitch2, SLOT(setText(QString)));
+    connect(typeBoxEffect2, SIGNAL(currentIndexChanged(QString)), labelPitch2, SLOT(setText(QString)));
 
     useVelocityBoxEffect2 = new QCheckBox(groupBoxEffect);
     useVelocityBoxEffect2->setObjectName(QString::fromUtf8("useVelocityBoxEffect2"));
@@ -1125,7 +1399,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     useVelocityBoxEffect2->setChecked(_note_effect2_usevel);
     useVelocityBoxEffect2->setToolTip("Use the velocity from the note as value\n"
                                        "For pressure sensitive MIDI keyboards");
-    QObject::connect(useVelocityBoxEffect2, SIGNAL(clicked(bool)), this, SLOT(set_note_effect2_usevel(bool)));
+    connect(useVelocityBoxEffect2, SIGNAL(clicked(bool)), this, SLOT(set_note_effect2_usevel(bool)));
 
     pressedBoxEffect2 = new QCheckBox(groupBoxEffect);
     pressedBoxEffect2->setObjectName(QString::fromUtf8("pressedBoxEffect2"));
@@ -1170,7 +1444,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     horizontalSliderPitch2->setTickPosition(QSlider::TicksAbove);
     horizontalSliderPitch2->setTickInterval(99);
     horizontalSliderPitch2->setValue(1);
-    QObject::connect(horizontalSliderPitch2, SIGNAL(valueChanged(int)), VlabelPitch2, SLOT(setNum(int)));
+    connect(horizontalSliderPitch2, SIGNAL(valueChanged(int)), VlabelPitch2, SLOT(setNum(int)));
     horizontalSliderPitch2->setValue(_note_effect2_value);
     horizontalSliderPitch2->setToolTip("Effect value to setting. When key\n"
                                        "velocity is used, this is the scale value\n"
@@ -1311,7 +1585,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
         _settings->setValue("MIDIin_note_effect2_value", _note_effect2_value);
     });
 
-    QObject::connect(pressedBoxEffect2, SIGNAL(clicked(bool)), this, SLOT(set_note_effect2_fkeypressed(bool)));
+    connect(pressedBoxEffect2, SIGNAL(clicked(bool)), this, SLOT(set_note_effect2_fkeypressed(bool)));
 
     xx = 20; yy = 150;
     NoteBoxEffect3 = new QComboBox(groupBoxEffect);
@@ -1350,7 +1624,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect3->addItem("VST DOWN Plug 1", 0);
     typeBoxEffect3->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect3->setCurrentIndex(-1);
-    QObject::connect(typeBoxEffect3, SIGNAL(currentIndexChanged(QString)), labelPitch3, SLOT(setText(QString)));
+    connect(typeBoxEffect3, SIGNAL(currentIndexChanged(QString)), labelPitch3, SLOT(setText(QString)));
 
     useVelocityBoxEffect3 = new QCheckBox(groupBoxEffect);
     useVelocityBoxEffect3->setObjectName(QString::fromUtf8("useVelocityBoxEffect3"));
@@ -1359,7 +1633,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     useVelocityBoxEffect3->setChecked(_note_effect3_usevel);
     useVelocityBoxEffect3->setToolTip("Use the velocity from the note as value\n"
                                        "For pressure sensitive MIDI keyboards");
-    QObject::connect(useVelocityBoxEffect3, SIGNAL(clicked(bool)), this, SLOT(set_note_effect3_usevel(bool)));
+    connect(useVelocityBoxEffect3, SIGNAL(clicked(bool)), this, SLOT(set_note_effect3_usevel(bool)));
 
     pressedBoxEffect3 = new QCheckBox(groupBoxEffect);
     pressedBoxEffect3->setObjectName(QString::fromUtf8("pressedBoxEffect3"));
@@ -1404,7 +1678,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     horizontalSliderPitch3->setTickPosition(QSlider::TicksAbove);
     horizontalSliderPitch3->setTickInterval(99);
     horizontalSliderPitch3->setValue(1);
-    QObject::connect(horizontalSliderPitch3, SIGNAL(valueChanged(int)), VlabelPitch3, SLOT(setNum(int)));
+    connect(horizontalSliderPitch3, SIGNAL(valueChanged(int)), VlabelPitch3, SLOT(setNum(int)));
     horizontalSliderPitch3->setValue(_note_effect3_value);
     horizontalSliderPitch3->setToolTip("Effect value to setting. When key\n"
                                        "velocity is used, this is the scale value\n"
@@ -1544,7 +1818,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
         _settings->setValue("MIDIin_note_effect3_value", _note_effect3_value);
     });
 
-    QObject::connect(pressedBoxEffect3, SIGNAL(clicked(bool)), this, SLOT(set_note_effect3_fkeypressed(bool)));
+    connect(pressedBoxEffect3, SIGNAL(clicked(bool)), this, SLOT(set_note_effect3_fkeypressed(bool)));
 
     xx = 290;
     NoteBoxEffect4 = new QComboBox(groupBoxEffect);
@@ -1583,7 +1857,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     typeBoxEffect4->addItem("VST DOWN Plug 1", 0);
     typeBoxEffect4->addItem("VST DOWN Plug 2", 0);
     typeBoxEffect4->setCurrentIndex(-1);
-    QObject::connect(typeBoxEffect4, SIGNAL(currentIndexChanged(QString)), labelPitch4, SLOT(setText(QString)));
+    connect(typeBoxEffect4, SIGNAL(currentIndexChanged(QString)), labelPitch4, SLOT(setText(QString)));
 
     useVelocityBoxEffect4 = new QCheckBox(groupBoxEffect);
     useVelocityBoxEffect4->setObjectName(QString::fromUtf8("useVelocityBoxEffect4"));
@@ -1593,7 +1867,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     useVelocityBoxEffect4->setToolTip("Use the velocity from the note as value\n"
                                        "For pressure sensitive MIDI keyboards");
 
-    QObject::connect(useVelocityBoxEffect4, SIGNAL(clicked(bool)), this, SLOT(set_note_effect4_usevel(bool)));
+    connect(useVelocityBoxEffect4, SIGNAL(clicked(bool)), this, SLOT(set_note_effect4_usevel(bool)));
 
     pressedBoxEffect4 = new QCheckBox(groupBoxEffect);
     pressedBoxEffect4->setObjectName(QString::fromUtf8("pressedBoxEffect4"));
@@ -1638,7 +1912,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     horizontalSliderPitch4->setTickPosition(QSlider::TicksAbove);
     horizontalSliderPitch4->setTickInterval(99);
     horizontalSliderPitch4->setValue(1);
-    QObject::connect(horizontalSliderPitch4, SIGNAL(valueChanged(int)), VlabelPitch4, SLOT(setNum(int)));
+    connect(horizontalSliderPitch4, SIGNAL(valueChanged(int)), VlabelPitch4, SLOT(setNum(int)));
     horizontalSliderPitch4->setValue(_note_effect4_value);
     horizontalSliderPitch4->setToolTip("Effect value to setting. When key\n"
                                        "velocity is used, this is the scale value\n"
@@ -1778,12 +2052,12 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
         _settings->setValue("MIDIin_note_effect4_value", _note_effect4_value);
     });
 
-    QObject::connect(pressedBoxEffect4, SIGNAL(clicked(bool)), this, SLOT(set_note_effect4_fkeypressed(bool)));
+    connect(pressedBoxEffect4, SIGNAL(clicked(bool)), this, SLOT(set_note_effect4_fkeypressed(bool)));
 
 
     checkBoxPrgBank = new QCheckBox(MIDIin2);
     checkBoxPrgBank->setObjectName(QString::fromUtf8("checkBoxPrgBank"));
-    checkBoxPrgBank->setGeometry(QRect(30, 490, 121, 17));
+    checkBoxPrgBank->setGeometry(QRect(30, 490 + yyy, 121, 17));
     checkBoxPrgBank->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
     checkBoxPrgBank->setChecked(_skip_prgbanks);
     checkBoxPrgBank->setText("Skip Prg/Bank Events");
@@ -1793,7 +2067,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
 
     bankskipcheckBox = new QCheckBox(MIDIin2);
     bankskipcheckBox->setObjectName(QString::fromUtf8("bankskipcheckBox"));
-    bankskipcheckBox->setGeometry(QRect(160, 490, 101, 17));
+    bankskipcheckBox->setGeometry(QRect(160, 490 + yyy, 101, 17));
     bankskipcheckBox->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
     bankskipcheckBox->setChecked(_skip_bankonly);
     bankskipcheckBox->setText("Skip Bank Only");
@@ -1805,42 +2079,45 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     checkBoxWait = new QCheckBox(MIDIin2);
     checkBoxWait->setObjectName(QString::fromUtf8("checkBoxWait"));
     checkBoxWait->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
-    checkBoxWait->setGeometry(QRect(30, 510, 241, 17));
+    checkBoxWait->setGeometry(QRect(30, 510 + yyy, 241, 17));
     checkBoxWait->setChecked(_record_waits);
     checkBoxWait->setText("Recording starts when one key is pressed");
     checkBoxWait->setToolTip("Waits for a key pressed on the MIDI keyboard\n"
                              "to start the recording");
 
-    QObject::connect(buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-    QObject::connect(buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
+    connect(buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
+    connect(buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 
-    QObject::connect(SplitBox, SIGNAL(clicked(bool)), this, SLOT(set_split_enable(bool)));
-    QObject::connect(inchannelBoxUp, SIGNAL(activated(int)), this, SLOT(set_inchannelUp(int)));
-    QObject::connect(inchannelBoxDown, SIGNAL(activated(int)), this, SLOT(set_inchannelDown(int)));
-    QObject::connect(channelBoxUp, SIGNAL(activated(int)), this, SLOT(set_channelUp(int)));
-    QObject::connect(channelBoxDown, SIGNAL(activated(int)), this, SLOT(set_channelDown(int)));
-    QObject::connect(vcheckBoxUp, SIGNAL(clicked(bool)), this, SLOT(set_fixVelUp(bool)));
-    QObject::connect(vcheckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_fixVelDown(bool)));
-    QObject::connect(achordcheckBoxUp, SIGNAL(clicked(bool)), this, SLOT(set_autoChordUp(bool)));
-    QObject::connect(achordcheckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_autoChordDown(bool)));
-    QObject::connect(echeckBox, SIGNAL(clicked(bool)), this, SLOT(set_notes_only(bool)));
-    QObject::connect(echeckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_events_to_down(bool)));
+    connect(SplitBox, SIGNAL(clicked(bool)), this, SLOT(set_split_enable(bool)));
+    connect(inchannelBoxUp, SIGNAL(activated(int)), this, SLOT(set_inchannelUp(int)));
+    connect(inchannelBoxDown, SIGNAL(activated(int)), this, SLOT(set_inchannelDown(int)));
+    connect(channelBoxUp, SIGNAL(activated(int)), this, SLOT(set_channelUp(int)));
+    connect(channelBoxDown, SIGNAL(activated(int)), this, SLOT(set_channelDown(int)));
+    connect(vcheckBoxUp, SIGNAL(clicked(bool)), this, SLOT(set_fixVelUp(bool)));
+    connect(vcheckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_fixVelDown(bool)));
+    connect(achordcheckBoxUp, SIGNAL(clicked(bool)), this, SLOT(set_autoChordUp(bool)));
+    connect(achordcheckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_autoChordDown(bool)));
+    connect(echeckBox, SIGNAL(clicked(bool)), this, SLOT(set_notes_only(bool)));
+    connect(echeckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_events_to_down(bool)));
+#ifdef USE_FLUIDSYNTH
+    connect(fluid_output, SIGNAL(MidiIn_set_events_to_down(bool)), echeckBoxDown, SLOT(setChecked(bool)));
+#endif
 
-    QObject::connect(tspinBoxUp, SIGNAL(valueChanged(int)), this, SLOT(set_transpose_note_up(int)));
-    QObject::connect(tspinBoxDown, SIGNAL(valueChanged(int)), this, SLOT(set_transpose_note_down(int)));
+    connect(tspinBoxUp, SIGNAL(valueChanged(int)), this, SLOT(set_transpose_note_up(int)));
+    connect(tspinBoxDown, SIGNAL(valueChanged(int)), this, SLOT(set_transpose_note_down(int)));
 
-    QObject::connect(rstButton, SIGNAL(clicked()), this, SLOT(split_reset()));
-    QObject::connect(PanicButton, SIGNAL(clicked()), this, SLOT(panic_button()));
-    QObject::connect(InstButtonUp, SIGNAL(clicked()), this, SLOT(select_instrumentUp()));
-    QObject::connect(InstButtonDown, SIGNAL(clicked()), this, SLOT(select_instrumentDown()));
-    QObject::connect(effectButtonUp, SIGNAL(clicked()), this, SLOT(select_SoundEffectUp()));
-    QObject::connect(effectButtonDown, SIGNAL(clicked()), this, SLOT(select_SoundEffectDown()));
+    connect(rstButton, SIGNAL(clicked()), this, SLOT(split_reset()));
+    connect(PanicButton, SIGNAL(clicked()), this, SLOT(panic_button()));
+    connect(InstButtonUp, SIGNAL(clicked()), this, SLOT(select_instrumentUp()));
+    connect(InstButtonDown, SIGNAL(clicked()), this, SLOT(select_instrumentDown()));
+    connect(effectButtonUp, SIGNAL(clicked()), this, SLOT(select_SoundEffectUp()));
+    connect(effectButtonDown, SIGNAL(clicked()), this, SLOT(select_SoundEffectDown()));
 
-    QObject::connect(groupBoxEffect, SIGNAL(clicked(bool)), this, SLOT(set_key_effect(bool)));
+    connect(groupBoxEffect, SIGNAL(clicked(bool)), this, SLOT(set_key_effect(bool)));
 
-    QObject::connect(checkBoxPrgBank, SIGNAL(clicked(bool)), this, SLOT(set_skip_prgbanks(bool)));
-    QObject::connect(bankskipcheckBox, SIGNAL(clicked(bool)), this, SLOT(set_skip_bankonly(bool)));
-    QObject::connect(checkBoxWait, SIGNAL(clicked(bool)), this, SLOT(set_record_waits(bool)));
+    connect(checkBoxPrgBank, SIGNAL(clicked(bool)), this, SLOT(set_skip_prgbanks(bool)));
+    connect(bankskipcheckBox, SIGNAL(clicked(bool)), this, SLOT(set_skip_bankonly(bool)));
+    connect(checkBoxWait, SIGNAL(clicked(bool)), this, SLOT(set_record_waits(bool)));
 
     connect(NoteBoxCut, QOverload<int>::of(&QComboBox::activated), [=](int v)
     {
@@ -1901,6 +2178,9 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
 
            } else _note_effect1 = -1;
            _settings->setValue("MIDIin_note_effect1", _note_effect1);
+       } else {
+           _note_effect1 = NoteBoxEffect1->itemData(v).toInt();
+           _settings->setValue("MIDIin_note_effect1", _note_effect1);
        }
     });
 
@@ -1919,6 +2199,9 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
 
 
            } else _note_effect2 = -1;
+           _settings->setValue("MIDIin_note_effect2", _note_effect2);
+       } else {
+           _note_effect2 = NoteBoxEffect2->itemData(v).toInt();
            _settings->setValue("MIDIin_note_effect2", _note_effect2);
        }
     });
@@ -1939,6 +2222,9 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
 
            } else _note_effect3 = -1;
            _settings->setValue("MIDIin_note_effect3", _note_effect3);
+       } else {
+           _note_effect3 = NoteBoxEffect3->itemData(v).toInt();
+           _settings->setValue("MIDIin_note_effect3", _note_effect3);
        }
     });
 
@@ -1958,6 +2244,9 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
 
            } else _note_effect4 = -1;
            _settings->setValue("MIDIin_note_effect4", _note_effect4);
+       } else {
+           _note_effect4 = NoteBoxEffect4->itemData(v).toInt();
+           _settings->setValue("MIDIin_note_effect4", _note_effect4);
        }
     });
 
@@ -1971,6 +2260,8 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     QMetaObject::connectSlotsByName(MIDIin);
     first = 0;
 }
+
+
 
 void MidiInControl::reject() {
 
@@ -2000,6 +2291,9 @@ void MidiInControl::my_exit() {
 }
 
 void MidiInControl::split_reset() {
+
+    int r = QMessageBox::question(this, "Reset Presets", "Are you sure?                         ");
+    if(r != QMessageBox::Yes) return;
 
     _split_enable = false;
     _note_cut = -1;
@@ -2060,6 +2354,8 @@ void MidiInControl::split_reset() {
 
     if(!MidiInput::recording())
         MidiInput::cleanKeyMaps();
+
+    update();
 }
 
 void MidiInControl::panic_button() {
@@ -2197,7 +2493,7 @@ int MidiInControl::get_key() {
     QMessageBox *mb = new QMessageBox("MIDI Input Control",
                                       "Press a note in the keyboard",
                                       QMessageBox::Information,
-                          QMessageBox::Cancel, 0, 0, this);
+                          QMessageBox::Cancel, 0, 0, _parent);
 
     QFont font;
     font.setPixelSize(24);
@@ -2275,7 +2571,7 @@ bool MidiInControl::split_enable() {
 }
 
 int MidiInControl::note_cut() {
-    return ((_note_zero) ? 0 :_note_cut);
+    return ((_note_zero) ? 0 : _note_cut);
 }
 
 bool MidiInControl::note_duo() {
@@ -2426,7 +2722,8 @@ void MidiInControl::set_notes_only(bool v) {
 }
 
 void MidiInControl::set_events_to_down(bool v) {
-    _settings->setValue("MIDIin_events_to_down", v);
+    if(_settings)
+        _settings->setValue("MIDIin_events_to_down", v);
     _events_to_down = v;
 }
 
@@ -2566,11 +2863,21 @@ void MidiInControl::update_checks() {
     if(!groupBoxEffect->isEnabled() || !groupBoxEffect->isChecked()) flip = 0;
 
     if(MidiInput::isConnected() && !MIDIin->isEnabled()) {
+
         if(!MIDI_INPUT->count()) {
+
+            int n = 0;
 
             foreach (QString name, MidiInput::inputPorts()) {
 
+                if(name != MidiInput::inputPort()) continue;
+
                 MIDI_INPUT->addItem(name);
+                MIDI_INPUT->setCurrentIndex(n);
+
+                break;
+
+                n++;
             }
 
         }
@@ -2631,21 +2938,175 @@ void MidiInControl::update_checks() {
     } else
         LEDBoxEffect4->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #80004010\n}"));
 
-    update();
+   // update();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // effects from keyboard
 
 int MidiInControl::set_effect(std::vector<unsigned char>* message) {
-    int evt = message->at(0) & 0xF0;
+
+    int evt = message->at(0);
+    int ch = evt & 0xF;
+    evt &= 0xF0;
+
     int pedal = (evt == 0xB0 && message->at(1) == 64);
     int pedal_on = 0;
+    int effect_bypass = -1;
+    int effect_bypass_vel = 0;
+
+    int channel = ((MidiInControl::channelUp() < 0)
+                  ? MidiOutput::standardChannel()
+                  : (MidiInControl::channelUp() & 15));
+
+    int ch_up = channel;
+
+    int ch_down = ((MidiInControl::channelDown() < 0)
+                   ? ((MidiInControl::channelUp() < 0)
+                      ? MidiOutput::standardChannel()
+                      : MidiInControl::channelUp())
+                   : MidiInControl::channelDown()) & 0xF;
+
+    // send channel volume, balance and pan CC directly
+    if(evt == 0xB0 && (message->at(1) == 7 || message->at(1) == 8 || message->at(1) == 10)) {
+
+        return 2;
+    }
+
+    if(MidiInControl::events_to_down()) {
+        if(ch == MidiInControl::inchannelUp())
+            channel = ch_down;
+    }
+
+    if(evt == 0xB0 && message->at(1) >= 20 && message->at(1) < 32) { // custom Fluidsynth support messages
+
+        extern bool _note_finger_disabled;
+
+        if(!_note_finger_disabled) {
+            if(ch == 1 && MidiInControl::inchannelUp() == 0)
+                message->at(0) = 0xb0 | ch_down;
+            else
+                message->at(0) = 0xb0 | channel;
+
+        }
+
+        return 2;
+    }
+
+    if(evt == 0xB0 && message->at(1) == 1) {// modulation wheel
+
+        message->at(0) = 0xb0 | channel;
+        message->at(1) = 1;
+        return 2;
+    }
+
+    if(evt == 0xB0 && message->at(1) == 11) { // expression
+
+        switch(MidiInControl::expression_mode) {
+
+            case 2: // ch volume
+                message->at(0) = 0xB0 | channel;
+                message->at(1) = 7;
+                message->at(2) = message->at(2) * 63 / 127 + 64;
+                return 2;
+
+            case 3: // Fluidsynth ch gain volume
+                message->at(0) = 0xB0 | channel;
+                message->at(1) = 22;
+                message->at(2) = message->at(2) * 63 / 127 + 64;
+                return 2;
+
+            case 4: // Modulation Wheel
+                message->at(0) = 0xb0 | channel;
+                message->at(1) = 1;
+                return 2;
+
+            case 5: {// Pitch Bend
+                message->at(0) = 0xE0 | channel;
+                message->at(1) = 0;
+                message->at(2) = 64 + (message->at(2) >> 1);
+                }
+                return 2;
+
+            case 6: // N.Effect 1
+                evt = 0;
+                message->at(0) = 0x0; // disabled
+                //_note_effect1_fkeypressed = false;
+                effect_bypass = 1;
+                effect_bypass_vel = message->at(2);
+                break;
+
+            case 7: // N.Effect 2
+                evt = 0;
+                message->at(0) = 0x0; // disabled
+                //_note_effect2_fkeypressed = false;
+                effect_bypass = 2;
+                effect_bypass_vel = message->at(2);
+                break;
+
+            case 8: // N.Effect 3
+                evt = 0;
+                message->at(0) = 0x0; // disabled
+                //_note_effect3_fkeypressed = false;
+                effect_bypass = 3;
+                effect_bypass_vel = message->at(2);
+                break;
+
+            case 9: // N.Effect 4
+                evt = 0;
+                message->at(0) = 0x0; // disabled
+                //_note_effect4_fkeypressed = false;
+                effect_bypass = 4;
+                effect_bypass_vel = message->at(2);
+                break;
+
+            default:
+                message->at(0) = 0; // disabled
+                return 2;
+        }
+
+    }
+
+    if(evt == 0xD0 || evt == 0xA0) {// aftertouch channel // key
+
+        if(message->size() == 2) {
+
+            message->emplace_back(message->at(1));
+        } else
+            message->at(2) = message->at(1);
+
+        if(MidiInControl::key_flag == 1)
+            channel = ch_down;
+        else
+            channel = ch_up;
+
+
+        if(MidiInControl::aftertouch_mode == 2) { // Pitch Bend
+
+            message->at(0) = 0xE0 | channel;
+            message->at(1) = 0;
+            message->at(2) = 64 + (message->at(2) >> 1);
+            return 2;
+
+        } else {
+
+            // Modulation Wheel
+            message->at(0) = 0xb0 | channel;
+            message->at(1) = 1;
+            return 2;
+        }
+    }
+
+    if(evt == 0xE0) {// pitch bend
+
+        message->at(0) = 0xE0 | channel;
+        return 2;
+    }
 
     if(pedal)
         pedal_on = (((int) message->at(2)) >= 64);
 
-    if((pedal ||
+    if((pedal  || effect_bypass == 1 ||
         ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect1))
             && message->size() == 3) {
 
@@ -2653,13 +3114,14 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
                        ? MidiOutput::standardChannel()
                        : (MidiInControl::channelUp() & 15));
 
-        if(evt == 0x90 || (evt == 0xB0 && pedal_on)) {
+        if(evt == 0x90 || (evt == 0xB0 && pedal_on) || (effect_bypass == 1 && effect_bypass_vel >= 64)) {
 
-            if(_note_effect1_fkeypressed)
+            if(effect_bypass != 1 && _note_effect1_fkeypressed)
                 effect1_on^= 1; // toggle
             else
                 effect1_on = 1;
-        } else if(!_note_effect1_fkeypressed)
+
+        } else if(effect_bypass == 1 || !_note_effect1_fkeypressed)
                 effect1_on = 0;
 
         if(_note_effect1_type == 0) { // pitch bend
@@ -2669,11 +3131,15 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0xE0 | channel;
 
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                if(_note_effect1_fkeypressed) {
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel <  64)) {
+                if(effect_bypass != 1 && _note_effect1_fkeypressed) {
+
                     message->at(0) = 0; // no event
                     return 1;
-                } else v = 8192;
+
+                } else
+                    v = 8192;
+
             } else if(_note_effect1_fkeypressed && !effect1_on)
                 v = 8192;
 
@@ -2691,8 +3157,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
                    message->at(0) = 0xB0 | channel;
 
-                   if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                       if(_note_effect1_fkeypressed) {
+                   if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel <  64)) {
+                       if(effect_bypass != 1 && _note_effect1_fkeypressed) {
                            message->at(0) = 0; // no event
                            return 1;
                        } else v = 0;
@@ -2725,8 +3191,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             message->at(1) = 64 + 2 * (_note_effect1_type == 3); // sustain / sostenuto
             message->at(2) = 127;
 
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                if(_note_effect1_fkeypressed) {
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 1 && _note_effect1_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else message->at(2) = 0;
@@ -2736,8 +3202,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             return 1;
         }  else if(_note_effect1_type == 6 || _note_effect1_type == 7) { // autochord
             //
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                if(_note_effect1_fkeypressed) {
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 1 && _note_effect1_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else {
@@ -2773,6 +3239,7 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             }
 
             if(_note_effect1_type & 1) {
+
                 channel = channel + 16;
                 v_off = _note_VST1_plugin2_off;
                 v_on = _note_VST1_plugin2_on;
@@ -2783,8 +3250,9 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             if(v_off < 0) v_off = 0x7f;
 
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                if(!_note_effect1_fkeypressed) {
+            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel < 64)) {
+                if(effect_bypass == 1 || !_note_effect1_fkeypressed) {
+
                     message->at(0) = 0xf0;
                     message->at(1) = 6;
                     message->at(2) = channel;
@@ -2800,6 +3268,7 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
                     return 1;
                 }
             } else if(_note_effect1_fkeypressed && !effect1_on) {
+
                 message->at(0) = 0xf0;
                 message->at(1) = 6;
                 message->at(2) = channel;
@@ -2830,19 +3299,19 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             message->at(0) = 0;
             return 1;
         }
-    } else if((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect2
-              && message->size() == 3) {
+    } else if(effect_bypass == 2 || ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect2
+              && message->size() == 3)) {
 
         int channel = ((MidiInControl::channelUp() < 0)
                        ? MidiOutput::standardChannel()
                        : (MidiInControl::channelUp() & 15));
 
-        if(evt == 0x90) {
-            if(_note_effect2_fkeypressed)
+        if(evt == 0x90 || (effect_bypass == 2 && effect_bypass_vel >= 64)) {
+            if(effect_bypass != 2 && _note_effect2_fkeypressed)
                 effect2_on^= 1; // toggle
             else
                 effect2_on = 1;
-        } else if(!_note_effect2_fkeypressed)
+        } else if(effect_bypass == 2 || !_note_effect2_fkeypressed)
                 effect2_on = 0;
 
         if(_note_effect2_type == 0) { // pitch bend
@@ -2852,8 +3321,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0xE0 | channel;
 
-            if(evt == 0x80) {
-                if(_note_effect2_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else v = 8192;
@@ -2874,8 +3343,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0xB0 | channel;
 
-            if(evt == 0x80) {
-                if(_note_effect2_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else v = 0;
@@ -2908,8 +3377,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             message->at(1) = 64 + 2 * (_note_effect2_type == 3); // sustain / sostenuto
             message->at(2) = 127;
 
-            if(evt == 0x80) {
-                if(_note_effect2_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else message->at(2) = 0;
@@ -2917,10 +3386,11 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
                 message->at(2) = 0;
 
             return 1;
+
         }  else if(_note_effect2_type == 6 || _note_effect2_type == 7) { // autochord
             //
-            if(evt == 0x80) {
-                if(_note_effect2_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else {
@@ -2965,8 +3435,9 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             if(v_off < 0) v_off = 0x7f;
 
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                if(!_note_effect2_fkeypressed) {
+            if(evt == 0x80  || (effect_bypass == 2 && effect_bypass_vel < 64)) {
+                if(effect_bypass == 2 || !_note_effect2_fkeypressed) {
+
                     message->at(0) = 0xf0;
                     message->at(1) = 6;
                     message->at(2) = channel;
@@ -2982,6 +3453,7 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
                     return 1;
                 }
             } else if(_note_effect2_fkeypressed && !effect2_on) {
+
                 message->at(0) = 0xf0;
                 message->at(1) = 6;
                 message->at(2) = channel;
@@ -2993,6 +3465,7 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
                 return 2;
 
             } else if(effect2_on){
+
                 message->at(0) = 0xf0;
                 message->at(1) = 6;
                 message->at(2) = channel;
@@ -3012,19 +3485,20 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             message->at(0) = 0;
             return 1;
         }
-    } else if((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect3
-              && message->size() == 3) {
+
+    } else if(effect_bypass == 3 || ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect3
+              && message->size() == 3)) {
 
         int channel = ((MidiInControl::channelUp() < 0)
                        ? MidiOutput::standardChannel()
                        : (MidiInControl::channelUp() & 15));
 
-        if(evt == 0x90) {
-            if(_note_effect3_fkeypressed)
+        if(evt == 0x90 || (effect_bypass == 3 && effect_bypass_vel >= 64)) {
+            if(effect_bypass != 3 && _note_effect3_fkeypressed)
                 effect3_on^= 1; // toggle
             else
                 effect3_on = 1;
-        } else if(!_note_effect3_fkeypressed)
+        } else if(effect_bypass == 3 || !_note_effect3_fkeypressed)
             effect3_on = 0;
 
         if(_note_effect3_type == 0) { // pitch bend
@@ -3034,8 +3508,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0xE0 | channel;
 
-            if(evt == 0x80) {
-                if(_note_effect3_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else v = 8192;
@@ -3056,8 +3530,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0xB0 | channel;
 
-            if(evt == 0x80) {
-                if(_note_effect3_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else v = 0;
@@ -3090,8 +3564,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             message->at(1) = 64 + 2 * (_note_effect3_type == 3); // sustain / sostenuto
             message->at(2) = 127;
 
-            if(evt == 0x80) {
-                if(_note_effect3_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else message->at(2) = 0;
@@ -3099,10 +3573,11 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
                 message->at(2) = 0;
 
             return 1;
+
         }  else if(_note_effect3_type == 6 || _note_effect3_type == 7) { // autochord
             //
-            if(evt == 0x80) {
-                if(_note_effect3_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else {
@@ -3122,6 +3597,7 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0;
             return 1;
+
         } else if(_note_effect3_type >= 8 && _note_effect3_type <= 11) { // VST
 
             int v_off = -1;
@@ -3147,8 +3623,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             if(v_off < 0) v_off = 0x7f;
 
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                if(!_note_effect3_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
+                if(effect_bypass == 3 || !_note_effect3_fkeypressed) {
                     message->at(0) = 0xf0;
                     message->at(1) = 6;
                     message->at(2) = channel;
@@ -3194,19 +3670,19 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             message->at(0) = 0;
             return 1;
         }
-    } else if((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect4
-              && message->size() == 3) {
+    } else if(effect_bypass == 4 || ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect4
+              && message->size() == 3)) {
 
         int channel = ((MidiInControl::channelUp() < 0)
                        ? MidiOutput::standardChannel()
                        : (MidiInControl::channelUp() & 15));
 
-        if(evt == 0x90) {
-            if(_note_effect4_fkeypressed)
+        if(evt == 0x90 || (effect_bypass == 4 && effect_bypass_vel >= 64)) {
+            if(effect_bypass != 4 && _note_effect4_fkeypressed)
                 effect4_on^= 1; // toggle
             else
                 effect4_on = 1;
-        } else if(!_note_effect4_fkeypressed)
+        } else if(effect_bypass == 4 || !_note_effect4_fkeypressed)
             effect4_on = 0;
 
         if(_note_effect4_type == 0) { // pitch bend
@@ -3216,8 +3692,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0xE0 | channel;
 
-            if(evt == 0x80) {
-                if(_note_effect4_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else v = 8192;
@@ -3239,8 +3715,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0xB0 | channel;
 
-            if(evt == 0x80) {
-                if(_note_effect4_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else v = 0;
@@ -3273,8 +3749,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
             message->at(1) = 64 + 2 * (_note_effect4_type == 3); // sustain / sostenuto
             message->at(2) = 127;
 
-            if(evt == 0x80) {
-                if(_note_effect4_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else message->at(2) = 0;
@@ -3282,11 +3758,12 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
                 message->at(2) = 0;
 
             return 1;
+
         } else if(_note_effect4_type == 6 || _note_effect4_type == 7) { // autochord
             //
 
-            if(evt == 0x80) {
-                if(_note_effect4_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
+                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
                     message->at(0) = 0; // no event
                     return 1;
                 } else {
@@ -3306,6 +3783,7 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             message->at(0) = 0;
             return 1;
+
         } else if(_note_effect4_type >= 8 && _note_effect4_type <= 11) { // VST
 
             int v_off = -1;
@@ -3331,8 +3809,8 @@ int MidiInControl::set_effect(std::vector<unsigned char>* message) {
 
             if(v_off < 0) v_off = 0x7f;
 
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on)) {
-                if(!_note_effect4_fkeypressed) {
+            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
+                if(effect_bypass == 4 || !_note_effect4_fkeypressed) {
                     message->at(0) = 0xf0;
                     message->at(1) = 6;
                     message->at(2) = channel;
@@ -3389,6 +3867,7 @@ void MidiInControl::set_record_waits(bool v) {
 }
 
 
+
 ////////////////////////////////////////////////////////////////////////////////////
 // auto chord section
 
@@ -3406,6 +3885,31 @@ static int buildCMajorProg(int index, int note) {
         break;
         case 2:
             note = note/12 * 12 + chord_noteM(note % 12, 5);
+        break;
+        case 3:
+            note = note/12 * 12 + chord_noteM(note % 12, 7);
+        break;
+        case AUTOCHORD_MAX:
+            return 3;
+    }
+
+    return note;
+}
+
+static int buildCMinorProg(int index, int note) {
+
+    switch(index) {
+        case 0:
+            note = note/12 * 12 + chord_notem(note % 12, 1);
+        break;
+        case 1:
+            note = note/12 * 12 + chord_notem(note % 12, 3);
+        break;
+        case 2:
+            note = note/12 * 12 + chord_notem(note % 12, 5);
+        break;
+        case 3:
+            note = note/12 * 12 + chord_notem(note % 12, 7);
         break;
         case AUTOCHORD_MAX:
             return 3;
@@ -3459,6 +3963,80 @@ static int buildCMajor(int index, int note) {
     return note;
 }
 
+static int buildMajorPentatonic(int index, int note) {
+    switch(index) {
+        case 1:
+            note += 2;
+            break;
+        case 2:
+            note += 4;
+            break;
+        case 3:
+            note += 7;
+            break;
+        case 4:
+            note += 9;
+            break;
+        case AUTOCHORD_MAX:
+            return 5;
+    }
+
+    return note;
+}
+
+static int buildMinorPentatonic(int index, int note) {
+    switch(index) {
+        case 1:
+            note += 3;
+            break;
+        case 2:
+            note += 5;
+            break;
+        case 3:
+            note += 7;
+            break;
+        case 4:
+            note += 10;
+            break;
+        case AUTOCHORD_MAX:
+            return 5;
+    }
+
+    return note;
+}
+
+int MidiInControl::GetNoteChord(int type, int index, int note) {
+    if(note >= 0 || index == AUTOCHORD_MAX) {
+        switch(type) {
+            case 0:
+                note = buildPowerChord(index, note);
+                break;
+            case 1:
+                note = buildPowerChordExt(index, note);
+                break;
+            case 2:
+                note = buildCMajor(index, note);
+                break;
+            case 3:
+                note = buildCMajorProg(index, note);
+                break;
+            case 4:
+                note = buildCMinorProg(index, note);
+                break;
+            case 5:
+                note = buildMajorPentatonic(index, note);
+                break;
+            case 6:
+                note = buildMinorPentatonic(index, note);
+                break;
+        }
+    }
+
+    if(note < 0) note = 0;
+    if(note > 127) note = 127;
+
+    return note;
+}
 
 int MidiInControl::autoChordfunUp(int index, int note, int vel) {
 
@@ -3705,11 +4283,11 @@ MidiInControl_chord::MidiInControl_chord(QWidget* parent): QDialog(parent, Qt::W
     Slider5->setValue(-1);
     Slider7->setValue(-1);
 
-    QObject::connect(buttonBox, SIGNAL(accepted()), chord, SLOT(accept()));
-    QObject::connect(buttonBox, SIGNAL(rejected()), chord, SLOT(reject()));
-    QObject::connect(Slider3, SIGNAL(valueChanged(int)), label3_2, SLOT(setNum(int)));
-    QObject::connect(Slider5, SIGNAL(valueChanged(int)), label5_2, SLOT(setNum(int)));
-    QObject::connect(Slider7, SIGNAL(valueChanged(int)), label7_2, SLOT(setNum(int)));
+    connect(buttonBox, SIGNAL(accepted()), chord, SLOT(accept()));
+    connect(buttonBox, SIGNAL(rejected()), chord, SLOT(reject()));
+    connect(Slider3, SIGNAL(valueChanged(int)), label3_2, SLOT(setNum(int)));
+    connect(Slider5, SIGNAL(valueChanged(int)), label5_2, SLOT(setNum(int)));
+    connect(Slider7, SIGNAL(valueChanged(int)), label7_2, SLOT(setNum(int)));
 
     connect(chordBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
     {
@@ -3739,5 +4317,11 @@ MidiInControl_chord::MidiInControl_chord(QWidget* parent): QDialog(parent, Qt::W
 }
 
 
+// finger
 
+int MidiInControl::finger_func(std::vector<unsigned char>* message) {
+
+    return FingerPatternDialog::Finger_note(message);
+
+}
 
