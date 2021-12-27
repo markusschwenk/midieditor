@@ -75,7 +75,7 @@ AdditionalMidiSettingsWidget::AdditionalMidiSettingsWidget(QSettings* settings, 
     connect(_sendSysExWithoutLength, SIGNAL(toggled(bool)), this, SLOT(omitSysExtLength(bool)));
     layout->addWidget(_sendSysExWithoutLength, 6, 0, 1, 6);
 
-    QWidget* SysExWithoutLengthInfo = createInfoBox("Omit thes SysEx lenght variable datas");
+    QWidget* SysExWithoutLengthInfo = createInfoBox("Omit the SysEx length variable datas");
     layout->addWidget(SysExWithoutLengthInfo, 7, 0, 1, 6);
 
     layout->addWidget(separator(), 8, 0, 1, 6);
