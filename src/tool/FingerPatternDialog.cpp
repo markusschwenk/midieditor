@@ -151,6 +151,39 @@ static int finger_chord_modeUP = 1; // current pattern
 static int finger_repeatDOWN = 0;
 static int finger_chord_modeDOWN = 1; // current pattern
 
+static int finger_chord_modeUPEdit = 1; // current pattern
+static int finger_chord_modeDOWNEdit = 1; // current pattern
+
+
+////////////////////////////////////////////
+
+// finger timer variables
+
+static unsigned char map_key_stepUP[128];
+static unsigned char map_key_step_maxUP[128];
+static unsigned char map_key_tempo_stepUP[128];
+
+static unsigned char map_keyUP[128];
+static unsigned char map_key_offUP[128];
+static unsigned char map_key_onUP[128];
+static unsigned char map_key_velocityUP[128];
+
+static unsigned char map_key_stepDOWN[128];
+static unsigned char map_key_step_maxDOWN[128];
+static unsigned char map_key_tempo_stepDOWN[128];
+
+static unsigned char map_keyDOWN[128];
+static unsigned char map_key_offDOWN[128];
+static unsigned char map_key_onDOWN[128];
+static unsigned char map_key_velocityDOWN[128];
+
+static int init_map_key = 1;
+
+int finger_enable_UP = 0;
+int finger_enable_DOWN = 0;
+
+/////////////////////////////
+
 static QByteArray Packfinger() {
 
     QByteArray a;
@@ -385,11 +418,13 @@ void FingerPatternDialog::load() {
 
             finger_chord_modeUP = 0;
             finger_chord_modeDOWN = 0;
+            finger_chord_modeUPEdit = 0;
+            finger_chord_modeDOWNEdit = 0;
 
-            comboBoxChordUP->currentIndexChanged(finger_chord_modeUP);
-            comboBoxChordDOWN->currentIndexChanged(finger_chord_modeDOWN);
-            comboBoxChordUP->setCurrentIndex(finger_chord_modeUP);
-            comboBoxChordDOWN->setCurrentIndex(finger_chord_modeDOWN);
+            comboBoxChordUP->currentIndexChanged(finger_chord_modeUPEdit);
+            comboBoxChordDOWN->currentIndexChanged(finger_chord_modeDOWNEdit);
+            comboBoxChordUP->setCurrentIndex(finger_chord_modeUPEdit);
+            comboBoxChordDOWN->setCurrentIndex(finger_chord_modeDOWNEdit);
 
         }
 
@@ -487,7 +522,7 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
 
             int r;
 
-            if(finger_chord_modeUP < MAX_FINGER_BASIC)
+            if(finger_chord_modeUPEdit < MAX_FINGER_BASIC)
                 r = QMessageBox::question(_parent, "Restore DEFAULT pattern", "Are you sure?                         ");
             else
                 r = QMessageBox::question(_parent, "Delete CUSTOM pattern", "Are you sure?                         ");
@@ -495,22 +530,22 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
             if(r != QMessageBox::Yes) return;
 
 
-            if(finger_chord_modeUP < MAX_FINGER_BASIC) {
-                memcpy(&finger_patternUP[finger_chord_modeUP][0], &finger_patternBASIC[finger_chord_modeUP][0], 19);
-                comboBoxChordUP->currentIndexChanged(finger_chord_modeUP);
+            if(finger_chord_modeUPEdit < MAX_FINGER_BASIC) {
+                memcpy(&finger_patternUP[finger_chord_modeUPEdit][0], &finger_patternBASIC[finger_chord_modeUPEdit][0], 19);
+                comboBoxChordUP->currentIndexChanged(finger_chord_modeUPEdit);
                 return;
             }
 
             comboBoxChordUP->blockSignals(true);
 
-            memset(&finger_patternUP[finger_chord_modeUP][0], 0, 19);
-            finger_patternUP[finger_chord_modeUP][2] = 16;
+            memset(&finger_patternUP[finger_chord_modeUPEdit][0], 0, 19);
+            finger_patternUP[finger_chord_modeUPEdit][2] = 16;
 
-            finger_chord_modeUP = 0;
+            finger_chord_modeUPEdit = 0;
 
-            if(finger_chord_modeUP < MAX_FINGER_BASIC) { // fixed values for basic
+            if(finger_chord_modeUPEdit < MAX_FINGER_BASIC) { // fixed values for basic
                 int val = 0;
-                switch(finger_chord_modeUP) {
+                switch(finger_chord_modeUPEdit) {
                     case 0:
                         val = 2;
                         break;
@@ -528,8 +563,8 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
                         break;
                 }
 
-                finger_patternUP[finger_chord_modeUP][1] = val;
-                finger_patternUP[finger_chord_modeUP][3] = 0;
+                finger_patternUP[finger_chord_modeUPEdit][1] = val;
+                finger_patternUP[finger_chord_modeUPEdit][3] = 0;
             }
 
             comboBoxChordUP->clear();
@@ -575,16 +610,16 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
         comboBoxChordUP->addItem(stringTypes[4], -5);
         comboBoxChordUP->setToolTip("Select the base chord here\nor a previously saved custom pattern to edit");
 
-        index = finger_chord_modeUP;
+        index = finger_chord_modeUPEdit;
 
-        if(finger_chord_modeUP < MAX_FINGER_BASIC)
-            comboBoxChordUP->setCurrentIndex(finger_chord_modeUP);
+        if(finger_chord_modeUPEdit < MAX_FINGER_BASIC)
+            comboBoxChordUP->setCurrentIndex(finger_chord_modeUPEdit);
 
 
         for(int n = 0; n < 16; n++) {
             if(finger_patternUP[n + MAX_FINGER_BASIC][1]) {
 
-                if(finger_chord_modeUP == MAX_FINGER_BASIC + n)
+                if(finger_chord_modeUPEdit == MAX_FINGER_BASIC + n)
                     index = comboBoxChordUP->count();
 
                 comboBoxChordUP->addItem("CUSTOM #" + QString::number(n + 1)
@@ -595,8 +630,8 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
 
         comboBoxChordUP->setCurrentIndex(index);
 
-        max_tick_counterUP = finger_patternUP[finger_chord_modeUP][2];
-        finger_repeatUP = finger_patternUP[finger_chord_modeUP][3];
+        max_tick_counterUP = finger_patternUP[finger_chord_modeUPEdit][2];
+        finger_repeatUP = finger_patternUP[finger_chord_modeUPEdit][3];
 
         labelChordUP = new QLabel(groupBoxPatternNoteUP);
         labelChordUP->setObjectName(QString::fromUtf8("labelChordUP"));
@@ -639,7 +674,7 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
         horizontalSliderNotesUP->setGeometry(QRect(20, 60, 711, 22));
         horizontalSliderNotesUP->setMinimum(1);
         horizontalSliderNotesUP->setMaximum(15);
-        horizontalSliderNotesUP->setValue(finger_patternUP[finger_chord_modeUP][1]);
+        horizontalSliderNotesUP->setValue(finger_patternUP[finger_chord_modeUPEdit][1]);
         horizontalSliderNotesUP->setOrientation(Qt::Horizontal);
         horizontalSliderNotesUP->setInvertedAppearance(false);
         horizontalSliderNotesUP->setInvertedControls(false);
@@ -662,11 +697,11 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
                                             "'#' represents silence\n"
                                             "'1' represents the base note\n"
                                             "'2 to 7' represents the next notes of the scale");
-            setComboNotePattern(finger_patternUP[finger_chord_modeUP][0], n, ComboBoxNoteUP[n]);
+            setComboNotePattern(finger_patternUP[finger_chord_modeUPEdit][0], n, ComboBoxNoteUP[n]);
 
             //ComboBoxNoteUP[n]->setCurrentIndex(0);
             for(int m = 0; m < ComboBoxNoteUP[n]->count(); m++)
-                if(ComboBoxNoteUP[n]->itemData(m).toInt() == finger_patternUP[finger_chord_modeUP][4 + n]) {
+                if(ComboBoxNoteUP[n]->itemData(m).toInt() == finger_patternUP[finger_chord_modeUPEdit][4 + n]) {
                     ComboBoxNoteUP[n]->setCurrentIndex(m);
                     break;
                 }
@@ -713,7 +748,7 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
            else
                num += MAX_FINGER_BASIC;
 
-           finger_chord_modeUP = num;
+           finger_chord_modeUPEdit = num;
 
             for(int n = 0; n < 15; n++) {
 
@@ -759,14 +794,14 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
 
             }
 
-            horizontalSliderNotesUP->setValue(finger_patternUP[finger_chord_modeUP][1]);
+            horizontalSliderNotesUP->setValue(finger_patternUP[finger_chord_modeUPEdit][1]);
 
         });
 
         connect(comboBoxRepeatUP, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int num)
         {
             finger_repeatUP = num;
-            finger_patternUP[finger_chord_modeUP][3] = num;
+            finger_patternUP[finger_chord_modeUPEdit][3] = num;
         });
 
         for(int n = 0; n < 15; n++) {
@@ -774,20 +809,22 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
             connect(ComboBoxNoteUP[n], QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int num)
             {
                 int num2 = ComboBoxNoteUP[n]->itemData(num).toInt();
-                finger_patternUP[finger_chord_modeUP][4 + n] = num2;
+                finger_patternUP[finger_chord_modeUPEdit][4 + n] = num2;
             });
         }
 
         connect(horizontalSliderNotesUP, QOverload<int>::of(&QSlider::valueChanged), [=](int num)
         {
-            finger_patternUP[finger_chord_modeUP][1] = num;
+            finger_patternUP[finger_chord_modeUPEdit][1] = num;
 
         });
 
         connect(horizontalSliderTempoUP, QOverload<int>::of(&QSlider::valueChanged), [=](int num)
         {
-            max_tick_counterUP = num;
-            finger_patternUP[finger_chord_modeUP][2] = num;
+            if(finger_chord_modeUPEdit == finger_chord_modeUP)
+                max_tick_counterUP = num;
+
+            finger_patternUP[finger_chord_modeUPEdit][2] = num;
         });
 
 
@@ -797,11 +834,11 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
             int r = QMessageBox::question(_parent, "Store CUSTOM #" + QString::number(custom + 1), "Are you sure?                         ");
             if(r != QMessageBox::Yes) return;
 
-            memcpy(&finger_patternUP[MAX_FINGER_BASIC + custom][0], &finger_patternUP[finger_chord_modeUP][0], 19);
+            memcpy(&finger_patternUP[MAX_FINGER_BASIC + custom][0], &finger_patternUP[finger_chord_modeUPEdit][0], 19);
 
-            if(finger_chord_modeUP < MAX_FINGER_BASIC) { // fixed values for basic
+            if(finger_chord_modeUPEdit < MAX_FINGER_BASIC) { // fixed values for basic
                 int val = 0;
-                switch(finger_chord_modeUP) {
+                switch(finger_chord_modeUPEdit) {
                     case 0:
                         val = 2;
                         break;
@@ -819,11 +856,11 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
                         break;
                 }
 
-                finger_patternUP[finger_chord_modeUP][1] = val;
-                finger_patternUP[finger_chord_modeUP][3] = 0;
+                finger_patternUP[finger_chord_modeUPEdit][1] = val;
+                finger_patternUP[finger_chord_modeUPEdit][3] = 0;
             }
 
-            finger_chord_modeUP = MAX_FINGER_BASIC + custom;
+            finger_chord_modeUPEdit = MAX_FINGER_BASIC + custom;
 
             comboBoxChordUP->clear();
             comboBoxChordUP->addItem(stringTypes[0], -1);
@@ -885,7 +922,7 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
         {
             int r;
 
-            if(finger_chord_modeDOWN < MAX_FINGER_BASIC)
+            if(finger_chord_modeDOWNEdit < MAX_FINGER_BASIC)
                 r = QMessageBox::question(_parent, "Restore DEFAULT pattern", "Are you sure?                         ");
             else
                 r = QMessageBox::question(_parent, "Delete CUSTOM pattern", "Are you sure?                         ");
@@ -893,22 +930,22 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
             if(r != QMessageBox::Yes) return;
 
 
-            if(finger_chord_modeDOWN < MAX_FINGER_BASIC) {
-                memcpy(&finger_patternDOWN[finger_chord_modeDOWN][0], &finger_patternBASIC[finger_chord_modeDOWN][0], 19);
-                comboBoxChordDOWN->currentIndexChanged(finger_chord_modeDOWN);
+            if(finger_chord_modeDOWNEdit < MAX_FINGER_BASIC) {
+                memcpy(&finger_patternDOWN[finger_chord_modeDOWNEdit][0], &finger_patternBASIC[finger_chord_modeDOWNEdit][0], 19);
+                comboBoxChordDOWN->currentIndexChanged(finger_chord_modeDOWNEdit);
                 return;
             }
 
             comboBoxChordDOWN->blockSignals(true);
 
-            memset(&finger_patternDOWN[finger_chord_modeDOWN][0], 0, 19);
-            finger_patternDOWN[finger_chord_modeDOWN][2] = 16;
+            memset(&finger_patternDOWN[finger_chord_modeDOWNEdit][0], 0, 19);
+            finger_patternDOWN[finger_chord_modeDOWNEdit][2] = 16;
 
-            finger_chord_modeDOWN = 0;
+            finger_chord_modeDOWNEdit = 0;
 
-            if(finger_chord_modeDOWN < MAX_FINGER_BASIC) { // fixed values for basic
+            if(finger_chord_modeDOWNEdit < MAX_FINGER_BASIC) { // fixed values for basic
                 int val = 0;
-                switch(finger_chord_modeDOWN) {
+                switch(finger_chord_modeDOWNEdit) {
                     case 0:
                         val = 2;
                         break;
@@ -926,8 +963,8 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
                         break;
                 }
 
-                finger_patternDOWN[finger_chord_modeDOWN][1] = val;
-                finger_patternDOWN[finger_chord_modeDOWN][3] = 0;
+                finger_patternDOWN[finger_chord_modeDOWNEdit][1] = val;
+                finger_patternDOWN[finger_chord_modeDOWNEdit][3] = 0;
             }
 
             comboBoxChordDOWN->clear();
@@ -975,16 +1012,16 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
                           "or a previously saved custom pattern to edit");
 
 
-        index = finger_chord_modeDOWN;
+        index = finger_chord_modeDOWNEdit;
 
-        if(finger_chord_modeDOWN < MAX_FINGER_BASIC)
-            comboBoxChordDOWN->setCurrentIndex(finger_chord_modeDOWN);
+        if(finger_chord_modeDOWNEdit < MAX_FINGER_BASIC)
+            comboBoxChordDOWN->setCurrentIndex(finger_chord_modeDOWNEdit);
 
 
         for(int n = 0; n < 16; n++) {
             if(finger_patternDOWN[n + MAX_FINGER_BASIC][1]) {
 
-                if(finger_chord_modeDOWN == MAX_FINGER_BASIC + n)
+                if(finger_chord_modeDOWNEdit == MAX_FINGER_BASIC + n)
                     index = comboBoxChordDOWN->count();
 
                 comboBoxChordDOWN->addItem("CUSTOM #" + QString::number(n + 1)
@@ -996,8 +1033,8 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
         comboBoxChordDOWN->setCurrentIndex(index);
 
 
-        max_tick_counterDOWN = finger_patternDOWN[finger_chord_modeDOWN][2];
-        finger_repeatDOWN = finger_patternDOWN[finger_chord_modeDOWN][3];
+        max_tick_counterDOWN = finger_patternDOWN[finger_chord_modeDOWNEdit][2];
+        finger_repeatDOWN = finger_patternDOWN[finger_chord_modeDOWNEdit][3];
 
         labelChordDOWN = new QLabel(groupBoxPatternNoteDOWN);
         labelChordDOWN->setObjectName(QString::fromUtf8("labelChordDOWN"));
@@ -1040,7 +1077,7 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
         horizontalSliderNotesDOWN->setGeometry(QRect(20, 60, 711, 22));
         horizontalSliderNotesDOWN->setMinimum(1);
         horizontalSliderNotesDOWN->setMaximum(15);
-        horizontalSliderNotesDOWN->setValue(finger_patternDOWN[finger_chord_modeDOWN][1]);
+        horizontalSliderNotesDOWN->setValue(finger_patternDOWN[finger_chord_modeDOWNEdit][1]);
         horizontalSliderNotesDOWN->setOrientation(Qt::Horizontal);
         horizontalSliderNotesDOWN->setInvertedAppearance(false);
         horizontalSliderNotesDOWN->setInvertedControls(false);
@@ -1065,11 +1102,11 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
                                             "'1' represents the base note\n"
                                             "'2 to 7' represents the next notes of the scale");
 
-            setComboNotePattern(finger_patternDOWN[finger_chord_modeDOWN][0], n, ComboBoxNoteDOWN[n]);
+            setComboNotePattern(finger_patternDOWN[finger_chord_modeDOWNEdit][0], n, ComboBoxNoteDOWN[n]);
 
 
             for(int m = 0; m < ComboBoxNoteDOWN[n]->count(); m++)
-                if(ComboBoxNoteDOWN[n]->itemData(m).toInt() == finger_patternDOWN[finger_chord_modeDOWN][4 + n]) {
+                if(ComboBoxNoteDOWN[n]->itemData(m).toInt() == finger_patternDOWN[finger_chord_modeDOWNEdit][4 + n]) {
                     ComboBoxNoteDOWN[n]->setCurrentIndex(m);
                     break;
                 }
@@ -1112,7 +1149,7 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
            else
                num += MAX_FINGER_BASIC;
 
-           finger_chord_modeDOWN = num;
+           finger_chord_modeDOWNEdit = num;
 
             for(int n = 0; n < 15; n++) {
 
@@ -1157,14 +1194,14 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
 
             }
 
-            horizontalSliderNotesDOWN->setValue(finger_patternDOWN[finger_chord_modeDOWN][1]);
+            horizontalSliderNotesDOWN->setValue(finger_patternDOWN[finger_chord_modeDOWNEdit][1]);
 
         });
 
         connect(comboBoxRepeatDOWN, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int num)
         {
             finger_repeatDOWN = num;
-            finger_patternDOWN[finger_chord_modeDOWN][3] = num;
+            finger_patternDOWN[finger_chord_modeDOWNEdit][3] = num;
         });
 
         for(int n = 0; n < 15; n++) {
@@ -1173,20 +1210,23 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
             {
                 int num2 = ComboBoxNoteDOWN[n]->itemData(num).toInt();
                 //qDebug("changed #%i %i %i", n, num, num2);
-                finger_patternDOWN[finger_chord_modeDOWN][4 + n] = num2;
+                finger_patternDOWN[finger_chord_modeDOWNEdit][4 + n] = num2;
             });
         }
 
         connect(horizontalSliderNotesDOWN, QOverload<int>::of(&QSlider::valueChanged), [=](int num)
         {
-            finger_patternDOWN[finger_chord_modeDOWN][1] = num;
+            finger_patternDOWN[finger_chord_modeDOWNEdit][1] = num;
 
         });
 
         connect(horizontalSliderTempoDOWN, QOverload<int>::of(&QSlider::valueChanged), [=](int num)
         {
-            max_tick_counterDOWN = num;
-            finger_patternDOWN[finger_chord_modeDOWN][2] = num;
+
+            if(finger_chord_modeDOWN == finger_chord_modeDOWNEdit)
+                max_tick_counterDOWN = num;
+
+            finger_patternDOWN[finger_chord_modeDOWNEdit][2] = num;
         });
 
 
@@ -1196,11 +1236,11 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
             int r = QMessageBox::question(_parent, "Store CUSTOM #" + QString::number(custom + 1), "Are you sure?                         ");
             if(r != QMessageBox::Yes) return;
 
-            memcpy(&finger_patternDOWN[MAX_FINGER_BASIC + custom][0], &finger_patternDOWN[finger_chord_modeDOWN][0], 19);
+            memcpy(&finger_patternDOWN[MAX_FINGER_BASIC + custom][0], &finger_patternDOWN[finger_chord_modeDOWNEdit][0], 19);
 
-            if(finger_chord_modeDOWN < MAX_FINGER_BASIC) { // fixed values for basic
+            if(finger_chord_modeDOWNEdit < MAX_FINGER_BASIC) { // fixed values for basic
                 int val = 0;
-                switch(finger_chord_modeDOWN) {
+                switch(finger_chord_modeDOWNEdit) {
                     case 0:
                         val = 2;
                         break;
@@ -1218,11 +1258,11 @@ FingerPatternDialog::FingerPatternDialog(QWidget* parent, QSettings *settings) :
                         break;
                 }
 
-                finger_patternDOWN[finger_chord_modeDOWN][1] = val;
-                finger_patternDOWN[finger_chord_modeDOWN][3] = 0;
+                finger_patternDOWN[finger_chord_modeDOWNEdit][1] = val;
+                finger_patternDOWN[finger_chord_modeDOWNEdit][3] = 0;
             }
 
-            finger_chord_modeDOWN = MAX_FINGER_BASIC + custom;
+            finger_chord_modeDOWNEdit = MAX_FINGER_BASIC + custom;
 
             comboBoxChordDOWN->clear();
             comboBoxChordDOWN->addItem(stringTypes[0], -1);
@@ -2170,29 +2210,8 @@ void FingerPatternDialog::setComboNotePattern(int type, int index, QComboBox * c
 
 }
 
-
-static unsigned char map_key_stepUP[128];
-static unsigned char map_key_step_maxUP[128];
-static unsigned char map_key_tempo_stepUP[128];
-
-static unsigned char map_keyUP[128];
-static unsigned char map_key_offUP[128];
-static unsigned char map_key_onUP[128];
-static unsigned char map_key_velocityUP[128];
-
-static unsigned char map_key_stepDOWN[128];
-static unsigned char map_key_step_maxDOWN[128];
-static unsigned char map_key_tempo_stepDOWN[128];
-
-static unsigned char map_keyDOWN[128];
-static unsigned char map_key_offDOWN[128];
-static unsigned char map_key_onDOWN[128];
-static unsigned char map_key_velocityDOWN[128];
-
-static int init_map_key = 1;
-
-int finger_enable_UP = 0;
-int finger_enable_DOWN = 0;
+/////////////////////////////////////////////////////////////////////////
+// finger timer
 
 static int getKey(int zone, int n, int m, int type, int note, int note_disp) {
 
@@ -2903,9 +2922,15 @@ void FingerPatternDialog::play_noteUP() {
        }
     }
 
+    _note_finger_on_UP = 0;
+    _note_finger_on_UP2 = 0;
+    _note_finger_pick_on_UP = 0;
+
     finger_key = finger_base_note;
     finger_enable_UP = 1;
     finger_switch_playUP = 1;
+    finger_chord_modeUP = finger_chord_modeUPEdit;
+    max_tick_counterUP = finger_patternUP[finger_chord_modeUPEdit][2];
 
     for(int n = 0; n < 128; n++) {
 
@@ -3058,7 +3083,14 @@ void FingerPatternDialog::play_noteDOWN() {
        }
     }
 
+    _note_finger_on_DOWN = 0;
+    _note_finger_on_DOWN2 = 0;
+    _note_finger_pick_on_DOWN = 0;
+
     finger_key = finger_base_note;
+
+    finger_chord_modeDOWN = finger_chord_modeDOWNEdit;
+    max_tick_counterDOWN = finger_patternDOWN[finger_chord_modeDOWNEdit][2];
 
     finger_enable_DOWN = 1;
     finger_switch_playDOWN = 1;
@@ -3464,7 +3496,7 @@ int FingerPatternDialog::Finger_note(std::vector<unsigned char>* message) {
 
             if(finger_key < note_cut && map_keyDOWN[n] == (128 | finger_key)) {
 
-                map_keyUP[n] = 0;
+                map_keyDOWN[n] = 0;
 
                 std::vector<unsigned char> message;
 
