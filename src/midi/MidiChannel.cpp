@@ -240,6 +240,7 @@ int MidiChannel::progBankAtTick(int tick, int *bank)
 
 
     ProgChangeEvent* ev2 = NULL;
+    int default_prg = 0;
 
     if (_events->size()) {
         int fl = 0;
@@ -271,7 +272,11 @@ int MidiChannel::progBankAtTick(int tick, int *bank)
         if (ctrl && ctrl->control()==0x0) {
             _bank= ctrl->value();
         }
-        if(ev) ev2 = ev;
+
+        if(ev) {
+            if(!ev2) default_prg = ev->program();
+            ev2 = ev;
+        }
 
         if (ev2 && _bank != -1) {
             if(bank) *bank = _bank;
@@ -282,6 +287,6 @@ int MidiChannel::progBankAtTick(int tick, int *bank)
     if(_bank < 0) _bank = 0; // Default bank
 
     if(bank) *bank = _bank;
-    return 0;
+    return default_prg;
 }
 
