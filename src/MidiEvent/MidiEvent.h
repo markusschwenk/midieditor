@@ -73,7 +73,7 @@ public:
     virtual QString toMessage();
     virtual QByteArray save();
     virtual void draw(QPainter* p, QColor c);
-
+    virtual void draw2(QPainter* p, QColor c, Qt::BrushStyle bs);
     virtual ProtocolEntry* copy();
     virtual void reloadState(ProtocolEntry* entry);
 

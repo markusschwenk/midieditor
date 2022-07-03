@@ -504,6 +504,15 @@ void MidiEvent::draw(QPainter* p, QColor c)
     p->drawRoundedRect(x(), y(), width(), height(), 1, 1);
 }
 
+
+void MidiEvent::draw2(QPainter* p, QColor c, Qt::BrushStyle bs)
+{
+    p->setPen(Qt::gray);
+    QBrush d(c, bs);
+    p->setBrush(d);
+    p->drawRoundedRect(x(), y(), width(), height(), 1, 1);
+}
+
 ProtocolEntry* MidiEvent::copy()
 {
     return new MidiEvent(*this);
