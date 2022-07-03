@@ -85,6 +85,9 @@ public:
     bool rightSplitterMode;
     int EventSplitterTabPos;
 
+    int skipVSTLoad;
+    QMenu*_skipvstload;
+    QAction *_skipvstload2[17];
     ChannelListWidget* channelWidget;
 
 protected:

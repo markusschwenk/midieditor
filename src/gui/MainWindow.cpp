@@ -239,9 +239,12 @@ MainWindow::MainWindow(QString initFile)
     rightSplitterMode = _settings->value("rightSplitterMode", true).toBool();
     if(rightSplitterMode) EventSplitterTabPos = 2; else EventSplitterTabPos = 1;
 
+    skipVSTLoad = 0;
+
     for (int i = 0; i < 17; i++) {
         Bank_MIDI[i]=0;
         Prog_MIDI[i]=0;
+        OctaveChan_MIDI[i]=0;
     }
 
     _moveSelectedEventsToChannelMenu = 0;
@@ -755,6 +758,7 @@ void MainWindow::setFile(MidiFile* file)
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(markEdited()));
     connect(file->protocol(), SIGNAL(actionFinished()), eventWidget(), SLOT(reload()));
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(checkEnableActionsForSelection()));
+
     mw_matrixWidget->setFile(file);
     updateChannelMenu();
     updateTrackMenu();
@@ -764,8 +768,56 @@ void MainWindow::setFile(MidiFile* file)
 
 #ifdef USE_FLUIDSYNTH
     VST_proc::VST_setParent(this);
-    VST_proc::VST_LoadfromMIDIfile();
+
+    if(!skipVSTLoad)
+        VST_proc::VST_LoadfromMIDIfile();
+    else {
+
+        for(int i = 0; i < PRE_CHAN; i++)
+            if((((skipVSTLoad >> (i & 15)) & 1) != 0))
+                VST_proc::VST_unload(i);
+
+    }
 #endif
+    if(skipVSTLoad) {
+        // delete VST datas
+
+        int current_tick = 0;
+        int dtick= file->tick(150);
+
+        QByteArray c;
+
+        again:
+
+        foreach (MidiEvent* event,
+                 *(file->eventsBetween(current_tick-dtick, current_tick+dtick))) {
+
+            SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+            if(sys) {
+
+                c = sys->data();
+
+                if((((skipVSTLoad >> (c[0] & 15)) & 1) != 0) && c[1] == (char) 0x66 && c[2] == (char) 0x66 && (c[3] == 'V' || c[3] == 'W')){
+
+                    file->channel(event->channel())->removeEvent(event);
+
+                    goto again;
+
+                }
+            }
+        }
+
+        skipVSTLoad = 0;
+
+        for(int i = 0; i < 17; i++)
+            _skipvstload2[i]->setChecked(false);
+
+        VST_proc::VST_LoadfromMIDIfile();
+
+    }
+
+    emit channelWidget->WidgeUpdate(); // update octave for channel displayed
 
 }
 
@@ -1510,8 +1562,10 @@ void MainWindow::openFile(QString filePath)
 
 void MainWindow::redo()
 {
-    if (file)
+    if (file) {
         file->protocol()->redo(true);
+        channelWidget->OctaveUpdate();
+    }
     updateTrackMenu();
 
 #ifdef USE_FLUIDSYNTH
@@ -1522,8 +1576,10 @@ void MainWindow::redo()
 
 void MainWindow::undo()
 {
-    if (file)
+    if (file) {
         file->protocol()->undo(true);
+        channelWidget->OctaveUpdate();
+    }
     updateTrackMenu();
 
 #ifdef USE_FLUIDSYNTH
@@ -2932,6 +2988,36 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     connect(_recentPathsMenu, SIGNAL(triggered(QAction*)), this, SLOT(openRecent(QAction*)));
 
     updateRecentPathsList();
+
+    _skipvstload = new QMenu("Skip VST SysEx events loading file", fileMB);
+    fileMB->addMenu(_skipvstload);
+
+    skipVSTLoad = 0;
+
+    for (int i = 0; i < 17; i++) {
+        _skipvstload2[i] = (i == 0) ? new QAction("All Channels", this)
+                                          : new QAction("channel " + QString::number(i - 1), this);
+        _skipvstload2[i]->setCheckable((i == 0) ? false : true);
+        _skipvstload2[i]->setChecked(false);
+        _skipvstload->addAction(_skipvstload2[i]);
+
+        skipVSTLoad = 0;
+
+        connect(_skipvstload2[i], QOverload<bool>::of(&QAction::triggered), [=](bool){
+            if(i == 0) {
+                if(skipVSTLoad == 0) skipVSTLoad = 0xffff;
+                else if(skipVSTLoad == 0xffff) skipVSTLoad = 0x0;
+                else skipVSTLoad = 0xffff;
+
+
+                for(int n = 0; n < 16; n++)
+                    _skipvstload2[n + 1]->setChecked(((skipVSTLoad >> n) & 1) != 0);
+            } else {
+                skipVSTLoad ^= (1 << (i - 1));
+                _skipvstload2[i]->setChecked((skipVSTLoad & (1 << (i - 1))) != 0);
+            }
+        });
+    }
 
     fileMB->addSeparator();
 
