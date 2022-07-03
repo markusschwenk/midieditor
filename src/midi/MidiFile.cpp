@@ -46,6 +46,7 @@ int MidiFile::defaultTimePerQuarter = 192;
 
 int Bank_MIDI[17];
 int Prog_MIDI[17];
+int OctaveChan_MIDI[17];
 
 MidiFile::MidiFile()
 {
@@ -56,7 +57,7 @@ MidiFile::MidiFile()
     prot->addEmptyAction("New file");
     _path = "";
     _pauseTick = -1;
-    for (int i = 0; i < 17; i++) Bank_MIDI[i]=Prog_MIDI[i]=0;
+    for (int i = 0; i < 17; i++) Bank_MIDI[i]=Prog_MIDI[i]=OctaveChan_MIDI[i]=0;
     for (int i = 0; i < 19; i++) {
         channels[i] = new MidiChannel(this, i);
     }
@@ -118,7 +119,7 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
         return;
     }
 
-    for (int i = 0; i < 17; i++) Bank_MIDI[i]=Prog_MIDI[i]=0;
+    for (int i = 0; i < 17; i++) Bank_MIDI[i]=Prog_MIDI[i]=OctaveChan_MIDI[i]=0;
     for (int i = 0; i < 19; i++) {
         channels[i] = new MidiChannel(this, i);
     }
@@ -138,11 +139,20 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
 
     // get banks from file
     for (int i = 0; i < 16; i++) {
-        int fctrl = 1, fprg = 1;
+        int fctrl = 1, fprg = 1, octrl = 1;
+        OctaveChan_MIDI[i] = 0;
 
         foreach (MidiEvent* event, channels[i]->eventMap()->values()) {
             ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
             ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
+            if (octrl && ctrl && ctrl->control()==0x3) { // Octave for chan (visual)
+                int octave = ctrl->value() - 5;
+                if(octave < -5) octave = -5;
+                if(octave > 5) octave = 5;
+                OctaveChan_MIDI[i] = octave;
+                octrl = 0;
+            }
+
             if (fctrl && ctrl && ctrl->control()==0x0) { // bank selected
                 Bank_MIDI[i] = ctrl->value(); fctrl=0;
             }

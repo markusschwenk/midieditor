@@ -162,7 +162,18 @@ void EventTool::paintSelectedEvents(QPainter* painter)
         }
 
         if (show) {
-            painter->setBrush(Qt::darkBlue);
+            if(OctaveChan_MIDI[event->channel()]) {
+
+                OffEvent* offEvent = dynamic_cast<OffEvent*>(event);
+                OnEvent* onEvent = dynamic_cast<OnEvent*>(event);
+
+                if (onEvent || offEvent) {
+                    QBrush d(Qt::darkBlue, Qt::Dense1Pattern);
+                    painter->setBrush(d);
+                } else
+                    painter->setBrush(Qt::darkBlue);
+            } else
+                painter->setBrush(Qt::darkBlue);
             painter->setPen(Qt::lightGray);
             painter->drawRoundedRect(event->x(), event->y(), event->width(),
                 event->height(), 1, 1);

@@ -28,8 +28,11 @@
 #include "ColoredWidget.h"
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
+#include "../MidiEvent/ControlChangeEvent.h"
 #include "../protocol/Protocol.h"
+#include "../tool/NewNoteTool.h"
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QSpinBox>
 
 #define ROW_HEIGHT 85
 
@@ -47,6 +50,9 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
 
     colored = new ColoredWidget(*(Appearance::channelColor(channel)), this);
     layout->addWidget(colored, 0, 0, 2, 1);
+
+    connect(colored, SIGNAL(doubleClick()), this, SLOT(doubleClick()));
+
     QString text = "Channel " + QString::number(channel);
 
     if (channel == 9) text+=" - Drums";
@@ -155,6 +161,74 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     }
 
     layout->addWidget(toolBar, 2, 1, 1, 1);
+
+
+    if(channel < 16 && channel != 9) {
+
+        spinOctave = new QSpinBox(this);
+        spinOctave->setObjectName(QString::fromUtf8("spinOctave"));
+        spinOctave->setToolTip("Change Displayed Octave Notes for channel");
+        spinOctave->setGeometry(QRect(0, 0, 31, 18));
+        spinOctave->setAlignment(Qt::AlignCenter);
+        spinOctave->setMinimum(-5);
+        spinOctave->setMaximum(5);
+        spinOctave->setValue(OctaveChan_MIDI[channel]);
+
+        connect(spinOctave, QOverload<int>::of(&QSpinBox::valueChanged), [=](int v){
+
+            if(v == 0)
+                spinOctave->setStyleSheet(QString::fromUtf8("background-color: #ffffff;"));
+            else
+                spinOctave->setStyleSheet(QString::fromUtf8("background-color: #8010f030;"));
+
+            if(OctaveChan_MIDI[channel] == v) return;
+
+            OctaveChan_MIDI[channel] = v;
+
+            if(channel != 9 && channel < 16) {
+
+                // remove old ctrl 3 Octave datas
+                foreach (MidiEvent* event, channelList->midiFile()->channel(channel)->eventMap()->values()) {
+
+                    ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
+
+                    if (ctrl && ctrl->control() == 3) {
+                        channelList->midiFile()->protocol()->startNewAction("Change Octave of notes displayed in Channel #" + QString::number(channel));
+                        if(v)
+                            ctrl->setValue(v + 5);
+                        else
+                            channelList->midiFile()->channel(channel)->removeEvent(ctrl);
+                        v = 555;
+                        break;
+                        //
+                    }
+
+                }
+
+                if(v && v != 555) { //insert ctrl 0x3 if octave != 0
+                    channelList->midiFile()->protocol()->startNewAction("Change Octave of notes displayed in Channel #" + QString::number(channel));
+
+                    MidiTrack* track = channelList->midiFile()->track(NewNoteTool::editTrack());
+
+                    MidiEvent* cevent = new ControlChangeEvent(channel, 0x3, v + 5, track);
+
+                    channelList->midiFile()->channel(channel)->insertEvent(cevent, 0);
+
+                    v= 555;
+                }
+
+                if(v == 555)
+                    channelList->midiFile()->protocol()->endAction();
+
+                emit channelStateChanged();
+            }
+
+        });
+
+        connect(parent, SIGNAL(WidgeUpdate()), this, SLOT(WidgeUpdate()));
+
+        layout->addWidget(spinOctave, 2, 0, 1, 1);
+    }
 
     layout->setRowStretch(2, 1);
     setContentsMargins(5, 1, 5, 0);
@@ -300,6 +374,20 @@ void ChannelListItem::onBeforeUpdate()
     }
 }
 
+void ChannelListItem::doubleClick()
+{
+
+    emit doubleClicked(channel);
+
+}
+
+void ChannelListItem::WidgeUpdate()
+{
+    int v = OctaveChan_MIDI[channel];
+    spinOctave->setValue(v);
+
+}
+
 #ifdef USE_FLUIDSYNTH
 void ChannelListWidget::ToggleViewVST(int channel, bool on) {
 
@@ -310,13 +398,12 @@ void ChannelListWidget::ToggleViewVST(int channel, bool on) {
 }
 #endif
 
-void ChannelListWidget::isDoubleClicked(QListWidgetItem *item)
+void ChannelListWidget::doubleClicked(int chan)
 {
-   // qWarning("item: %i", item->listWidget()->currentRow());
 
-    this->midiFile()->protocol()->startNewAction("Show Channel " + QString().number(item->listWidget()->currentRow(), 10));
+    this->midiFile()->protocol()->startNewAction("Show Channel " + QString().number(chan, 10));
     for(int channel = 0; channel < 17; channel++) {
-        if(channel == item->listWidget()->currentRow())
+        if(channel == chan)
             this->midiFile()->channel(channel)->setVisible(true);
         else
             this->midiFile()->channel(channel)->setVisible(false);
@@ -342,13 +429,14 @@ ChannelListWidget::ChannelListWidget(QWidget* parent)
 
         connect(widget, SIGNAL(channelStateChanged()), this, SIGNAL(channelStateChanged()));
         connect(widget, SIGNAL(selectInstrumentClicked(int)), this, SIGNAL(selectInstrumentClicked(int)));
-        connect(widget, SIGNAL(selectSoundEffectClicked(int)), this, SIGNAL(selectSoundEffectClicked(int))); 
+        connect(widget, SIGNAL(selectSoundEffectClicked(int)), this, SIGNAL(selectSoundEffectClicked(int)));
+        connect(widget, SIGNAL(doubleClicked(int)), this, SLOT(doubleClicked(int)));
+
 #ifdef USE_FLUIDSYNTH
         connect(widget, SIGNAL(LoadVSTClicked(int, int)), this, SIGNAL(LoadVSTClicked(int, int)));
 #endif
     }
-    connect(this, SIGNAL(itemDoubleClicked(QListWidgetItem *)), this, SLOT(isDoubleClicked(QListWidgetItem *)));
-
+   // connect(this, SIGNAL(itemDoubleClicked(QListWidgetItem *)), this, SLOT(isDoubleClicked(QListWidgetItem *)));
 
 
     file = 0;
@@ -359,6 +447,60 @@ void ChannelListWidget::setFile(MidiFile* f)
     file = f;
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(update()));
     update();
+}
+
+void ChannelListWidget::OctaveUpdate()
+{
+    static int autolock = 0;
+
+    if(autolock) return;
+
+    autolock = 1;
+
+    for (int i = 0; i < 16; i++) {
+
+        int octrl = 1;
+
+        int v = 0;
+
+        foreach (MidiEvent* event, file->channel(i)->eventMap()->values()) {
+            ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
+
+            if (ctrl && ctrl->control()==0x3) { // Octave for chan (visual)
+                if (octrl) {
+                    int octave = ctrl->value() - 5;
+                    if(octave < -5) octave = -5;
+                    if(octave > 5) octave = 5;
+                    v = octave;
+                    octrl = 0;
+                } else
+                    file->channel(i)->removeEvent(ctrl);
+            }
+        }
+
+        OctaveChan_MIDI[i] = v;
+
+        if(0)
+        if(i < 16 && i != 9 && OctaveChan_MIDI[i] != v) {
+
+
+            emit items.at(i)->spinOctave->valueChanged(v);
+            //
+        }
+
+
+
+
+    }
+
+
+     emit WidgeUpdate();
+    // emit channelStateChanged();
+
+    //items.at(0)->spinOctave->valueChanged(OctaveChan_MIDI[0]);
+    // items.at(0)->spinOctave->setValue(OctaveChan_MIDI[0]);
+
+    autolock = 0;
 }
 
 void ChannelListWidget::update()

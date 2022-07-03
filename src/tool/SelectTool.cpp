@@ -19,6 +19,7 @@
 #include "SelectTool.h"
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
+#include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/SysExEvent.h"
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiFile.h"
@@ -246,13 +247,37 @@ bool SelectTool::release()
 
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
             SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+            NoteOnEvent* on = dynamic_cast<NoteOnEvent*>(event);
+            OffEvent* off = dynamic_cast<OffEvent*>(event);
 
             if(sys) {
                 QByteArray c = sys->data();
                 if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
             }
-            if(event->line() >= l_start && event->line() <= l_end)
-            selectEvent(event, false);
+
+            if (on) {
+                off = on->offEvent();
+            } else if (off) {
+                on = dynamic_cast<NoteOnEvent*>(off->onEvent());
+            }
+            if (on && off) { // is note
+                int line = off->line();
+                int channel = event->channel();
+
+                if(OctaveChan_MIDI[channel]) { // line displacement
+                    line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+                    if(line < 0) line = 0;
+                    if(line > 127) line = 127;
+                    line = 127 - line;
+                }
+
+                if(line >= l_start && line <= l_end)
+                    selectEvent(event, false);
+            } else { // other events
+
+                if(event->line() >= l_start && event->line() <= l_end)
+                    selectEvent(event, false);
+            }
         }
 
     }

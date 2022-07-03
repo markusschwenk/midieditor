@@ -787,7 +787,7 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
                   }
             }
 
-            if(ctrl && ctrl->control()!=0){
+            if(ctrl && ctrl->control() != 0 && ctrl->control() != 3){
                 int x = xPosOfMs(msOfTick(ctrl->midiTime()));
                 int wd = 16;
 
@@ -830,6 +830,7 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
             // and an OffEvent, the OnEvent will hold the coordinates
             int line = event->line();
 
+
             OffEvent* offEvent = dynamic_cast<OffEvent*>(event);
             OnEvent* onEvent = dynamic_cast<OnEvent*>(event);
 
@@ -837,7 +838,20 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
             int y = yPosOfLine(line);
             int height = lineHeight();
 
+            int displaced = 0;
+
             if (onEvent || offEvent) {
+
+                // visual octave correction for notes
+                if(OctaveChan_MIDI[channel]) {
+                    line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+                    if(line < 0) line = 0;
+                    if(line > 127) line = 127;
+                    line = 127 - line;
+                    y = yPosOfLine(line);
+                    displaced = 1;
+                }
+
                 if (onEvent) {
                     offEvent = onEvent->offEvent();
                 } else if (offEvent) {
@@ -867,7 +881,11 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
                 if (!_colorsByChannels) {
                     cC = *event->track()->color();
                 }
-                event->draw(painter, cC);
+
+                if(displaced)
+                    event->draw2(painter, cC, Qt::Dense1Pattern);
+                else
+                    event->draw(painter, cC);
 
                 if (Selection::instance()->selectedEvents().contains(event)) {
                     painter->setPen(Qt::gray);
@@ -1570,10 +1588,29 @@ bool MatrixWidget::eventInWidget(MidiEvent* event)
         int line = off->line();
         int tick = on->midiTime();
         int tick2 = off->midiTime();
+        int channel = event->channel();
+
+        // visual octave correction for notes
+        if(OctaveChan_MIDI[channel]) {
+            line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+            if(line < 0) line = 0;
+            if(line > 127) line = 127;
+            line = 127 - line;
+        }
+
 
         bool offIn = line >= startLineY && line <= endLineY
                 && tick2 >= startTick && tick2 <= endTick;
+
         line = on->line();
+
+        // visual octave correction for notes
+        if(OctaveChan_MIDI[channel]) {
+            line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+            if(line < 0) line = 0;
+            if(line > 127) line = 127;
+            line = 127 - line;
+        }
 
         bool onIn = line >= startLineY && line <= endLineY &&
                 ((tick >= startTick && tick <= endTick) ||

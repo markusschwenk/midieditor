@@ -28,6 +28,7 @@
 
 extern int Bank_MIDI[17];
 extern int Prog_MIDI[17];
+extern int OctaveChan_MIDI[17];
 
 class MidiEvent;
 class TimeSignatureEvent;

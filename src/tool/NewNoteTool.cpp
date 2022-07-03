@@ -77,15 +77,24 @@ void NewNoteTool::draw(QPainter* painter)
 {
     int currentX = rasteredX(mouseX);
     if (inDrag) {
-        if (line <= 127) {
-            int y = matrixWidget->yPosOfLine(line);
+        int line2 = line;
+
+        if(OctaveChan_MIDI[_channel] && _channel != 9 && _channel < 16) {
+            line2-= 12 * OctaveChan_MIDI[_channel];
+            if(line2 < 0) line2 = 0;
+            if(line2 > 127) line2 = 127;
+        }
+
+        if (line2 <= 127) {
+
+            int y = matrixWidget->yPosOfLine(line2);
             painter->fillRect(xPos, y, currentX - xPos, matrixWidget->lineHeight(), Qt::black);
             painter->setPen(Qt::gray);
             painter->drawLine(xPos, 0, xPos, matrixWidget->height());
             painter->drawLine(currentX, 0, currentX, matrixWidget->height());
             painter->setPen(Qt::black);
         } else {
-            int y = matrixWidget->yPosOfLine(line);
+            int y = matrixWidget->yPosOfLine(line2);
             painter->fillRect(currentX, y, 15, matrixWidget->lineHeight(), Qt::black);
             painter->setPen(Qt::gray);
             painter->drawLine(currentX, 0, currentX, matrixWidget->height());
@@ -100,6 +109,14 @@ bool NewNoteTool::press(bool leftClick)
     Q_UNUSED(leftClick);
     inDrag = true;
     line = matrixWidget->lineAtY(mouseY);
+
+    if(OctaveChan_MIDI[_channel] && _channel != 9 && _channel < 16) {
+        line+= 12 * OctaveChan_MIDI[_channel];
+        if(line < 0) line = 0;
+        if(line > 127) line = 127;
+    }
+
+
     xPos = rasteredX(mouseX);
     return true;
 }

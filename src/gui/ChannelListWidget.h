@@ -26,6 +26,7 @@
 #include <QResizeEvent>
 #include <QWidget>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QSpinBox>
 
 class QAction;
 class MidiFile;
@@ -39,6 +40,7 @@ class ChannelListItem : public QWidget {
     Q_OBJECT
 
 public:
+    QSpinBox *spinOctave;
     ChannelListItem(int channel, ChannelListWidget* parent);
     void onBeforeUpdate();
 
@@ -50,6 +52,7 @@ signals:
     void LoadVSTClicked(int channel, int flag);
 #endif
     void channelStateChanged();
+    void doubleClicked(int channel);
 
 public slots:
     void toggleVisibility(bool visible);
@@ -65,12 +68,15 @@ public slots:
     void LoadVST2();
     void viewVST2();
 #endif
+    void doubleClick();
+    void WidgeUpdate();
 
 private:
 #ifdef USE_FLUIDSYNTH
     QPushButton *bViewVST1;
     QPushButton *bViewVST2;
 #endif
+    QPushButton *bOctave;
     QLabel* instrumentLabel;
     ChannelListWidget* channelList;
     int channel;
@@ -91,16 +97,19 @@ signals:
     void channelStateChanged();
     void selectInstrumentClicked(int channel);
     void selectSoundEffectClicked(int channel);
+    void WidgeUpdate();
 #ifdef USE_FLUIDSYNTH
     void LoadVSTClicked(int channel, int flag);
 #endif
 
 public slots:
     void update();
-    void isDoubleClicked(QListWidgetItem *item);
+    void OctaveUpdate();
+    void doubleClicked(int channel);
 #ifdef USE_FLUIDSYNTH
     void ToggleViewVST(int channel, bool on);
 #endif
+
 private:
     MidiFile* file;
     QList<ChannelListItem*> items;
