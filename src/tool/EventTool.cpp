@@ -36,8 +36,6 @@
 #include <QtCore/qmath.h>
 #include <QClipboard>
 #include <QMessageBox>
-#include <iostream>
-#include <limits>
 
 
 QList<MidiEvent*>* EventTool::copiedEvents = new QList<MidiEvent*>;
@@ -196,37 +194,21 @@ void EventTool::copyAction()
                 }
             }
         }
-        //std::cout << "Copied " << copiedEvents->size() << std::endl;
-
         MidiFile copyFile = MidiFile();
-        
-        //auto copyFileEventList = copyFile.channelEvents(1);
-        //MidiChannel* copyChannel = copyFile.channel(0);
-
-        //int channel = copiedEvents->at(0)->channel();
-        /*std::cout << "Cchannel: " << channel << "\n";
-        auto events = copiedEvents->at(0)->file()->channel(channel)->eventMap();
-        auto it = events->keyValueBegin();
-        while (it != events->keyValueEnd()){
-            std::cout << it->first << ", " << it->second->midiTime() << std::endl;
-            it++;
-        }*/
+        MidiTrack* copyTrack = copyFile.track(1);
 
         for (auto event: *copiedEvents){
-            MidiEvent* copy = dynamic_cast<MidiEvent*>(event->copy()); //new MidiEvent(*event);
-            copy->setTrack(copyFile.track(1), false);
+            MidiEvent* copy = dynamic_cast<MidiEvent*>(event->copy());
+            copy->setTrack(copyTrack, false);
             copy->setChannel(0, false);
             copy->setFile(&copyFile);
             copyFile.channelEvents(0)->insert(event->midiTime(), copy);
         }
-        //std::cout << copyFile.numTracks() << std::endl;
 
         QClipboard *clipboard = QGuiApplication::clipboard();
         clipboard->setText(copyFile.toByteArray().toBase64());
-        
-        //std::cout <<  << std::endl;
 
-        _mainWindow->copiedEventsChanged();
+        //_mainWindow->copiedEventsChanged();
     }
 }
 

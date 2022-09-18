@@ -38,7 +38,7 @@ class MidiFile : public QObject, public ProtocolEntry {
     Q_OBJECT
 
 public:
-    MidiFile(QByteArray raw_midi, bool* ok, QStringList* log);
+    MidiFile(QByteArray& raw_midi, bool* ok, QStringList* log);
     MidiFile(QString path, bool* ok, QStringList* log = 0);
     MidiFile();
     // needed to protocol fileLength

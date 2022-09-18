@@ -129,7 +129,7 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
     printLog(log);
 }
 
-MidiFile::MidiFile(QByteArray raw_midi, bool* ok, QStringList* log)
+MidiFile::MidiFile(QByteArray& raw_midi, bool* ok, QStringList* log)
 {
 
     if (!log) {
