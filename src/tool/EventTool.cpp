@@ -34,6 +34,11 @@
 #include "Selection.h"
 
 #include <QtCore/qmath.h>
+#include <QClipboard>
+#include <QMessageBox>
+#include <iostream>
+#include <limits>
+
 
 QList<MidiEvent*>* EventTool::copiedEvents = new QList<MidiEvent*>;
 
@@ -191,12 +196,75 @@ void EventTool::copyAction()
                 }
             }
         }
+        //std::cout << "Copied " << copiedEvents->size() << std::endl;
+
+        MidiFile copyFile = MidiFile();
+        
+        //auto copyFileEventList = copyFile.channelEvents(1);
+        //MidiChannel* copyChannel = copyFile.channel(0);
+
+        //int channel = copiedEvents->at(0)->channel();
+        /*std::cout << "Cchannel: " << channel << "\n";
+        auto events = copiedEvents->at(0)->file()->channel(channel)->eventMap();
+        auto it = events->keyValueBegin();
+        while (it != events->keyValueEnd()){
+            std::cout << it->first << ", " << it->second->midiTime() << std::endl;
+            it++;
+        }*/
+
+        for (auto event: *copiedEvents){
+            MidiEvent* copy = dynamic_cast<MidiEvent*>(event->copy()); //new MidiEvent(*event);
+            copy->setTrack(copyFile.track(1), false);
+            copy->setChannel(0, false);
+            copy->setFile(&copyFile);
+            copyFile.channelEvents(0)->insert(event->midiTime(), copy);
+        }
+        //std::cout << copyFile.numTracks() << std::endl;
+
+        QClipboard *clipboard = QGuiApplication::clipboard();
+        clipboard->setText(copyFile.toByteArray().toBase64());
+        
+        //std::cout <<  << std::endl;
+
         _mainWindow->copiedEventsChanged();
     }
 }
 
 void EventTool::pasteAction()
 {
+
+    QClipboard *clipboard = QGuiApplication::clipboard();
+
+    QString pasted_midiFile_b64_str = clipboard->text();
+
+    if(pasted_midiFile_b64_str.size() == 0) return;
+
+    QByteArray pasted_midiFile_raw = QByteArray::fromBase64(pasted_midiFile_b64_str.toUtf8(), QByteArray::AbortOnBase64DecodingErrors);
+
+    if (pasted_midiFile_raw.size() == 0){
+        QMessageBox msgBox;
+        msgBox.setText("The pasted input cannot be interpreted as base64 encoded midi data...");
+        msgBox.exec();
+        return;
+    }
+
+    bool ok = true;
+    MidiFile pasted_file(pasted_midiFile_raw, &ok, nullptr);
+
+    if(!ok){
+        QMessageBox msgBox;
+        msgBox.setText("The pasted input cannot be interpreted as midi data...");
+        msgBox.exec();
+    }
+
+    copiedEvents->clear();
+    for (MidiEvent* e: *pasted_file.channelEvents(0)){
+        copiedEvents->append(e);
+    }
+
+
+
+
 
     if (copiedEvents->size() == 0) {
         return;
