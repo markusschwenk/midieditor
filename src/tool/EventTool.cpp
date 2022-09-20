@@ -167,12 +167,12 @@ void EventTool::changeTick(MidiEvent* event, int shiftX)
 
 void EventTool::copyAction()
 {
-    MidiFile copyFile = MidiFile();
-    MidiTrack* copyTrack = copyFile.track(1);
-
     if (Selection::instance()->selectedEvents().size() > 0) {
         // clear old copied Events
         //copiedEvents->clear();
+        MidiFile copyFile = MidiFile();
+        copyFile.setTicksPerQuarter(Selection::instance()->selectedEvents().first()->file()->ticksPerQuarter());
+        MidiTrack* copyTrack = copyFile.track(1);
 
         foreach (MidiEvent* event, Selection::instance()->selectedEvents()) {
 

@@ -703,6 +703,12 @@ int MidiFile::ticksPerQuarter()
     return timePerQuarter;
 }
 
+void MidiFile::setTicksPerQuarter(int timePerQuarter)
+{
+    this->timePerQuarter = timePerQuarter;
+}
+
+
 QMultiMap<int, MidiEvent*>* MidiFile::channelEvents(int channel)
 {
     return channels[channel]->eventMap();

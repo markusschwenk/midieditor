@@ -60,6 +60,7 @@ public:
 
     QList<MidiEvent*>* eventsBetween(int start, int end);
     int ticksPerQuarter();
+    void setTicksPerQuarter(int timePerQuarter);
     QMultiMap<int, MidiEvent*>* channelEvents(int channel);
 
     Protocol* protocol();
