@@ -174,7 +174,7 @@ public slots:
 
     void checkEnableActionsForSelection();
     void toolChanged();
-    void copiedEventsChanged();
+    //void copiedEventsChanged();
 
     void updateDetected(Update* update);
     void promtUpdatesDeactivatedDialog();

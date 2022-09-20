@@ -38,12 +38,14 @@ class MidiFile : public QObject, public ProtocolEntry {
     Q_OBJECT
 
 public:
+    MidiFile(QByteArray& raw_midi, bool* ok, QStringList* log);
     MidiFile(QString path, bool* ok, QStringList* log = 0);
     MidiFile();
     // needed to protocol fileLength
     MidiFile(int maxTime, Protocol* p);
     bool save(QString path);
-    QByteArray writeDeltaTime(int time);
+    QByteArray toByteArray();
+    static QByteArray writeDeltaTime(int time);
     int maxTime();
     int endTick();
     int timeMS(int midiTime);
@@ -58,6 +60,7 @@ public:
 
     QList<MidiEvent*>* eventsBetween(int start, int end);
     int ticksPerQuarter();
+    void setTicksPerQuarter(int timePerQuarter);
     QMultiMap<int, MidiEvent*>* channelEvents(int channel);
 
     Protocol* protocol();

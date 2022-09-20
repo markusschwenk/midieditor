@@ -22,6 +22,7 @@
 #include "EditorTool.h"
 
 #include <QList>
+#include <QSharedMemory>
 
 class MidiEvent;
 class MidiTrack;
@@ -54,13 +55,14 @@ public:
     static void enableMagnet(bool enable);
     static bool magnetEnabled();
 
-    static QList<MidiEvent*>* copiedEvents;
+    //static QList<MidiEvent*>* copiedEvents;
 
 protected:
     static bool isCutAction;
     static int _pasteChannel;
     static int _pasteTrack;
     static bool _magnet;
+    static QSharedMemory sharedMemory;
 };
 
 #endif
