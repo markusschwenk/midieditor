@@ -254,7 +254,9 @@ void EventTool::pasteAction()
         // set the Positions and add the Events to the channels
         clearSelection();
 
-        foreach (MidiEvent* event, copiedCopiedEvents) {
+        std::sort(copiedCopiedEvents.begin(), copiedCopiedEvents.end(), [](MidiEvent* a, MidiEvent* b){ return a->midiTime() < b->midiTime(); });
+        for (auto it = copiedCopiedEvents.rbegin(); it != copiedCopiedEvents.rend(); it++) {
+            MidiEvent* event = *it;
 
             // get channel
             int channel = event->channel();
