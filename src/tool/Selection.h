@@ -21,7 +21,7 @@ public:
     static Selection* instance();
     static void setFile(MidiFile* file);
 
-    QList<MidiEvent*> selectedEvents();
+    QList<MidiEvent*>& selectedEvents();
     void setSelection(QList<MidiEvent*> selections);
     void clearSelection();
 

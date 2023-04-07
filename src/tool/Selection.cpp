@@ -54,7 +54,7 @@ void Selection::setFile(MidiFile* file)
     _selectionInstance = new Selection(file);
 }
 
-QList<MidiEvent*> Selection::selectedEvents()
+QList<MidiEvent*>& Selection::selectedEvents()
 {
     return _selectedEvents;
 }
