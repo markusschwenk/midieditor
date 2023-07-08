@@ -34,6 +34,8 @@
 #include "Selection.h"
 
 #include <QtCore/qmath.h>
+#include <set>
+#include <vector>
 
 QList<MidiEvent*>* EventTool::copiedEvents = new QList<MidiEvent*>;
 
@@ -52,7 +54,7 @@ EventTool::EventTool(EventTool& other)
 {
 }
 
-void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
+void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr, bool setSelection)
 {
 
     if (!event->file()->channel(event->channel())->visible()) {
@@ -63,7 +65,7 @@ void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
         return;
     }
 
-    QList<MidiEvent*> selected = Selection::instance()->selectedEvents();
+    QList<MidiEvent*>& selected = Selection::instance()->selectedEvents();
 
     OffEvent* offevent = dynamic_cast<OffEvent*>(event);
     if (offevent) {
@@ -83,16 +85,18 @@ void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
         selected.removeAll(event);
     }
 
-    Selection::instance()->setSelection(selected);
+    if (setSelection)
+    {
+        Selection::instance()->setSelection(selected);
+    }
     _mainWindow->eventWidget()->reportSelectionChangedByTool();
 }
 
 void EventTool::deselectEvent(MidiEvent* event)
 {
 
-    QList<MidiEvent*> selected = Selection::instance()->selectedEvents();
+    QList<MidiEvent*>& selected = Selection::instance()->selectedEvents();
     selected.removeAll(event);
-    Selection::instance()->setSelection(selected);
 
     if (_mainWindow->eventWidget()->events().contains(event)) {
         _mainWindow->eventWidget()->removeEvent(event);
@@ -206,6 +210,7 @@ void EventTool::pasteAction()
 
     // copy copied events to insert unique events
     QList<MidiEvent*> copiedCopiedEvents;
+
     foreach (MidiEvent* event, *copiedEvents) {
 
         // add the current Event
@@ -256,15 +261,42 @@ void EventTool::pasteAction()
         // set the Positions and add the Events to the channels
         clearSelection();
 
-        foreach (MidiEvent* event, copiedCopiedEvents) {
+        std::sort(copiedCopiedEvents.begin(), copiedCopiedEvents.end(), [](MidiEvent* a, MidiEvent* b){ return a->midiTime() < b->midiTime(); });
+
+        std::vector<std::pair<ProtocolEntry*, ProtocolEntry*>> channelCopies;
+        std::set<int> copiedChannels;
+
+        // Determine which channels are associated with the pasted events and copy them
+        for (auto event : copiedCopiedEvents)
+        {
+            // get channel
+            int channelNum = event->channel();
+            if (_pasteChannel == -2) {
+                channelNum = NewNoteTool::editChannel();
+            }
+            if ((_pasteChannel >= 0) && (channelNum < 16)) {
+                channelNum = _pasteChannel;
+            }
+
+            if (copiedChannels.find(channelNum) == copiedChannels.end())
+            {
+                MidiChannel* channel = currentFile()->channel(channelNum);
+                ProtocolEntry* channelCopy = channel->copy();
+                channelCopies.push_back(std::make_pair(channelCopy, channel));
+                copiedChannels.insert(channelNum);
+            }
+        }
+
+        for (auto it = copiedCopiedEvents.rbegin(); it != copiedCopiedEvents.rend(); it++) {
+            MidiEvent* event = *it;
 
             // get channel
-            int channel = event->channel();
+            int channelNum = event->channel();
             if (_pasteChannel == -2) {
-                channel = NewNoteTool::editChannel();
+                channelNum = NewNoteTool::editChannel();
             }
-            if ((_pasteChannel >= 0) && (channel < 16)) {
-                channel = _pasteChannel;
+            if ((_pasteChannel >= 0) && (channelNum < 16)) {
+                channelNum = _pasteChannel;
             }
 
             // get track
@@ -285,11 +317,19 @@ void EventTool::pasteAction()
             }
 
             event->setFile(currentFile());
-            event->setChannel(channel, false);
+            event->setChannel(channelNum, false);
             event->setTrack(track, false);
-            currentFile()->channel(channel)->insertEvent(event,
-                (int)(tickscale * event->midiTime()) + diff);
-            selectEvent(event, false, true);
+            currentFile()->channel(channelNum)->insertEvent(event,
+                (int)(tickscale * event->midiTime()) + diff, false);
+            selectEvent(event, false, true, false);
+        }
+        Selection::instance()->setSelection(Selection::instance()->selectedEvents());
+
+        // Put the copied channels from before the event insertion onto the protocol stack
+        for (auto channelPair : channelCopies)
+        {
+            ProtocolEntry* channel = channelPair.first;
+            channel->protocol(channel, channelPair.second);
         }
 
         currentFile()->protocol()->endAction();
