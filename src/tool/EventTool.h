@@ -32,7 +32,7 @@ public:
     EventTool();
     EventTool(EventTool& other);
 
-    static void selectEvent(MidiEvent* event, bool single, bool ignoreStr = false);
+    static void selectEvent(MidiEvent* event, bool single, bool ignoreStr = false, bool setSelection = true);
     static void deselectEvent(MidiEvent* event);
     static void clearSelection();
     void paintSelectedEvents(QPainter* painter);

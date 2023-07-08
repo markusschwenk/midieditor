@@ -54,7 +54,7 @@ EventTool::EventTool(EventTool& other)
 {
 }
 
-void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
+void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr, bool setSelection)
 {
 
     if (!event->file()->channel(event->channel())->visible()) {
@@ -85,13 +85,17 @@ void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
         selected.removeAll(event);
     }
 
+    if (setSelection)
+    {
+        Selection::instance()->setSelection(selected);
+    }
     _mainWindow->eventWidget()->reportSelectionChangedByTool();
 }
 
 void EventTool::deselectEvent(MidiEvent* event)
 {
 
-    QList<MidiEvent*> selected = Selection::instance()->selectedEvents();
+    QList<MidiEvent*>& selected = Selection::instance()->selectedEvents();
     selected.removeAll(event);
 
     if (_mainWindow->eventWidget()->events().contains(event)) {
@@ -317,8 +321,9 @@ void EventTool::pasteAction()
             event->setTrack(track, false);
             currentFile()->channel(channelNum)->insertEvent(event,
                 (int)(tickscale * event->midiTime()) + diff, false);
-            selectEvent(event, false, true);
+            selectEvent(event, false, true, false);
         }
+        Selection::instance()->setSelection(Selection::instance()->selectedEvents());
 
         // Put the copied channels from before the event insertion onto the protocol stack
         for (auto channelPair : channelCopies)
