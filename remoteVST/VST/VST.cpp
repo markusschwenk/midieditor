@@ -1952,6 +1952,10 @@ skip:
         } else if(message == 0xC0C0FE0) {
             sharedVSText->unlock();
             VST_proc::VST_show(chan, sel ? true : false);
+        } else if(message == 0xC0C0FE1) {
+            sharedVSText->unlock();
+            if(VST_preset_data[chan]->vstWidget)
+                emit ((VSTDialog *) VST_preset_data[chan]->vstWidget)->hide();
         } else
             sharedVSText->unlock();
 
