@@ -546,6 +546,10 @@ void MatrixWidget::paintEvent(QPaintEvent* /*event*/)
     }
 
     // paint edit cursor
+#ifdef USE_FLUIDSYNTH
+    if(!fluid_control) _cur_edit = -666;
+#endif
+
     if (_cur_edit >= startTick && _cur_edit <= endTick) {
         painter->setPen(Qt::darkGray);
         int x = xPosOfMs(msOfTick(_cur_edit));
@@ -660,9 +664,16 @@ void MatrixWidget::paintEvent(QPaintEvent* /*event*/)
 
 void MatrixWidget::paintChannel(QPainter* painter, int channel)
 {
+    // Estwald Visible
+    bool chan16hide = false;
+
     if (!file->channel(channel)->visible()) {
-        return;
+        if(channel != 16)
+            return;
+        else
+            chan16hide = true;
     }
+
     QColor cC = *file->channel(channel)->color();
 
     // filter events
@@ -675,9 +686,27 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
 
         if(sys) {
             QByteArray c = sys->data();
+#ifdef USE_FLUIDSYNTH
             if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') {
+#ifndef VISIBLE_VST_SYSEX
+                it++; continue;
+#endif
+            } else if(chan16hide && c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='W') {
+                if(!file->channel(c[0] & 15)->visible()) {
+                    it++; continue;
+                }
+            } else if(chan16hide && c[1]== (char) 0x66 && c[2]==(char) 0x66 && (c[3] & 0x70) == 0x70) {
+                if(!file->channel(c[3] & 15)->visible()) {
+                    it++; continue;
+                }
+            } else if(chan16hide) {
                 it++; continue;
             }
+#else
+            if(chan16hide) {
+                it++; continue;
+            }
+#endif
         }
         OnEvent* onEvent = dynamic_cast<OnEvent*>(event);
         if(onEvent) {
@@ -702,6 +731,11 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
             PitchBendEvent* pitch = dynamic_cast<PitchBendEvent*>(event);
             SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
             TextEvent* text = dynamic_cast<TextEvent*>(event);
+
+            if(chan16hide && !sys) {
+                it++; continue;
+            }
+
 
             if(!visible_Controlflag) ctrl = NULL;
             if(!visible_PitchBendflag) pitch = NULL;
@@ -749,9 +783,9 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
 
             if(sys){
                 QByteArray d= sys->data();
-                if(d[0]==(char) 0
+                if((d[0]==(char) 0 || (d[0]==(char) 0x10 && d[3]=='R'))
                         && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
-                  (d[3]=='P' || d[3]=='R' || (d[3] & 0xF0)==0x70)) {
+                  (d[3]=='R' || (d[3] & 0xF0)==0x70)) {
                     int x = xPosOfMs(msOfTick(sys->midiTime()));
                     int wd = 16;
 
@@ -1288,7 +1322,8 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                                                 tmid -= noteOn->midiTime();
                                                 tx -= noteOn->x();
 
-                                                midiFile()->protocol()->startNewAction("Move events aligned");
+                                                int selected = Selection::instance()->selectedEvents().size();
+                                                midiFile()->protocol()->startNewAction("Move events aligned (" + QString::number(selected) + ")");
 
                                                 foreach (MidiEvent* event2, Selection::instance()->selectedEvents()) {
                                                     event2->setMidiTime(event2->midiTime() - tmid);
@@ -1342,6 +1377,7 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
         int dtick= file->tick(150); // range
 
         for(int chan = 0; chan < 16; chan++) {
+
             if(file->channel(chan)->visible())
                 foreach (MidiEvent* event2, file->channel(chan)->eventMap()->values()) {
                     if(event2->midiTime() >= tick - dtick && event2->midiTime() < tick + dtick) {
@@ -1389,25 +1425,55 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
        int dtick= file->tick(150);
 
        foreach (MidiEvent* event2, *(file->eventsBetween(tick-dtick, tick+dtick))) {
-           if(tick>=event2->midiTime() && tick<=(event2->midiTime()+wtick) && file->channel(event2->channel())->visible()) {
+// Estwald Visible
+           bool show = true;
+           int chan = event2->channel();
+
+#ifdef USE_FLUIDSYNTH
+           if(!file->channel(chan)->visible() && chan != 16)
+               show = false;
+#else
+           if(!file->channel(chan)->visible())
+               show = false;
+#endif
+           if(tick>=event2->midiTime() && tick<=(event2->midiTime()+wtick) && show) {
 
                ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event2);
 #ifdef USE_FLUIDSYNTH
+
                 SysExEvent* sys = dynamic_cast<SysExEvent*>(event2);
 
                 if(sys){
 
                     QByteArray d= sys->data();
+// Estwald Visible
+
+                    if(chan == 16 && !file->channel(chan)->visible()) {
+
+                        if(d[1]== (char) 0x66 && d[2]==(char) 0x66 && d[3]=='W') {
+                            if(!file->channel(d[0] & 15)->visible()) {
+                                continue;
+                            }
+                        } else if(d[1]== (char) 0x66 && d[2]==(char) 0x66 && (d[3] & 0x70) == 0x70) {
+                            if(!file->channel(d[3] & 15)->visible()) {
+                                continue;
+                            }
+                        }
+                    }
+
+
+                    //
+
+
                     if(d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
                                           d[3]=='W') {
                         file->setCursorTick(sys->midiTime());
                         VST_proc::VST_LoadParameterStream(sys->save());
                         VST_chan vst(main_widget, d[0], 1);
                        // vst.exec();
-                    } else
-                    if(d[0]==(char) 0
+                    } else if((d[0]==(char) 0 || (d[0]==(char) 0x10 && d[3]=='R'))
                             && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
-                      (d[3]=='P' || d[3]=='R' || (d[3] & 0xF0)==(char) 0x70)) {
+                      (d[3]=='R' || (d[3] & 0xF0)==(char) 0x70)) {
 
                         MainWindow::FluidControl();
 
@@ -1417,6 +1483,8 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                         }
                     }
                 }
+
+
 #endif
 
                if (prg) {
@@ -1682,7 +1750,15 @@ void MatrixWidget::mouseDoubleClickEvent(QMouseEvent* /*event*/)
         int tick = file->tick(msOfXPos(mouseX));
         file->setCursorTick(tick);
 
-        _cur_edit = -666;
+#ifdef USE_FLUIDSYNTH
+        if(fluid_control) {
+            fluid_control->UpdateCursor();
+            if(!fluid_control->EditMode())
+                _cur_edit = -666;
+        } else
+            _cur_edit = -666;
+#endif
+
         update();
     }
 }
