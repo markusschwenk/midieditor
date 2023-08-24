@@ -27,6 +27,7 @@
 #include <QDateTime>
 #include <QSemaphore>
 #include "../tool/FingerPatternDialog.h"
+#include <QtWidgets/QProgressBar>
 
 class MatrixWidget;
 class MidiEvent;
@@ -99,7 +100,9 @@ signals:
     int signal_remote_VST();
     void ToggleViewVST(int channel, bool on);
 #endif
-
+signals:
+    void setBar(int num);
+    void endBar();
 public slots:
     void setChordVelocityProp();
     void velocity_accept();
@@ -120,6 +123,7 @@ public slots:
     void openFile(QString filePath);
     void save();
     void saveas();
+    void clean_undo_redo_list();
     void undo();
     void redo();
     void muteAllChannels();
@@ -168,12 +172,9 @@ public slots:
     void removeTrack(int tracknumber);
 
     void velocityScale();
-    void NotesCorrection(int mode);
     void overlappedNotesCorrection();
     void longNotesCorrection();
-
-    void buildCMajorProg(int d3, int d5, int d7);
-    void buildCMinorProg(int d3, int d5, int d7);
+    void stretchNotes();
 
     void buildCMajor();
     void buildCMinor();
@@ -181,8 +182,6 @@ public slots:
     void buildCMinorInv1();
     void buildCMajorInv2();
     void buildCMinorInv2();
-
-    void builddichord(int d3, int d5, int d7);
 
     void buildpowerchord();
     void buildpowerchordInv();
@@ -199,6 +198,7 @@ public slots:
     void pitchbend_effect1();
     void volumeoff_effect();
     void choppy_audio_effect();
+    void mute_audio_effect();
     void conv_pattern_note();
     void finger_pattern();
 
@@ -208,6 +208,8 @@ public slots:
     void setLoadVSTForChannel(int channel, int flag);
     void remote_VST();
     void remote_VST_exit();
+
+    void sysExChecker(MidiFile* mf);
 #endif
 
     void message_timeout(QString title, QString message);
@@ -281,7 +283,10 @@ public slots:
     void toolChanged();
     void copiedEventsChanged();
 
+#ifndef CUSTOM_MIDIEDITOR
     void updateDetected(Update* update);
+#endif
+
     void promtUpdatesDeactivatedDialog();
 
     void tweakTime();
@@ -346,7 +351,7 @@ private:
 
     QComboBox *_miscMode, *_miscController, *_miscChannel;
     QAction *setSingleMode, *setLineMode, *setFreehandMode, *_allChannelsVisible, *_allChannelsInvisible, *_allTracksAudible, *_allTracksMute,
-        *_allChannelsAudible, *_allChannelsMute, *_allTracksVisible, *_allTracksInvisible, *stdToolAction, *undoAction, *redoAction, *_pasteAction, *pasteActionTB;
+        *_allChannelsAudible, *_allChannelsMute, *_allTracksVisible, *_allTracksInvisible, *stdToolAction, *clearundoredoAction, *undoAction, *redoAction, *_pasteAction, *pasteActionTB;
     MiscWidget* _miscWidget;
 
     QWidget* setupActions(QWidget* parent);
@@ -354,11 +359,66 @@ private:
     int _quantizationGrid;
     int quantize(int t, QList<int> ticks);
     QList<QAction*> _activateWithSelections;
+    QList<QWidget*> _disableWithPlay;
 
     TweakTarget* currentTweakTarget;
     SelectionNavigator* selectionNavigator;
 
     FingerPatternDialog *finger_main;
 };
+
+class Main_Thread : public QThread {
+    Q_OBJECT
+public:
+    Main_Thread(MainWindow *m);
+    ~Main_Thread();
+
+    void run() override;
+
+    void pitchbend_effect1();
+    void volumeoff_effect();
+    void choppy_audio_effect();
+    void mute_audio_effect();
+    void conv_pattern_note();
+
+    void NotesCorrection(int mode);
+    void builddichord(int d3, int d5, int d7);
+    void buildCMajorProg(int d3, int d5, int d7);
+    void buildCMinorProg(int d3, int d5, int d7);
+
+    int index;
+
+private:
+    MainWindow *mw;
+    MidiFile* file;
+    bool loop;
+signals:
+    void setBar(int num);
+    void endBar();
+public slots:
+};
+
+class MainThreadProgressDialog: public QDialog
+{
+   Q_OBJECT
+public:
+    QProgressBar *progressBar;
+    QLabel *label;
+
+    MainThreadProgressDialog(MainWindow *parent, QString text, int index, int test_type);
+    ~MainThreadProgressDialog();
+
+public slots:
+    void setBar(int num);
+    void reject();
+
+private:
+
+    QDialog *PBar;
+    Main_Thread *mt;
+
+};
+
+
 
 #endif
