@@ -297,9 +297,10 @@ MainWindow::MainWindow(QString initFile)
         SIGNAL(measureChanged(int, int)), _remoteServer, SLOT(setMeasure(int)));
 
 #endif
-
+#ifndef CUSTOM_MIDIEDITOR
     UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update_after_prompt", false).toBool());
     connect(UpdateManager::instance(), SIGNAL(updateDetected(Update*)), this, SLOT(updateDetected(Update*)));
+#endif
     _quantizationGrid = _settings->value("quantization", 3).toInt();
 
     // metronome
@@ -682,6 +683,7 @@ MainWindow::MainWindow(QString initFile)
     selectionNavigator = new SelectionNavigator(this);
 
     QTimer::singleShot(200, this, SLOT(loadInitFile()));
+#ifndef CUSTOM_MIDIEDITOR
     if (UpdateManager::autoCheckForUpdates()) {
         QTimer::singleShot(500, UpdateManager::instance(), SLOT(checkForUpdates()));
     }
@@ -695,10 +697,12 @@ MainWindow::MainWindow(QString initFile)
     if (numStart == 10 && !UpdateManager::autoCheckForUpdates()) {
         QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
-
+#endif
 #ifdef USE_FLUIDSYNTH
     connect(this, SIGNAL(signal_remote_VST()), this, SLOT(remote_VST()), Qt::BlockingQueuedConnection);
 #endif
+
+
 }
 
 void MainWindow::loadInitFile()
@@ -769,8 +773,10 @@ void MainWindow::setFile(MidiFile* file)
 #ifdef USE_FLUIDSYNTH
     VST_proc::VST_setParent(this);
 
-    if(!skipVSTLoad)
+    if(!skipVSTLoad) {
         VST_proc::VST_LoadfromMIDIfile();
+        QThread::msleep(2000); // time to loading VST modules
+    }
     else {
 
         for(int i = 0; i < PRE_CHAN; i++)
@@ -778,7 +784,7 @@ void MainWindow::setFile(MidiFile* file)
                 VST_proc::VST_unload(i);
 
     }
-#endif
+
     if(skipVSTLoad) {
         // delete VST datas
 
@@ -816,6 +822,7 @@ void MainWindow::setFile(MidiFile* file)
         VST_proc::VST_LoadfromMIDIfile();
 
     }
+#endif
 
     emit channelWidget->WidgeUpdate(); // update octave for channel displayed
 
@@ -886,6 +893,8 @@ void MainWindow::play()
     if (file && !MidiInput::recording() && !MidiPlayer::isPlaying()) {
         mw_matrixWidget->timeMsChanged(file->msOfTick(file->cursorTick()), true);
 #ifdef USE_FLUIDSYNTH
+
+
         FluidActionExportWav->setEnabled(false);
         FluidActionExportMp3->setEnabled(false);
         FluidActionExportFlac->setEnabled(false);
@@ -897,7 +906,14 @@ void MainWindow::play()
         _trackWidget->setEnabled(false);
         eventWidget()->setEnabled(false);
 
+        foreach (QWidget* w, _disableWithPlay) {
+            if(w)
+                w->setEnabled(false);
+
+        }
+
         MidiPlayer::play(file);
+
         connect(MidiPlayer::playerThread(),
             SIGNAL(playerStopped()), this, SLOT(stop()));
 
@@ -908,6 +924,7 @@ void MainWindow::play()
 #ifdef ENABLE_REMOTE
         _remoteServer->play();
 #endif
+
     }
 }
 
@@ -935,6 +952,7 @@ void MainWindow::record()
 
     if (!MidiInput::recording() && !MidiPlayer::isPlaying()) {
         // play current file
+
         if (file) {
 
             if (file->pauseTick() >= 0) {
@@ -955,6 +973,12 @@ void MainWindow::record()
             mw_matrixWidget->setEnabled(false);
             _trackWidget->setEnabled(false);
             eventWidget()->setEnabled(false);
+
+            foreach (QWidget* w, _disableWithPlay) {
+                if(w)
+                    w->setEnabled(false);
+
+            }
 #ifdef ENABLE_REMOTE
             _remoteServer->record();
 #endif
@@ -1014,8 +1038,14 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
         channelWidget->update();
     }
     if (!MidiInput::recording() && MidiPlayer::isPlaying()) {
+        foreach (QWidget* w, _disableWithPlay) {
+            if(w)
+                w->setEnabled(true);
+
+        }
         MidiPlayer::stop();
 #ifdef USE_FLUIDSYNTH
+
         FluidActionExportWav->setEnabled(true);
         FluidActionExportMp3->setEnabled(true);
         FluidActionExportFlac->setEnabled(true);
@@ -1043,6 +1073,11 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
         MidiOutput::sendCommand2(pevent);
 
         #ifdef USE_FLUIDSYNTH
+
+            bool disable = VST_proc::VST_mix_disable(true);
+
+            QThread::msleep(100);
+
             for(int n = 0; n < PRE_CHAN; n++) {
 
                     VST_proc::VST_DisableButtons(n, false);
@@ -1053,6 +1088,8 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
             VST_proc::VST_MIDIend();
 
             VST_proc::VST_external_show(-1);
+
+            VST_proc::VST_mix_disable(disable);
 
         #endif
     }
@@ -1433,6 +1470,8 @@ void MainWindow::openFile(QString filePath)
         setFile(mf);
         updateRecentPathsList();
 
+        setWindowModified(false);
+
         QString info;
 
 #ifdef USE_FLUIDSYNTH
@@ -1442,6 +1481,8 @@ void MainWindow::openFile(QString filePath)
             fluid_control->deleteLater();
             fluid_control = NULL;
         }
+
+        sysExChecker(mf);
 
         // get COPYRIGHT event
         foreach (MidiEvent* event, *(getFile()->eventsBetween(0, 10))) {
@@ -1555,9 +1596,26 @@ void MainWindow::openFile(QString filePath)
 
 #endif
 
+
+
     } else {
         QMessageBox::warning(this, "Error", QString("The file is damaged and cannot be opened. "));
     }
+}
+
+void MainWindow::clean_undo_redo_list()
+{
+    if (file) {
+
+        file->cleanProtocol();
+        channelWidget->OctaveUpdate();
+    }
+    updateTrackMenu();
+
+#ifdef USE_FLUIDSYNTH
+    VST_proc::VST_UpdatefromMIDIfile();
+#endif
+
 }
 
 void MainWindow::redo()
@@ -1645,7 +1703,13 @@ void MainWindow::closeEvent(QCloseEvent* event)
 {
 
     if (!file || file->saved()) {
-        event->accept();
+        if(QMessageBox::question(this, "MidiEditor", "Do you want to exit?") == QMessageBox::Yes) {
+            event->accept();
+        } else {
+            // break
+            event->ignore();
+            return;
+        }
     } else {
         switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before closing?", "Save", "Close without saving", "Cancel", 0, 2)) {
         case 0: {
@@ -1706,8 +1770,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
     _settings->setValue("metronome_loudness", Metronome::loudness());
     _settings->setValue("thru", MidiInput::thru());
     _settings->setValue("quantization", _quantizationGrid);
-
+#ifndef CUSTOM_MIDIEDITOR
     _settings->setValue("auto_update_after_prompt", UpdateManager::autoCheckForUpdates());
+#endif
     _settings->setValue("has_prompted_for_updates", true); // Happens on first start
 
     Appearance::writeSettings(_settings);
@@ -2016,7 +2081,8 @@ void MainWindow::deleteSelectedEvents()
     }
     if (showsSelected && Selection::instance()->selectedEvents().size() > 0 && file) {
 
-        file->protocol()->startNewAction("Remove event(s)");
+        int selected = Selection::instance()->selectedEvents().size();
+        file->protocol()->startNewAction("Remove event(s) (" + QString::number(selected) + ")");
         foreach (MidiEvent* ev, Selection::instance()->selectedEvents()) {
             file->channel(ev->channel())->removeEvent(ev);
         }
@@ -2088,7 +2154,56 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
             KeyPressureEvent* key1 = dynamic_cast<KeyPressureEvent*>(ev);
             ChannelPressureEvent* cpress = dynamic_cast<ChannelPressureEvent*>(ev);
 
-            if(tempo || time || key1 || text || sys || unk) continue;
+            if(tempo || time || key1 || text/* || sys*/ || unk) continue;
+
+            if(sys) {
+                QByteArray c = sys->data();
+                int _current_tick = ev->midiTime();
+
+                // sysEx chan 0x70
+                if((c[3] & 0xF0) == 0x70 && c[0] == (char) 0x00 && c[1] == (char) 0x66 && c[2] == (char) 0x66) {
+                    int chan = c[3] & 0xF;
+                    if(chan != num) {
+                        foreach (MidiEvent* event, *(file->eventsBetween(_current_tick-10, _current_tick+10))) {
+                            SysExEvent* sys2 = dynamic_cast<SysExEvent*>(event);
+                            if(sys2) {
+                                QByteArray d = sys2->data();
+                                if((d[3] & 0xF0) == 0x70 && d[0] == (char) 0x0 && d[1] == (char) 0x66 && d[2] == (char) 0x66)
+                                    if((d[3] & 0xF) == num)
+                                        file->channel(16)->removeEvent(event);
+                            }
+                        }
+
+                        c[3] = 0x70 | (num & 0xf);
+
+                        sys->setData(c);
+                        sys->save();
+                    }
+                }
+                else
+                    // sysEx chan 'W'
+                    if(c[3] == 'W'  && c[1] == (char) 0x66 && c[2] == (char) 0x66) {
+                        int chan = c[0] & 0xF;
+                        if(chan != num) {
+                            foreach (MidiEvent* event, *(file->eventsBetween(_current_tick-10, _current_tick+10))) {
+                                SysExEvent* sys2 = dynamic_cast<SysExEvent*>(event);
+                                if(sys2) {
+                                    QByteArray d = sys2->data();
+
+                                    chan = num | (c[0] & 0x10);
+                                    if(c[3] == d[3] && c[3] == 'W' && chan == d[0] && c[1] == d[1] && c[2] == d[2])
+                                        file->channel(16)->removeEvent(event);
+                                }
+                            }
+
+                            c[0] = num | (c[0] & 0x10);
+
+                            sys->setData(c);
+                            sys->save();
+                        }
+                    } else
+                        continue;
+            }
 
             if(prog || ctrl || pitch || key || cpress) {
                 int _current_tick = ev->midiTime();
@@ -2110,9 +2225,11 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
                     }
                 }
 
+
+                file->channel(ev->channel())->removeEvent(ev);
+                ev->setChannel(num, true);
+
             }
-            file->channel(ev->channel())->removeEvent(ev);
-            ev->setChannel(num, true);
 
             OnEvent* onevent = dynamic_cast<OnEvent*>(ev);
             if (onevent) {
@@ -2969,6 +3086,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     QMenu* midiMB = menuBar()->addMenu("Midi");
     QMenu* helpMB = menuBar()->addMenu("Help");
 
+    _disableWithPlay.append(fileMB);
+    _disableWithPlay.append(editMB);
+    _disableWithPlay.append(toolsMB);
+    _disableWithPlay.append(notesMB);
+
     // File
     QAction* newAction = new QAction("New", this);
     newAction->setShortcut(QKeySequence::New);
@@ -3064,6 +3186,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     fileMB->addAction(quitAction);
 
     // Edit
+
     undoAction = new QAction("Undo", this);
     undoAction->setShortcut(QKeySequence::Undo);
     undoAction->setIcon(QIcon(":/run_environment/graphics/tool/undo.png"));
@@ -3077,6 +3200,13 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     editMB->addAction(redoAction);
 
     editMB->addSeparator();
+
+    clearundoredoAction = new QAction("Clean undo/redo list", this);
+    connect(clearundoredoAction, SIGNAL(triggered()), this, SLOT(clean_undo_redo_list()));
+    editMB->addAction(clearundoredoAction);
+
+    editMB->addSeparator();
+
 
     QAction* selectAllAction = new QAction("Select all", this);
     selectAllAction->setToolTip("Select all visible events");
@@ -3526,6 +3656,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     connect(longNotes, SIGNAL(triggered()), this, SLOT(longNotesCorrection()));
     notesMB->addAction(longNotes);
 
+    QAction* stretchNotes = new QAction("Stretch Notes", this);
+    _activateWithSelections.append(stretchNotes);
+    connect(stretchNotes, SIGNAL(triggered()), this, SLOT(stretchNotes()));
+    notesMB->addAction(stretchNotes);
+
     notesMB->addSeparator();
 
     QMenu* buildPowers = new QMenu("Build Power Chords from Single Notes", notesMB);
@@ -3647,6 +3782,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     _activateWithSelections.append(choppy_audio);
     connect(choppy_audio, SIGNAL(triggered()), this, SLOT(choppy_audio_effect()));
     notesMB->addAction(choppy_audio);
+
+    QAction* mute_audio = new QAction("Mute Audio Effect", this);
+    _activateWithSelections.append(mute_audio);
+    connect(mute_audio, SIGNAL(triggered()), this, SLOT(mute_audio_effect()));
+    notesMB->addAction(mute_audio);
 
     notesMB->addSeparator();
 
@@ -4082,6 +4222,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     btnLayout->setSpacing(0);
     buttonBar->setContentsMargins(0, 0, 0, 0);
     QToolBar* fileTB = new QToolBar("File", buttonBar);
+    _disableWithPlay.append((QWidget *) fileTB);
 
     fileTB->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     fileTB->setFloatable(false);
@@ -4130,6 +4271,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     QToolBar* upperTB = new QToolBar(buttonBar);
     QToolBar* lowerTB = new QToolBar(buttonBar);
+    _disableWithPlay.append((QWidget *) upperTB);
     btnLayout->addWidget(upperTB, 0, 2, 1, 1);
     btnLayout->addWidget(lowerTB, 1, 2, 1, 1);
     upperTB->setFloatable(false);
@@ -4444,15 +4586,19 @@ void MainWindow::copiedEventsChanged()
     pasteActionTB->setEnabled(enable);
 }
 
+#ifndef CUSTOM_MIDIEDITOR
 void MainWindow::updateDetected(Update* update)
 {
+
     UpdateDialog* d = new UpdateDialog(update, this);
     d->setModal(true);
     d->exec();
     delete d;
-}
 
+}
+#endif
 void MainWindow::promtUpdatesDeactivatedDialog() {
+
     AutomaticUpdateDialog* d = new AutomaticUpdateDialog(this);
     d->setModal(true);
     d->exec();
@@ -4588,5 +4734,6 @@ void MainWindow::DMidiInControl() {
     MidiIn_control->show();
     MidiIn_control->raise();
     MidiIn_control->activateWindow();
+    QCoreApplication::processEvents();
 }
 
