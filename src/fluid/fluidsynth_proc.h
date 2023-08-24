@@ -61,6 +61,7 @@ extern QSystemSemaphore *sys_sema_inW;
 
 // maximun samples loop Output buffer (minimum 512 = Input Low Latency)
 #define FLUID_OUT_SAMPLES  2048
+#define ECHO_MAX_SAMPLES 96000
 
 #define FLUID_SYNTH_NAME "** Fluid Synth **"
 
@@ -76,6 +77,10 @@ extern QSystemSemaphore *sys_sema_inW;
 class PROC_filter;
 class fluid_Thread;
 class fluid_Input_Thread;
+class QFileW_Thread;
+
+int decode_sys_format(QDataStream &qd, void *data);
+void encode_sys_format(QDataStream &qd, void *data);
 
 class ProgressDialog: public QDialog
 {
@@ -168,7 +173,6 @@ public:
     QIODevice * out_sound_io;
     QAudioDeviceInfo current_sound;
     int output_float;
-
     int fluid_out_samples; // size of samples loop buffer
 
     QTime time_frame;
@@ -197,6 +201,9 @@ public:
     float filter_hicut_freq[16];
     float filter_hicut_gain[16];
     float filter_hicut_res[16];
+
+    float level_WaveModulator[16];
+    float freq_WaveModulator[16];
 // end preset datas
 
     int cleft, cright;
@@ -285,7 +292,7 @@ private:
     int sequencer_tick_pos;
     int sequencer_tick_end;
     fluid_sequencer_t* sequencer;
-    short synthSeqID, mySeqID;
+    fluid_seq_id_t synthSeqID, mySeqID;
 
     fluidsynth_proc *_proc;
 
@@ -298,6 +305,8 @@ signals:
 
 };
 
+#undef MAX_DIST_DEF
+#define MAX_DIST_DEF 16383
 
 class PROC_filter: public QObject
 {
@@ -343,12 +352,17 @@ private:
 
     int _type;
 
-    #define MAX_DIST_DEF 255
+
     float _distortion_tab[MAX_DIST_DEF+2];
     float _distortion_tab2[MAX_DIST_DEF+2];
 
 };
 
+
+// MICROPHONE
+
+int read_header(QFile *f, int &size, int &sample_rate, int &bits, int &channels);
+void write_header(QFile *f, int size, int sample_rate, int bits, int channels);
 
 #endif // FLUID_FUNC_H
 

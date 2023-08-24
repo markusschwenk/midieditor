@@ -48,6 +48,7 @@ extern QWidget *main_widget;
 extern QMutex * externalMux;
 
 #define PRE_CHAN 32 // 16 chans * number of VST Plugins
+#define VST_NAME_32BITS_BARRIER "<----- 32 bits VST ----->"
 
 typedef struct {
     bool on;
@@ -55,6 +56,7 @@ typedef struct {
     int external;
     bool needIdle;
     bool needUpdate;
+    bool needUpdateMix;
 
     int vstVersion;
     bool vstPowerOn;
@@ -133,6 +135,7 @@ signals:
     void setPreset(int preset);
 
 public slots:
+    void accept() override;
     void recVSTDialog(int chan, int button, int val);
     void Save();
     void Reset();
@@ -162,7 +165,7 @@ public:
     static void process(int chan, float * * b, float * * c, int d);
     static void setParameter(int chan, int b, float c);
     static float getParameter(int chan, int b);
-    static void processReplacing(int chan, float * * b, float * * c, int d);
+    static void processReplacing(int chan, float * * b, float * * c, int d);  
 
     static int VST_load(int chan, const QString pathModule);
     static int VST_unload(int chan);
@@ -170,6 +173,7 @@ public:
     static int VST_exit();
     static int VST_mix(float**in, int nchans, int samplerate, int nsamples);
     static int VST_isLoaded(int chan);
+    static bool VST_mix_disable(bool disable);
 
     static bool VST_isMIDI(int chan);
     static void VST_MIDIcmd(int chan, int ms, QByteArray cmd);
@@ -192,6 +196,8 @@ public:
 
     static bool VST_isEnabled(int chan);
 
+    static void Logo(int mode, QString text);
+
     static int VST_external_load(int chan, const QString pathModule);
     static int VST_external_unload(int chan);
     static int VST_external_mix(int samplerate, int nsamples);
@@ -202,7 +208,6 @@ public:
     static void VST_external_MIDIcmd(int chan, int ms, QByteArray cmd);
     static void VST_external_send_message(int chan, int message, int data1 = 0, int data2 = 0);
 
-    //static intptr_t external_dispatcher(int chan, int b, int c, intptr_t d, int addr, float f);
 };
 
 class VST_chan: public QDialog
@@ -218,6 +223,8 @@ private:
 #endif
     QGroupBox *GroupBoxVST;
     QPushButton *pushButtonSetVST;
+    QPushButton *pushButtonExportVSTData;
+    QPushButton *pushButtonImportVSTData;
     QPushButton *viewVST;
     QPushButton *pushButtonDeleteVST;
     QLabel *labelinfo;
@@ -239,8 +246,73 @@ public slots:
     void setVSTDirectory2();
 #endif
     void SetVST();
+    void ExportVSTData();
+    void ImportVSTData();
     void DeleteVST();
     void viewVSTfun();
 };
+
+class VSTlogo: public QDialog
+{
+    Q_OBJECT
+
+private:
+    int _counterR;
+    int _counterG;
+
+public:
+    QLabel *VSTlabel;
+    QLabel *Text;
+    QTimer *time_updat;
+
+    VSTlogo(QWidget* parent, QString text);
+
+public slots:
+    void timer_update();
+};
+
+
+
+class VSTExportDatas: public QDialog
+{
+    Q_OBJECT
+
+private:
+
+    QWidget* _parent;
+    QByteArray _header;
+    QByteArray _presets[8];
+    int plugin;
+    int channel;
+    int channel2;
+
+public:
+    QDialogButtonBox *buttonBox;
+    QGroupBox *groupBoxPresets;
+    QCheckBox *checkBoxPress[8];
+    QLabel *labelFilename;
+    QGroupBox *groupBoxDestChan;
+    QSpinBox *spinBoxChan;
+    QPushButton *pushButtonExport1;
+    QPushButton *pushButtonExport2;
+    QPushButton *pushButtonExportFile;
+
+    VSTExportDatas(QWidget* parent, int chan);
+    void ExportVST();
+
+signals:
+
+
+public slots:
+    //void accept() override;
+    void ExportVST1();
+    void ExportVST2();
+    void ExportVSTfile();
+    void ImportVSTfile();
+
+};
+
+
+
 #endif
 #endif
