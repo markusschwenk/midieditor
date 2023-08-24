@@ -35,6 +35,21 @@ Protocol::Protocol(MidiFile* f)
     _redoSteps = new QList<ProtocolStep*>;
 }
 
+
+void Protocol::clean() {
+
+    _currentStep = 0;
+
+    _undoSteps->clear();
+    _redoSteps->clear();
+
+    addEmptyAction("Clear Undo/Redo list");
+
+    emit protocolChanged();
+    emit actionFinished();
+
+}
+
 void Protocol::enterUndoStep(ProtocolItem* item)
 {
 
@@ -106,6 +121,11 @@ void Protocol::startNewAction(QString description, QImage* img)
 
     // create a new Step
     _currentStep = new ProtocolStep(description, img);
+}
+
+void Protocol::changeDescription(QString description) {
+    if (_currentStep)
+        _currentStep->setDescription(description);
 }
 
 void Protocol::endAction()

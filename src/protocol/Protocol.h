@@ -62,6 +62,8 @@ public:
 		 */
     void undo(bool emitChanged = true);
 
+    void clean();
+
     /**
 		 * \brief redo the last ProtocolStep on the redo stack.
 		 *
@@ -83,6 +85,12 @@ public:
 		 * Clears the redo stack.
 		 */
     void startNewAction(QString description, QImage* img = 0);
+
+    /**
+         * \brief change the description of current ProtocolStep.
+         */
+
+    void changeDescription(QString description);
 
     /**
 		 * \brief closes the current ProtocolStep.
