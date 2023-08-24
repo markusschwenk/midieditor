@@ -1,9 +1,11 @@
+#ifndef CUSTOM_MIDIEDITOR
 #include "UpdateSettingsWidget.h"
 
 #include <QCheckBox>
 #include <QGridLayout>
 #include <QPushButton>
 #include <QSettings>
+
 
 #include "../UpdateManager.h"
 
@@ -45,3 +47,4 @@ UpdateSettingsWidget::UpdateSettingsWidget(QSettings *settings, QWidget *parent)
 void UpdateSettingsWidget::enableAutoUpdates(bool enable) {
   UpdateManager::setAutoCheckUpdatesEnabled(enable);
 }
+#endif
