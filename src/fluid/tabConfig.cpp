@@ -245,6 +245,8 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
 
 
     dev_out = QAudioDeviceInfo::availableDevices(QAudio::AudioOutput);
+    dev_out.append(QAudioDeviceInfo::defaultOutputDevice());
+    dev_out.move(dev_out.count() - 1, 0);
 
     int max_out= dev_out.count();
     for(int n=0; n < max_out; n++) {
