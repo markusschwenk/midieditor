@@ -63,6 +63,10 @@ QString ProtocolStep::description()
     return _stepDescription;
 }
 
+void ProtocolStep::setDescription(QString description) {
+    _stepDescription = description;
+}
+
 QImage* ProtocolStep::image()
 {
     return _image;
