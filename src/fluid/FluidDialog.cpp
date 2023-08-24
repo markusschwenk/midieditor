@@ -43,8 +43,8 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
 
     if (FluidDialog->objectName().isEmpty())
         FluidDialog->setObjectName(QString::fromUtf8("FluidDialog"));
-    FluidDialog->resize(753, buttons_y);
-    FluidDialog->setFixedSize(753, buttons_y);
+    FluidDialog->resize(753 + 125, buttons_y);
+    FluidDialog->setFixedSize(753 + 125, buttons_y);
 
     QPalette palette;
     QBrush brush(QColor(255, 255, 255, 255));
@@ -67,7 +67,7 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
 
     tabWidget = new QTabWidget(FluidDialog);
     tabWidget->setObjectName(QString::fromUtf8("tabWidget"));
-    tabWidget->setGeometry(QRect(-2, 0, 720+90, buttons_y));
+    tabWidget->setGeometry(QRect(-2, 0, 720 + 90 + 125, buttons_y));
 
     tabWidget->setFocusPolicy(Qt::NoFocus);
     tabWidget->setAutoFillBackground(true);

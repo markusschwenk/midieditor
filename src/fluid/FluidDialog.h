@@ -133,6 +133,14 @@ public:
     QDial *HighCutRes;
     QPushButton *HighCutButton;
 
+    QGroupBox *TremoloBox;
+    QLabel *label_trem_level;
+    QLabel *label_trem_freq;
+    QLabel *label_trem_disp;
+    QDial *TremoloLevel;
+    QLabel *label_trem_disp2;
+    QDial *TremoloFreq;
+
     QGroupBox *PresetBox;
     QSpinBox *spinPreset;
     QPushButton *PresetLoadButton;
@@ -201,9 +209,13 @@ public:
     void tab_MainVolume(QDialog *FluidDialog);
     void tab_Config(QDialog */*FluidDialog*/);
 
+    int EditMode();
+
 public slots:
 
     void update_status();
+
+    void UpdateCursor();
 
     // tabMainVolume
     void distortion_clicked();
