@@ -1209,8 +1209,8 @@ QVariant EventWidget::fieldContent(EditorField field)
             return QVariant("");
         }
         QString s;
-        s.asprintf("%02X", n);
-        s = "0x" + s;
+
+        s = s.asprintf("0x%02X", n);
         return QVariant(s);
     }
     case MidiEventData: {
@@ -1279,11 +1279,11 @@ void EventWidget::getKey(int index, int* tonality, bool* minor)
 QString EventWidget::dataToString(QByteArray data)
 {
     QString s;
+
     foreach (unsigned char b, data) {
-        QString t;
-        t.asprintf("%02X", b);
-        s = s + "0x" + t + "\n";
+        s = s + s.asprintf("0x%02X\n", b);
     }
+
     return s.trimmed();
 }
 
