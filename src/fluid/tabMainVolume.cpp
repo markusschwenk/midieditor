@@ -78,7 +78,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
     scrollArea = new QScrollArea(MainVolume);
     scrollArea->setObjectName(QString::fromUtf8("scrollArea"));
-    scrollArea->setGeometry(QRect(4, 15, 554+60, area_size_y));
+    scrollArea->setGeometry(QRect(4, 15, 554+60 + 120, area_size_y));
     sizePolicy.setHeightForWidth(scrollArea->sizePolicy().hasHeightForWidth());
     scrollArea->setSizePolicy(sizePolicy);
     scrollArea->setFocusPolicy(Qt::NoFocus);
@@ -104,7 +104,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
     groupE = new QGroupBox(MainVolume);
     groupE->setObjectName(QString::fromUtf8("groupE"));
-    groupE->setGeometry(QRect(0, area_size_y+20, 752, buttons_y - area_size_y-20));
+    groupE->setGeometry(QRect(0, area_size_y+20, 752 + 125, buttons_y - area_size_y-20));
     groupE->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
 
 
@@ -258,7 +258,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     groupMainVol = new QGroupBox(MainVolume);
     groupMainVol->setObjectName(QString::fromUtf8("groupMainVol"));
     groupMainVol->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
-    groupMainVol->setGeometry(QRect(590+50, 15, 45, 275));
+    groupMainVol->setGeometry(QRect(590+50 + 125, 15, 45, 275));
     groupMainVol->setLayoutDirection(Qt::LeftToRight);
     groupMainVol->setAlignment(Qt::AlignCenter);
     groupMainVol->setFlat(false);
@@ -280,7 +280,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     groupVUm = new QGroupBox(MainVolume);
     groupVUm->setObjectName(QString::fromUtf8("groupVUm"));
     groupVUm->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
-    groupVUm->setGeometry(QRect(590+100, 51, 45, 206));
+    groupVUm->setGeometry(QRect(590+100 + 125, 51, 45, 206));
     groupVUm->setLayoutDirection(Qt::LeftToRight);
     groupVUm->setAlignment(Qt::AlignCenter);
     groupVUm->setFlat(false);
@@ -397,9 +397,11 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     label_distortion_disp->setText(QString().setNum(fluid_output->filter_dist_gain[channel_selected]));
     DistortionButton->setText(QString());
 
+    int lowbox = 75 + 69;
+
     LowCutBox = new QGroupBox(groupE);
     LowCutBox->setObjectName(QString::fromUtf8("LowCutBox"));
-    LowCutBox->setGeometry(QRect(75+69, 4, 174, 127));
+    LowCutBox->setGeometry(QRect(lowbox, 4, 174, 127));
     LowCutBox->setLayoutDirection(Qt::LeftToRight);
     LowCutBox->setAlignment(Qt::AlignCenter);
     LowCutBox->setFlat(false);
@@ -515,7 +517,8 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
     HighCutBox = new QGroupBox(groupE);
     HighCutBox->setObjectName(QString::fromUtf8("HighCutBox"));
-    HighCutBox->setGeometry(QRect(75+185+69, 4, 174, 127));
+    lowbox+= 185;
+    HighCutBox->setGeometry(QRect(lowbox, 4, 174, 127));
     HighCutBox->setLayoutDirection(Qt::LeftToRight);
     HighCutBox->setAlignment(Qt::AlignCenter);
     HighCutBox->setFlat(false);
@@ -619,7 +622,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     label_high_res->setText("Res");
     label_high_disp->setText(QString().setNum(((float)(fluid_output->filter_hicut_gain[channel_selected] / 10)/10.0), 'f', 2));
     label_high_disp2->setText(QString().setNum(HighCutFreq->value()));
-    label_high_disp3->setText(QString().setNum(((float)(fluid_output->filter_locut_gain[channel_selected] / 10)/10.0), 'f', 2));
+    label_high_disp3->setText(QString().setNum(((float)(fluid_output->filter_hicut_res[channel_selected] / 10)/10.0), 'f', 2));
 
     HighCutButton->setText(QString());
     HighCutButton->setStyleSheet(QString::fromUtf8(
@@ -630,9 +633,83 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         "background-image: url(:/run_environment/graphics/fluid/icon_button_on.png);\n"
         "}"));
 
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+    TremoloBox = new QGroupBox(groupE);
+    TremoloBox->setObjectName(QString::fromUtf8("TremoloBox"));
+    lowbox+= 185;
+    TremoloBox->setGeometry(QRect(lowbox, 4, 114, 127));
+    TremoloBox->setLayoutDirection(Qt::LeftToRight);
+    TremoloBox->setAlignment(Qt::AlignCenter);
+    TremoloBox->setFlat(false);
+
+    label_trem_level = new QLabel(TremoloBox);
+    label_trem_level->setObjectName(QString::fromUtf8("label_trem_level"));
+    label_trem_level->setGeometry(QRect(12, 35, 31, 16));
+    label_trem_level->setAlignment(Qt::AlignCenter);
+    label_trem_level->setToolTip("<html><head/><body><p>Tremolo Level</p>"
+                                 "<p>of the current channel</p></body></html>");
+
+    label_trem_freq = new QLabel(TremoloBox);
+    label_trem_freq->setObjectName(QString::fromUtf8("label_trem_freq"));
+    label_trem_freq->setGeometry(QRect(69, 35, 31, 16));
+    label_trem_freq->setAlignment(Qt::AlignCenter);
+    label_trem_freq->setToolTip("<html><head/><body><p>Tremolo Frequency</p>"
+                                             "<p>of the current channel</p></body></html>");
+
+    label_trem_disp = new QLabel(TremoloBox);
+    label_trem_disp->setObjectName(QString::fromUtf8("label_trem_disp"));
+    label_trem_disp->setGeometry(QRect(12, 100, 33, 21));
+    label_trem_disp->setFrameShape(QFrame::Box);
+    label_trem_disp->setFrameShadow(QFrame::Raised);
+    label_trem_disp->setAlignment(Qt::AlignCenter);
+
+    TremoloLevel = new QDial(TremoloBox);
+    TremoloLevel->setObjectName(QString::fromUtf8("TremoloLevel"));
+    TremoloLevel->setGeometry(QRect(3, 41, 50, 71));
+    TremoloLevel->setMinimum(0);
+    TremoloLevel->setMaximum(50);
+    TremoloLevel->setValue((int) (100.0f * fluid_output->level_WaveModulator[channel_selected]));
+    TremoloLevel->setNotchTarget(2.0);
+    TremoloLevel->setNotchesVisible(true);
+    TremoloLevel->setToolTip("<html><head/><body><p>Tremolo Level</p>"
+                                     "<p>of the current channel</p></body></html>");
+
+
+    label_trem_disp2 = new QLabel(TremoloBox);
+    label_trem_disp2->setObjectName(QString::fromUtf8("label_trem_disp2"));
+    label_trem_disp2->setGeometry(QRect(69, 100, 33, 21));
+    label_trem_disp2->setFrameShape(QFrame::Box);
+    label_trem_disp2->setFrameShadow(QFrame::Raised);
+    label_trem_disp2->setAlignment(Qt::AlignCenter);
+
+    TremoloFreq = new QDial(TremoloBox);
+    TremoloFreq->setObjectName(QString::fromUtf8("TremoloFreq"));
+    TremoloFreq->setGeometry(QRect(60, 41, 50, 71));
+    TremoloFreq->setMinimum(10);
+    TremoloFreq->setMaximum(1500);
+    TremoloFreq->setValue((int) (100.0f * fluid_output->freq_WaveModulator[channel_selected]));
+    TremoloFreq->setNotchTarget(50.0);
+    TremoloFreq->setNotchesVisible(true);
+    TremoloFreq->setToolTip("<html><head/><body><p>Tremolo Frequency Frequency</p>"
+                              "<p>of the current channel</p></body></html>");
+
+
+    TremoloBox->setTitle("Tremolo");
+
+    label_trem_level->setText("Level");
+    label_trem_freq->setText("Freq");
+
+    label_trem_disp->setText(QString().setNum(((float)(100.0f * fluid_output->level_WaveModulator[channel_selected])/100.0), 'f', 2));
+    label_trem_disp2->setText(QString().setNum(((float) TremoloFreq->value())/100, 'f', 2));
+
+
+    //&&
+
     PresetBox = new QGroupBox(groupE);
     PresetBox->setObjectName(QString::fromUtf8("PresetBox"));
-    PresetBox->setGeometry(QRect(586-70, 4, 161+70, 128));
+    lowbox+= 125;
+    PresetBox->setGeometry(QRect(lowbox, 4, 161+70, 128));
     PresetBox->setLayoutDirection(Qt::LeftToRight);
     PresetBox->setAlignment(Qt::AlignCenter);
     PresetBox->setFlat(false);
@@ -811,6 +888,22 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
     });
 
+    connect(TremoloLevel, QOverload<int>::of(&QDial::valueChanged), [=](int num)
+    {
+        label_trem_disp->setText(QString().setNum(((float)(num)/100.0), 'f', 2));
+        fluid_output->level_WaveModulator[channel_selected] = ((float) num) / 100.0f;
+
+    });
+
+    connect(TremoloFreq, QOverload<int>::of(&QDial::valueChanged), [=](int num)
+    {
+        label_trem_disp2->setText(QString().setNum(((float)(num)/100.0), 'f', 2));
+        fluid_output->freq_WaveModulator[channel_selected] = ((float) num) / 100.0f;
+    });
+
+    //QObject::connect(HighCutGain, SIGNAL(valueChanged(int)), this, SLOT(highcut_gain(int)));
+    //QObject::connect(HighCutFreq, SIGNAL(valueChanged(int)), this, SLOT(highcut_freq(int)));
+
     connect(spinChan, QOverload<int>::of(&QSpinBox::valueChanged), [=](int num)
     {
         scrollArea->horizontalScrollBar()->setValue(num*7);
@@ -860,6 +953,9 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         HighCutButton->setChecked(
                    (fluid_output->get_param_filter(PROC_FILTER_HIGH_PASS,
                     channel_selected, GET_FILTER_ON)!=0) ? true : false);
+
+        TremoloLevel->setValue((int) (100.0f * fluid_output->level_WaveModulator[channel_selected]));
+        TremoloFreq->setValue((int) (100.0f * fluid_output->freq_WaveModulator[channel_selected]));
 
     });
 
@@ -1085,47 +1181,20 @@ void FluidDialog::timer_update(){
     }
     update();
 }
+void FluidDialog::UpdateCursor() {
 
-
-static void encode_sys_format(QDataStream &qd, void *data) {
-
-    unsigned char *a= (unsigned char *) data;
-    unsigned char b[5];
-
-    b[0]=(a[0]>>1);
-    b[1]=(a[1]>>1);
-    b[2]=(a[2]>>1);
-    b[3]=(a[3]>>1);
-
-    b[4]= (a[0] & 1) | ((a[1] & 1)<<1) | ((a[2] & 1)<<2) |
-            ((a[3] & 1)<<3);
-
-   if(qd.writeRawData((const char *) b, 5)<0) return ;
+    if(_edit_mode == 0) {
+        MainWindow *MWin = ((MainWindow *) _parent);
+        _current_tick = (MWin->getFile()) ? MWin->getFile()->cursorTick() : 0;
+    }
 
 }
-
-static int decode_sys_format(QDataStream &qd, void *data) {
-
-    unsigned char *a= (unsigned char *) data;
-    unsigned char b[5];
-
-    int ret =qd.readRawData((char *) b, 5);
-    if(ret<0) b[0]=b[1]=b[2]=b[3]=b[4]=0;
-
-    a[0]=(b[0]<<1) | ((b[4]) & 1);
-    a[1]=(b[1]<<1) | ((b[4]>>1) & 1);
-    a[2]=(b[2]<<1) | ((b[4]>>2) & 1);
-    a[3]=(b[3]<<1) | ((b[4]>>3) & 1);
-
-    return ret;
-}
-
-void FluidDialog::DeletePressets() // store or delete
+void FluidDialog::DeletePressets() // delete
 {
     QByteArray b;
 
     char id[4]=
-    {0x0, 0x66, 0x66, 'P'};
+    {0x0, 0x66, 0x66, 'R'};
 
     MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
 
@@ -1142,7 +1211,7 @@ void FluidDialog::DeletePressets() // store or delete
             if(sys) {
                 b = sys->data();
                 if((b[0]==id[0] || b[3]=='R') && b[1]==id[1] && b[2]==id[2] &&
-                        (b[3]=='R' || b[3]=='P' || b[3]==(char) (0x70+channel_selected))){
+                        (b[3]=='R' || b[3]==(char) (0x70+channel_selected))){
                     MWin->getFile()->channel(16)->removeEvent(sys);
                 }
             }
@@ -1157,33 +1226,24 @@ void FluidDialog::DeletePressets() // store or delete
 void FluidDialog::StorePressets() // store or delete
 {
 
-    QByteArray b[16], c;
+    QByteArray b, c;
 
     char id[4]=
-    {0x0, 0x66, 0x66, 'R'};
-    int entries = 13;
+    {0x10, 0x66, 0x66, 'R'};
+    int entries = 15 * 16 + 1;
     int BOOL;
 
     MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
 
+    QDataStream qd(&b,
+    QIODevice::WriteOnly); // save header
+
+    // write the header
+    if(qd.writeRawData((const char *) id, 4)<0) return;
+
+    encode_sys_format(qd, (void *) &entries);
+
     for(int n = 0; n < 16; n++) {
-
-        char id2[4]=
-        {0x0, 0x66, 0x66, 'R'};
-        QDataStream qd(&b[n],
-                       QIODevice::WriteOnly); // save header
-
-        id2[0] = n;
-
-        // write the header
-        if(qd.writeRawData((const char *) id2, 4)<0) return;
-
-        if(n == 0)
-            entries = 13 + 1;
-        else
-            entries = 13;
-
-        encode_sys_format(qd, (void *) &entries);
 
         if(n == 0)
             encode_sys_format(qd, (void *) &fluid_output->synth_gain);
@@ -1208,14 +1268,19 @@ void FluidDialog::StorePressets() // store or delete
         encode_sys_format(qd, (void *) &fluid_output->filter_hicut_gain[n]);
         encode_sys_format(qd, (void *) &fluid_output->filter_hicut_res[n]);
 
-        if(_save_mode) {
-            QString entry=QString("presets_audio_index")+QString().setNum(preset_selected)+QString("")+QString().setNum(n);
-            fluid_output->fluid_settings->setValue(entry, b[n]);
+        // new WaveModulator
+        encode_sys_format(qd, (void *) &fluid_output->level_WaveModulator[n]);
+        encode_sys_format(qd, (void *) &fluid_output->freq_WaveModulator[n]);
 
-        }
+
     }
 
-    if(_save_mode) return;
+    if(_save_mode) {
+        QString entry=QString("presets_audio_index")+QString().setNum(preset_selected)+QString("")+QString().setNum(16);
+        fluid_output->fluid_settings->setValue(entry, b);
+        return;
+    }
+
 
     MWin->getFile()->protocol()->startNewAction("SYSex Presets stored");
     int dtick= MWin->getFile()->tick(150);
@@ -1230,13 +1295,11 @@ void FluidDialog::StorePressets() // store or delete
         if(sys) {
             c = sys->data();
             // delete for individual chans
-            if(c[0]==id[0] && c[1]==id[1] && c[2]==id[2] && (c[3] & 0xF0)==(char) 0x70){
+            if(c[0] == (char) 0 && c[1] == id[1] && c[2] == id[2] && (c[3] & 0xF0) == (char) 0x70){
                 MWin->getFile()->channel(event->channel())->removeEvent(sys);
             }
-            if(c[0]==id[0] && c[1]==id[1] && c[2]==id[2] && c[3]=='P'){
-                MWin->getFile()->channel(16)->removeEvent(sys);
-            }
-            if(c[1]==id[1] && c[2]==id[2] && c[3]=='R'){
+
+            if(c[1] == id[1] && c[2] == id[2] && c[3] == 'R'){
                 MWin->getFile()->channel(16)->removeEvent(sys);
             }
 
@@ -1244,10 +1307,10 @@ void FluidDialog::StorePressets() // store or delete
 
     }
 
-    for(int n = 0; n < 16; n++) {
-        SysExEvent *sys_event = new SysExEvent(16, b[n], MWin->getFile()->track(0));
-        MWin->getFile()->channel(16)->insertEvent(sys_event, current_tick);
-    }
+
+    SysExEvent *sys_event = new SysExEvent(16, b, MWin->getFile()->track(0));
+    MWin->getFile()->channel(16)->insertEvent(sys_event, current_tick);
+
 
     MWin->getFile()->protocol()->endAction();
 
@@ -1255,19 +1318,18 @@ void FluidDialog::StorePressets() // store or delete
 
 void FluidDialog::LoadPressets()
 {
-    QByteArray b[16], d;
+    QByteArray b, d;
 
-    char id2[4]= {0x0, 0x66, 0x66, 'P'};
+    char id2[4]= {0x10, 0x66, 0x66, 'R'};
     int found= 0;
     int BOOL;
 
     MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
 
     if(_save_mode) {
-        for(int n = 0; n < 16; n++) {
-            QString entry=QString("presets_audio_index")+QString().setNum(preset_selected)+QString("")+QString().setNum(n);
-            b[n]= fluid_output->fluid_settings->value(entry).toByteArray();
-        }
+
+        QString entry=QString("presets_audio_index")+QString().setNum(preset_selected)+QString("")+QString().setNum(16);
+        b= fluid_output->fluid_settings->value(entry).toByteArray();
 
         found = 2;
     } else {
@@ -1279,8 +1341,8 @@ void FluidDialog::LoadPressets()
             if(sys) {
                 d = sys->data();
                 if(d[1]!=id2[1] || d[2]!=id2[2] ) continue;
-                if(d[0]==id2[0] && d[3]=='P') {b[0] = d; found=1;}
-                if(d[3]=='R') {b[d[0] & 0xF] = d; found=2;}
+
+                if(d[3]=='R' && d[0]==id2[0] ) {b = d; found=2;}
 
             }
         }
@@ -1292,72 +1354,68 @@ void FluidDialog::LoadPressets()
     int entries = 13 * 16 + 1;
     char id[4];
 
-    for(int m = 0; m < 16; m++) {
+    if(b.size() < 4) return;
 
-        if(b[m].size() < 4) continue;
+    QDataStream qd(&b,
+                   QIODevice::ReadOnly);
+    qd.startTransaction();
 
-        QDataStream qd(&b[m],
-                       QIODevice::ReadOnly);
-        qd.startTransaction();
+    qd.readRawData((char *) id, 4);
 
-        qd.readRawData((char *) id, 4);
+    if(id[1]==id2[1] && id[2]==id2[2] && id[0] == id2[0] && id[3] == 'R') {
 
-        if(id[1]==id2[1] && id[2]==id2[2] &&  ((id[0]==id2[0] && id[3] == 'P')
-                                               || id[3] == 'R')) {
+        if(id[3] == 'R') found = 2;
+        else found =1;
 
-            if(id[3] == 'R') found = 2;
-            else found =1;
+        if(decode_sys_format(qd, (void *) &entries)<0) {
 
-            if(decode_sys_format(qd, (void *) &entries)<0) {
+            return;
+        }
 
-                continue;
-            }
+        if((found == 1 && entries != 13 * 16 + 1) &&
+                (found == 2 && entries != (15 * 16 + 1))) {
 
-            if((found == 1 && entries != 13 * 16 + 1) &&
-                    (found == 2 && entries != (13 +(m==0)))) {
+            return;
+        }
 
-                continue;
-            }
+        for(int n = 0; n < 16; n++) {
 
-            if(m == 0)
+            if(n == 0)
                 decode_sys_format(qd, (void *) &fluid_output->synth_gain);
 
-            int k = 0, l = 16;
+            fluid_output->audio_chanmute[n]= false;
+            groupChan[n]->setChecked(!fluid_output->getAudioMute(n));
+            decode_sys_format(qd, (void *) &fluid_output->synth_chanvolume[n]);
+            decode_sys_format(qd, (void *) &fluid_output->audio_changain[n]);
+            decode_sys_format(qd, (void *) &fluid_output->audio_chanbalance[n]);
+
+            decode_sys_format(qd, (void *) &BOOL);
+            fluid_output->filter_dist_on[n]= (BOOL) ? true : false;
+            decode_sys_format(qd, (void *) &fluid_output->filter_dist_gain[n]);
+
+            decode_sys_format(qd, (void *) &BOOL);
+            fluid_output->filter_locut_on[n]= (BOOL) ? true : false;
+            decode_sys_format(qd, (void *) &fluid_output->filter_locut_freq[n]);
+            decode_sys_format(qd, (void *) &fluid_output->filter_locut_gain[n]);
+            decode_sys_format(qd, (void *) &fluid_output->filter_locut_res[n]);
+
+            decode_sys_format(qd, (void *) &BOOL);
+            fluid_output->filter_hicut_on[n]= (BOOL) ? true : false;
+            decode_sys_format(qd, (void *) &fluid_output->filter_hicut_freq[n]);
+            decode_sys_format(qd, (void *) &fluid_output->filter_hicut_gain[n]);
+            decode_sys_format(qd, (void *) &fluid_output->filter_hicut_res[n]);
 
             if(found == 2) {
-                k = m;
-                l = m + 1;
+                decode_sys_format(qd, (void *) &fluid_output->level_WaveModulator[n]);
+                decode_sys_format(qd, (void *) &fluid_output->freq_WaveModulator[n]);
+            } else {
+                fluid_output->level_WaveModulator[n] = 0.0f;
+                fluid_output->freq_WaveModulator[n] = 0.0f;
             }
 
-            for(int n = k; n < l; n++) {
-                fluid_output->audio_chanmute[n]= false;
-                groupChan[n]->setChecked(!fluid_output->getAudioMute(n));
-                decode_sys_format(qd, (void *) &fluid_output->synth_chanvolume[n]);
-                decode_sys_format(qd, (void *) &fluid_output->audio_changain[n]);
-                decode_sys_format(qd, (void *) &fluid_output->audio_chanbalance[n]);
-
-                decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_dist_on[n]= (BOOL) ? true : false;
-                decode_sys_format(qd, (void *) &fluid_output->filter_dist_gain[n]);
-
-                decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_locut_on[n]= (BOOL) ? true : false;
-                decode_sys_format(qd, (void *) &fluid_output->filter_locut_freq[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_locut_gain[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_locut_res[n]);
-
-                decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_hicut_on[n]= (BOOL) ? true : false;
-                decode_sys_format(qd, (void *) &fluid_output->filter_hicut_freq[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_hicut_gain[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_hicut_res[n]);
-
-                ChanVol[n]->setValue(fluid_output->getSynthChanVolume(n)*100/127);
-                BalanceSlider[n]->setValue(fluid_output->getAudioBalance(n));
-                chanGain[n]->setValue(fluid_output->getAudioGain(n));
-
-            }
-
+            ChanVol[n]->setValue(fluid_output->getSynthChanVolume(n)*100/127);
+            BalanceSlider[n]->setValue(fluid_output->getAudioBalance(n));
+            chanGain[n]->setValue(fluid_output->getAudioGain(n));
         }
     }
 
@@ -1373,7 +1431,7 @@ void FluidDialog::StoreSelectedPresset()
 
     char id[4]=
     {0x0, 0x66, 0x66, 0x70};
-    int entries = 13 * 1;
+    int entries = 15 * 1;
 
     int BOOL;
 
@@ -1411,6 +1469,10 @@ void FluidDialog::StoreSelectedPresset()
         encode_sys_format(qd, (void *) &fluid_output->filter_hicut_gain[n]);
         encode_sys_format(qd, (void *) &fluid_output->filter_hicut_res[n]);
 
+        // new WaveModulator
+        encode_sys_format(qd, (void *) &fluid_output->level_WaveModulator[n]);
+        encode_sys_format(qd, (void *) &fluid_output->freq_WaveModulator[n]);
+
 
     MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
     MWin->getFile()->track(0);
@@ -1427,7 +1489,7 @@ void FluidDialog::StoreSelectedPresset()
 
         if(sys) {
             b = sys->data();
-            if(b[0]==id[0] && b[1]==id[1] && b[2]==id[2] && b[3]=='P'){
+            if(b[0]== (char) 0x10 && b[1]==id[1] && b[2]==id[2] && b[3]=='R'){
 
                 StorePressets(); // use colective command
                 return;
@@ -1440,6 +1502,10 @@ void FluidDialog::StoreSelectedPresset()
     }
     MWin->getFile()->channel(16)->insertEvent(sys_event, current_tick);
     MWin->getFile()->protocol()->endAction();
+}
+
+int FluidDialog::EditMode() {
+    return _edit_mode;
 }
 
 void FluidDialog::LoadSelectedPresset(int current_tick)
@@ -1462,11 +1528,21 @@ void FluidDialog::LoadSelectedPresset(int current_tick)
         if(sys) {
             b = sys->data();
 
-            // old
-            if(b[0]==id2[0] && b[1]==id2[1] && b[2]==id2[2] &&
-                    b[3]=='P') {
-                int entries = 13 * 16 + 1;
+            if(b[1] == id2[1] && b[2] == id2[2] && ((b[0] == id2[0] && (b[3] & 0xf0) == 0x70) ||
+                                                       b[3] == 'R')){
+                int entries = 13 * 1;
                 char id[4];
+
+                int flag = 1;
+
+                int n = b[3] & 0xf;
+                int bucle = 1;
+
+                if(b[3] == 'R') {
+                    flag = 2;
+                    if(b[0] >= (char) 16) {flag = 3; bucle = 16;}
+                    else n = b[0] & 0xf;
+                }
 
                 QDataStream qd(&b,
                                QIODevice::ReadOnly);
@@ -1474,26 +1550,45 @@ void FluidDialog::LoadSelectedPresset(int current_tick)
 
                 qd.readRawData((char *) id, 4);
 
-                if(id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2]) {
-                    return;
+                if(flag == 1 && (id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2] || (id[3] & 0xF0) != 0x70)) {
+                    continue;
                 }
 
-                if(id[3]!='P') return;
+                if(flag == 2 && (id[1]!=id2[1] || id[2]!=id2[2] || id[3] != 'R')) {
+                    continue;
+                }
+
+                if(flag == 3 && (id[0]!= 0x10 || id[1]!=id2[1] || id[2]!=id2[2] || id[3] != 'R')) {
+                    continue;
+                }
 
                 if(decode_sys_format(qd, (void *) &entries)<0) {
 
-                    return;
+                    continue;
                 }
 
-                if(entries!=13 * 16 + 1) {
+                if(flag == 3 && entries != (15 * 16 + 1)) {
                     QMessageBox::information(this, "Ehhh!", "entries differents");
-                    return;
+                    continue;
                 }
 
+                if(flag == 2 && n == 0 && entries != (13 + 1)) {
+                    QMessageBox::information(this, "Ehhh!", "entries differents");
+                    continue;
+                }
 
-                decode_sys_format(qd, (void *) &fluid_output->synth_gain);
+                if(flag != 3 && (n != 0 || flag == 1) && (entries != 13 && entries != 15)) {
+                    QMessageBox::information(this, "Ehhh!", "entries differents");
+                    continue;
+                }
 
-                for(int n = 0; n < 16; n++) {
+                for(int m = 0; m < bucle; m++) {
+
+                    if(flag == 3) n = m;
+
+                    if(((flag == 2 || flag == 3) && n == 0) || flag == 1)
+                        decode_sys_format(qd, (void *) &fluid_output->synth_gain);
+
                     fluid_output->audio_chanmute[n]= false;
                     groupChan[n]->setChecked(!fluid_output->getAudioMute(n));
                     decode_sys_format(qd, (void *) &fluid_output->synth_chanvolume[n]);
@@ -1516,96 +1611,22 @@ void FluidDialog::LoadSelectedPresset(int current_tick)
                     decode_sys_format(qd, (void *) &fluid_output->filter_hicut_gain[n]);
                     decode_sys_format(qd, (void *) &fluid_output->filter_hicut_res[n]);
 
+                    if(flag == 3 || (flag == 1 && entries == 15)) {
+                        decode_sys_format(qd, (void *) &fluid_output->level_WaveModulator[n]);
+                        decode_sys_format(qd, (void *) &fluid_output->freq_WaveModulator[n]);
+                    } else {
+                        fluid_output->level_WaveModulator[n] = 0.0f;
+                        fluid_output->freq_WaveModulator[n] = 0.0f;
+                    }
+
                     ChanVol[n]->setValue(fluid_output->getSynthChanVolume(n)*100/127);
                     BalanceSlider[n]->setValue(fluid_output->getAudioBalance(n));
                     chanGain[n]->setValue(fluid_output->getAudioGain(n));
-
                 }
 
                 _edit_mode = 1;
                 _current_tick = current_tick;
-
-                PresetDeletePButton->setStyleSheet(QString::fromUtf8("background-color: #805f2F00;\n"));
-                PresetDeletePButton->setDisabled(false);
-
-                MainVol->setValue(fluid_output->getSynthGain());
-                channel_selected=0;
-                spinChan->valueChanged(channel_selected);
-               // update();
-            } else if(b[1] == id2[1] && b[2] == id2[2] && ((b[0] == id2[0] && (b[3] & 0xf0) == 0x70) ||
-                                                       b[3] == 'R')){
-                int entries = 13 * 1;
-                char id[4];
-
-                int flag = 1;
-
-                int n = b[3] & 0xf;
-
-                if(b[3] == 'R') {
-                    flag = 2;
-                    n = b[0] & 0xf;
-                }
-
-                QDataStream qd(&b,
-                               QIODevice::ReadOnly);
-                qd.startTransaction();
-
-                qd.readRawData((char *) id, 4);
-
-                if(flag == 1 && (id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2] || (id[3] & 0xF0) != 0x70)) {
-                    continue;
-                }
-
-                if(flag == 2 && (id[1]!=id2[1] || id[2]!=id2[2] || id[3] != 'R')) {
-                    continue;
-                }
-
-                if(decode_sys_format(qd, (void *) &entries)<0) {
-
-                    continue;
-                }
-
-                if(flag == 2 && n == 0 && entries != (13 + 1)) {
-                    QMessageBox::information(this, "Ehhh!", "wentries differents");
-                    continue;
-                }
-
-                if((n != 0 || flag == 1) && entries != 13) {
-                    QMessageBox::information(this, "Ehhh!", "entries differents");
-                    continue;
-                }
-
-                if((flag == 2 && n == 0) || flag == 1)
-                    decode_sys_format(qd, (void *) &fluid_output->synth_gain);
-
-                fluid_output->audio_chanmute[n]= false;
-                groupChan[n]->setChecked(!fluid_output->getAudioMute(n));
-                decode_sys_format(qd, (void *) &fluid_output->synth_chanvolume[n]);
-                decode_sys_format(qd, (void *) &fluid_output->audio_changain[n]);
-                decode_sys_format(qd, (void *) &fluid_output->audio_chanbalance[n]);
-
-                decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_dist_on[n]= (BOOL) ? true : false;
-                decode_sys_format(qd, (void *) &fluid_output->filter_dist_gain[n]);
-
-                decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_locut_on[n]= (BOOL) ? true : false;
-                decode_sys_format(qd, (void *) &fluid_output->filter_locut_freq[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_locut_gain[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_locut_res[n]);
-
-                decode_sys_format(qd, (void *) &BOOL);
-                fluid_output->filter_hicut_on[n]= (BOOL) ? true : false;
-                decode_sys_format(qd, (void *) &fluid_output->filter_hicut_freq[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_hicut_gain[n]);
-                decode_sys_format(qd, (void *) &fluid_output->filter_hicut_res[n]);
-
-                ChanVol[n]->setValue(fluid_output->getSynthChanVolume(n)*100/127);
-                BalanceSlider[n]->setValue(fluid_output->getAudioBalance(n));
-                chanGain[n]->setValue(fluid_output->getAudioGain(n));
-
-                _edit_mode = 1;
-                _current_tick = current_tick;
+                this->setWindowTitle("Fluid Synth Control - Edit");
 
                 PresetDeletePButton->setStyleSheet(QString::fromUtf8("background-color: #805f2F00;\n"));
                 PresetDeletePButton->setDisabled(false);
@@ -1647,6 +1668,10 @@ void FluidDialog::ResetPresset() {
         fluid_output->filter_locut_freq[n]= 500.0;
         fluid_output->filter_locut_gain[n]= 0.0;
         fluid_output->filter_locut_res[n]= 0.0;
+
+        fluid_output->level_WaveModulator[n] = 0.0;
+        fluid_output->freq_WaveModulator[n] = 0.0;
+
 
         fluid_output->filter_hicut_on[n]= false;
         fluid_output->filter_hicut_freq[n]= 2500.0;
