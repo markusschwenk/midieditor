@@ -63,6 +63,7 @@ typedef struct {
     int type;
     bool needIdle;
     bool needUpdate;
+    bool needUpdateMix;
 
     int vstVersion;
     bool vstPowerOn;
@@ -124,7 +125,7 @@ signals:
     void setBackColor(int sel);
 
 public slots:
-
+    void accept() override;
     void BackColor(int sel);
     void Save();
     void Reset();
@@ -210,38 +211,6 @@ public:
 
 };
 
-#if 0
-class VST_chan: public QDialog
-{
-    Q_OBJECT
 
-private:
-
-    QDialogButtonBox *buttonBox;
-    QPushButton *pushVSTDirectory;
-    QGroupBox *GroupBoxVST;
-    QPushButton *pushButtonSetVST;
-    QPushButton *viewVST;
-    QPushButton *pushButtonDeleteVST;
-    QLabel *labelinfo;
-    QListWidget *listWidget;
-
-    int curVST_index;
-    int chan;
-    int chan_loaded;
-
-public:
-
-    VST_chan(QWidget* parent, int channel, int flag);
-
-public slots:
-    void load_plugin(QListWidgetItem* i);
-    void setVSTDirectory();
-    void SetVST();
-    void DeleteVST();
-    void viewVSTfun();
-
-};
-#endif
 #endif
 
