@@ -68,6 +68,8 @@ void PlayerThread::run()
         midi_text[n] = NULL;
     }
 
+    realtimecount = QDateTime::currentMSecsSinceEpoch();
+
     text_tim = 0;
 
     if (!timer) {
@@ -113,8 +115,10 @@ void PlayerThread::run()
     setInterval(INTERVAL_TIME);
 
     connect(timer, SIGNAL(timeout()), this, SLOT(timeout()), Qt::DirectConnection);
-    if(!mode)
+    if(!mode) {
+        realtimecount = QDateTime::currentMSecsSinceEpoch();
         timer->start(INTERVAL_TIME);
+    }
 
     stopped = false;
 
@@ -132,6 +136,7 @@ void PlayerThread::run()
             return;
         }
 
+        realtimecount = QDateTime::currentMSecsSinceEpoch();
         emit playerStarted();
         timer->start(INTERVAL_TIME);
         //emit(measureChanged(measure, tickInMeasure));
@@ -153,6 +158,9 @@ void PlayerThread::timeout()
     }
 
     disconnect(timer, SIGNAL(timeout()), this, SLOT(timeout()));
+    qint64 crealtimecount = QDateTime::currentMSecsSinceEpoch();
+    qint64 diff_t = crealtimecount - realtimecount;
+
     if (stopped) {
         disconnect(timer, SIGNAL(timeout()), this, SLOT(timeout()));
 
@@ -188,7 +196,7 @@ void PlayerThread::timeout()
 
     } else {
 
-        int newPos = position + time->elapsed() * MidiPlayer::speedScale();
+        int newPos = position + diff_t /*time->elapsed()*/ * MidiPlayer::speedScale();
         int tick = file->tick(newPos);
         QList<TimeSignatureEvent*>* list = 0;
         int ickInMeasure = 0;
@@ -201,7 +209,9 @@ void PlayerThread::timeout()
             emit measureChanged(new_measure, ickInMeasure);
             measure = new_measure;
         }
+
         time->restart();
+
         QMultiMap<int, MidiEvent*>::iterator it = events->lowerBound(position);
 
         // window for karaoke text events (displaced +500 tick)
@@ -322,6 +332,7 @@ void PlayerThread::timeout()
             timeoutSinceLastSignal = 0;
         }
     }
+    realtimecount = crealtimecount;
     connect(timer, SIGNAL(timeout()), this, SLOT(timeout()), Qt::DirectConnection);
 }
 

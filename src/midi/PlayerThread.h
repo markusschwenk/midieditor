@@ -64,6 +64,7 @@ private:
     volatile bool stopped;
     QTimer* timer;
     QElapsedTimer* time;
+    qint64 realtimecount;
 
     int measure, posInMeasure;
 
