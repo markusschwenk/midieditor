@@ -716,6 +716,12 @@ Protocol* MidiFile::protocol()
     return prot;
 }
 
+void MidiFile::cleanProtocol() {
+
+    prot->clean();
+
+}
+
 MidiChannel* MidiFile::channel(int i)
 {
     return channels[i];

@@ -65,6 +65,7 @@ public:
     QMultiMap<int, MidiEvent*>* channelEvents(int channel);
 
     Protocol* protocol();
+    void cleanProtocol();
     MidiChannel* channel(int i);
     void preparePlayerData(int tickFrom);
     QMultiMap<int, MidiEvent*>* playerData();
