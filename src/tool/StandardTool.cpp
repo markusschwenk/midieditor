@@ -77,12 +77,14 @@ bool StandardTool::press(bool leftClick)
         int minDiffToMouse = 0;
         int action = NO_ACTION;
         foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
+#ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(ev);
 
             if(sys) {
                 QByteArray c = sys->data();
                 if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
             }
+#endif
             if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + ev->width() + 2,
                     ev->y() + ev->height())) {
 
@@ -158,9 +160,13 @@ bool StandardTool::press(bool leftClick)
 
             case SIZE_CHANGE_ACTION: {
                 if (!onSelectedEvent) {
+
                     file()->protocol()->startNewAction("Selection changed", image());
                     ProtocolEntry* toCopy = copy();
                     EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
+                    int selected = Selection::instance()->selectedEvents().size();
+                    file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
+
                     protocol(toCopy, this);
                     file()->protocol()->endAction();
                 }
@@ -172,9 +178,14 @@ bool StandardTool::press(bool leftClick)
 
             case MOVE_ACTION: {
                 if (!onSelectedEvent) {
+
                     file()->protocol()->startNewAction("Selection changed", image());
+
                     ProtocolEntry* toCopy = copy();
                     EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
+                    int selected = Selection::instance()->selectedEvents().size();
+                    file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
+
                     protocol(toCopy, this);
                     file()->protocol()->endAction();
                 }

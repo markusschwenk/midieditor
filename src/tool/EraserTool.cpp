@@ -71,15 +71,22 @@ bool EraserTool::move(int mouseX, int mouseY)
 bool EraserTool::release()
 {
     currentProtocol()->startNewAction("Remove event", image());
+
+    int selected = 0;
     foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
         if (pointInRect(mouseX, mouseY, ev->x(), ev->y(), ev->x() + ev->width(),
                 ev->y() + ev->height())) {
             file()->channel(ev->channel())->removeEvent(ev);
+            selected++;
+
             if (Selection::instance()->selectedEvents().contains(ev)) {
                 deselectEvent(ev);
             }
         }
     }
+
+
+    currentProtocol()->changeDescription("Remove event (" + QString::number(selected) + ")");
     currentProtocol()->endAction();
     return true;
 }

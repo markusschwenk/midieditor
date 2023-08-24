@@ -17,6 +17,7 @@
  */
 
 #include "SelectTool.h"
+#include "Selection.h"
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
@@ -155,6 +156,7 @@ bool SelectTool::release()
         return false;
     }
     file()->protocol()->startNewAction("Selection changed", image());
+
     ProtocolEntry* toCopy = copy();
 
     if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
@@ -186,12 +188,14 @@ bool SelectTool::release()
             y_end = mouseY + 1;
         }
         foreach (MidiEvent* event, *(matrixWidget->activeEvents())) {
+#ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
 
             if(sys) {
                 QByteArray c = sys->data();
                 if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
             }
+#endif
             if (inRect(event, x_start, y_start, x_end, y_end)) {
                 selectEvent(event, false);
             }
@@ -214,12 +218,14 @@ bool SelectTool::release()
             }
         }
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
+#ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
 
             if(sys) {
                 QByteArray c = sys->data();
                 if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
             }
+#endif
             selectEvent(event, false);
         }
     } else if (stool_type == SELECTION_TYPE_BOX2 || stool_type == SELECTION_TYPE_BOX3) {
@@ -246,15 +252,17 @@ bool SelectTool::release()
         }
 
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
-            SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
             NoteOnEvent* on = dynamic_cast<NoteOnEvent*>(event);
             OffEvent* off = dynamic_cast<OffEvent*>(event);
+#ifndef VISIBLE_VST_SYSEX
+            SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
 
             if(sys) {
                 QByteArray c = sys->data();
                 if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
             }
-
+#endif
             if (on) {
                 off = on->offEvent();
             } else if (off) {
@@ -287,7 +295,12 @@ bool SelectTool::release()
     x_rect2 = 0;
     y_rect2 = 0;
 
+
+    int selected = Selection::instance()->selectedEvents().size();
+    file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
+
     protocol(toCopy, this);
+
     file()->protocol()->endAction();
     if (_standardTool) {
         Tool::setCurrentTool(_standardTool);

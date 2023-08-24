@@ -164,7 +164,8 @@ bool EventMoveTool::release()
         return true;
     }
 
-    currentProtocol()->startNewAction("Move events", image());
+    int selected = Selection::instance()->selectedEvents().size();
+    currentProtocol()->startNewAction("Move events (" + QString::number(selected) + ")", image());
 
     // backwards to hold stability
     for (int i = Selection::instance()->selectedEvents().count() - 1; i >= 0; i--) {
