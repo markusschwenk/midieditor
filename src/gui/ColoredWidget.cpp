@@ -11,7 +11,7 @@ ColoredWidget::ColoredWidget(QColor color, QWidget* parent)
     setContentsMargins(0, 0, 0, 0);
 }
 
-void ColoredWidget::mouseDoubleClickEvent(QMouseEvent *event)
+void ColoredWidget::mouseDoubleClickEvent(QMouseEvent */*event*/)
 {
     emit doubleClick();
 
