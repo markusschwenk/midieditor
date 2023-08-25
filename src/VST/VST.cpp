@@ -4050,6 +4050,48 @@ VST_chan::VST_chan(QWidget* parent, int channel, int flag) : QDialog(parent, Qt:
         if(curVST_index == -1 && VST_ON(PRE_CHAN)) chan_loaded = PRE_CHAN;
         if(VST_index != -1)
             load_plugin(listWidget->item(0));
+        if(flag && !VST_ON(chan)) {
+            int r = QMessageBox::question(this, "MidiEditor", "VST preset do not exist.\nUnset preset? (it is deleted)   ");
+
+            if(r == QMessageBox::Yes) {
+
+                MainWindow *MWin = ((MainWindow *) _parentS);
+                MidiFile* file = MWin->getFile();
+
+                QByteArray b;
+
+                char id[4]= {0x0, 0x66, 0x66, 'W'};
+                id[0] = chan;
+
+                file->protocol()->startNewAction("SYSex VST Unset Presets");
+
+                int dtick= file->tick(150);
+
+                QByteArray c;
+                int current_tick = file->cursorTick();
+
+                foreach (MidiEvent* event,
+                         *(file->eventsBetween(current_tick-dtick, current_tick+dtick))) {
+
+                    SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+                    if(sys) {
+                        c = sys->data();
+
+                        if(c[0] == id[0] && c[1] == id[1] && c[2] == id[2] && c[3] == 'W'){
+
+                            file->channel(16)->removeEvent(sys);
+                        }
+
+                    }
+
+                }
+
+                file->protocol()->endAction();
+
+
+            }
+        }
     }
 
 
