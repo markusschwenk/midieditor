@@ -120,6 +120,7 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
         bViewVST1->setObjectName(QString::fromUtf8("pushButtonviewVST"));
         bViewVST1->setGeometry(QRect(x, 3, 32, 17));
         bViewVST1->setText("View");
+        bViewVST1->setEnabled(false);
         bViewVST1->setStyleSheet(QString::fromUtf8("background-color: #2080ff80;"));
         connect(bViewVST1, SIGNAL(clicked()), this, SLOT(viewVST1()));
 
@@ -141,6 +142,7 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
         bViewVST2->setObjectName(QString::fromUtf8("pushButtonviewVST2"));
         bViewVST2->setGeometry(QRect(x, 3, 32, 17));
         bViewVST2->setText("View");
+        bViewVST2->setEnabled(false);
         bViewVST2->setStyleSheet(QString::fromUtf8("background-color: #2040ffff;"));
 
         connect(bViewVST2, SIGNAL(clicked()), this, SLOT(viewVST2()));
@@ -286,6 +288,7 @@ void ChannelListItem::SoundEffect()
 #ifdef USE_FLUIDSYNTH
 
 void ChannelListItem::ToggleViewVST1(bool on) {
+    bViewVST1->setEnabled(on);
     if(on)
         bViewVST1->setStyleSheet(QString::fromUtf8("background-color: #6080ff80;"));
     else
@@ -300,11 +303,12 @@ void ChannelListItem::LoadVST1()
 
 void ChannelListItem::viewVST1()
 {
-    if(visibleAction->isChecked())
-    emit LoadVSTClicked(channel, 1);
+    if(visibleAction->isChecked() && visibleAction->isEnabled())
+        emit LoadVSTClicked(channel, 1);
 }
 
 void ChannelListItem::ToggleViewVST2(bool on) {
+    bViewVST2->setEnabled(on);
     if(on)
         bViewVST2->setStyleSheet(QString::fromUtf8("background-color: #6040ffff;"));
     else
@@ -313,8 +317,8 @@ void ChannelListItem::ToggleViewVST2(bool on) {
 
 void ChannelListItem::LoadVST2()
 {
-    if(visibleAction->isChecked())
-    emit LoadVSTClicked(channel + 16, 0);
+    if(visibleAction->isChecked() && visibleAction->isEnabled())
+        emit LoadVSTClicked(channel + 16, 0);
 }
 
 void ChannelListItem::viewVST2()
