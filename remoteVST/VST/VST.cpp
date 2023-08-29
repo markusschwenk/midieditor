@@ -1991,28 +1991,28 @@ skip:
         VST_preset_data[chan]->disabled = dat[8];
         VST_preset_data[chan]->needUpdate = dat[9];
 
-        if(message == 0xABECE5) {
+        if(message == EXTERNAL_UPDATE_WINSETPRESET) {
             if(sel < 0) sel = 0x7F;
             VST_preset_data[chan]->send_preset = sel;//dat[10];
             sharedVSText->unlock();
             if(VST_preset_data[chan]->vstWidget)
                 emit ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setPreset(sel);
-        } else if(message == 0xABCE50) {
+        } else if(message == EXTERNAL_UPDATE_PRESET_BKCOLOR) {
             if(sel < 0) sel = 0x7F;
             sharedVSText->unlock();
             if(VST_preset_data[chan]->vstWidget)
                 emit ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setBackColor(sel);
-        } else if(message == 0xCACAFEA) {
+        } else if(message == EXTERNAL_VST_DISABLEBUTTONS) {
             sharedVSText->unlock();
             VST_proc::VST_DisableButtons(chan, sel ? true : false);
-        } else if(message == 0xC0C0FE0) {
+        } else if(message == EXTERNAL_VST_SHOW) {
             sharedVSText->unlock();
             VST_proc::VST_show(chan, sel ? true : false);
-        } else if(message == 0xC0C0FE1) {
+        } else if(message == EXTERNAL_VST_HIDE) {
             sharedVSText->unlock();
             if(VST_preset_data[chan]->vstWidget)
                 emit ((VSTDialog *) VST_preset_data[chan]->vstWidget)->hide();
-        } else if(message == 0xC0C0FE2) {
+        } else if(message == EXTERNAL_VST_MIDINOTEOFF) {
             VST_proc::VST_MIDInotesOff(chan);
         } else
             sharedVSText->unlock();

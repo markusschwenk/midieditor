@@ -38,7 +38,7 @@
 #include <QtWidgets/QListWidget>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QStackedWidget>
-#include <QtWidgets/QDesktopWidget>
+//#include <QtWidgets/QDesktopWidget>
 #include <QSemaphore>
 #include <QMutex>
 
@@ -49,6 +49,13 @@ extern QMutex * externalMux;
 
 #define PRE_CHAN 32 // 16 chans * number of VST Plugins
 #define VST_NAME_32BITS_BARRIER "<----- 32 bits VST ----->"
+
+#define EXTERNAL_UPDATE_WINSETPRESET   0xABECE5
+#define EXTERNAL_UPDATE_PRESET_BKCOLOR 0xABCE50
+#define EXTERNAL_VST_SHOW              0xC0C0FE0
+#define EXTERNAL_VST_MIDINOTEOFF       0xC0C0FE2
+#define EXTERNAL_VST_DISABLEBUTTONS    0xCACAFEA
+#define EXTERNAL_VST_HIDE              0xC0C0FE1
 
 typedef struct {
     bool on;
