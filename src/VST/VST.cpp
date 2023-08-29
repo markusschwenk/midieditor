@@ -451,7 +451,7 @@ void VSTDialog::ChangePreset(int sel) {
         */
 
         if(VST_preset_data[channel]->external)
-            VST_proc::VST_external_send_message(channel, 0xABCE50, 0);
+            VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, 0);
         else
             SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
 
@@ -463,7 +463,7 @@ void VSTDialog::ChangePreset(int sel) {
         for(int n = 0; n <= last; n++) {
             if(!flag || !flag[n]) { // incomplete
                 if(VST_preset_data[channel]->external)
-                    VST_proc::VST_external_send_message(channel, 0xABCE50, 0);
+                    VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, 0);
                 else
                     SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
                 if(data2) free(data2);
@@ -473,7 +473,7 @@ void VSTDialog::ChangePreset(int sel) {
         }
 
         if(VST_preset_data[channel]->external)
-            VST_proc::VST_external_send_message(channel, 0xABCE50, 1);
+            VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, 1);
         else
             SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: #8000C000;"));
     }
@@ -560,13 +560,13 @@ void VSTDialog::ChangeFastPresetI2(int sel) {
 
         _dis_change = false;
 
-        VST_proc::VST_external_send_message(channel, 0xABECE5, sel);
+        VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_WINSETPRESET, sel);
         return ;
     }
 
     if(sel < 0 || sel > 7) {
         if(VST_preset_data[channel]->external)
-            VST_proc::VST_external_send_message(channel, 0xABCE50, -1);
+            VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, -1);
         else
             SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: lightgray;"));
         return;
@@ -575,13 +575,13 @@ void VSTDialog::ChangeFastPresetI2(int sel) {
 
         if(!clen) {
             if(VST_preset_data[channel]->external)
-                VST_proc::VST_external_send_message(channel, 0xABCE50, 0);
+                VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, 0);
             else
                 SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
         }
         else {
             if(VST_preset_data[channel]->external)
-                VST_proc::VST_external_send_message(channel, 0xABCE50, 1);
+                VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, 1);
             else
                 SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: #8000C000;"));
         }
@@ -948,7 +948,7 @@ skip0:
             ind++;
         }
 #endif
-        VST_proc::VST_external_send_message(channel, 0xABCE50, 1);
+        VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, 1);
         SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: #8000C000;"));
 
     }
@@ -973,6 +973,11 @@ void VSTDialog::Reset() {
         _block_timer2 = 1;
 
         VST_proc::VST_external_save_preset(chan, -1); // factory
+
+        int cur_pre = (SpinBoxPreset) ? SpinBoxPreset->value() : -1;
+        if(cur_pre > 7) cur_pre = -1;
+
+        VST_proc::VST_external_send_message(chan, EXTERNAL_UPDATE_PRESET_BKCOLOR, (cur_pre == -1 || VST_preset_data[chan]->preset[cur_pre].count() == 0) ? 0 : 1);
 
         _block_timer2 = 0;
 
@@ -1096,8 +1101,22 @@ void VSTDialog::Delete() {
 
                 if(head[0] == 8 + pre || head[0] == 16 + pre) { // preset
                     file->channel(16)->removeEvent(sys);
-                    SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
 
+                    if(SpinBoxPreset)
+                            SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
+                    //
+                    if(VST_preset_data[chan]->external) {
+
+
+                        _block_timer2 = 1;
+
+                        VST_proc::VST_external_save_preset(chan, pre, VST_preset_data[chan]->preset[pre]);
+
+                        _block_timer2 = 0;
+                    }
+
+
+                    /////
                 }
             }
 
@@ -1507,7 +1526,7 @@ void VST_proc::VST_show(int chan, bool show) {
     _block_timer2 = 1;
 
     if(VST_preset_data[chan]->external) {
-        VST_proc::VST_external_send_message(chan, 0xC0C0FE0, show ? 1 : 0);
+        VST_proc::VST_external_send_message(chan, EXTERNAL_VST_SHOW, show ? 1 : 0);
     }
 
 
@@ -1587,7 +1606,7 @@ void VST_proc::VST_MIDInotesOff(int chan) {
     DEBUG_OUT("VST_MIDInotesOff");
 
     if(VST_ON(chan) && (VST_preset_data[chan]->type & 1) && VST_preset_data[chan]->external) {
-        VST_proc::VST_external_send_message(chan, 0xC0C0FE2, 0); //external VST_MIDInotesoff()
+        VST_proc::VST_external_send_message(chan, EXTERNAL_VST_MIDINOTEOFF, 0); //external VST_MIDInotesoff()
         return;
     }
 
@@ -2588,7 +2607,7 @@ void VST_proc::VST_DisableButtons(int chan, bool disable) {
 
     ((VSTDialog *) VST_preset_data[chan]->vstWidget)->groupBox->setEnabled(!disable);
     if(VST_preset_data[chan]->external)
-        VST_proc::VST_external_send_message(chan, 0xCACAFEA, disable ? 1 : 0);
+        VST_proc::VST_external_send_message(chan, EXTERNAL_VST_DISABLEBUTTONS, disable ? 1 : 0);
 
 }
 
@@ -2773,7 +2792,7 @@ int VST_proc::VST_LoadfromMIDIfile() {
                         if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) continue;
 
                         if(VST_preset_data[chan]->external) {
-                            VST_proc::VST_external_send_message(chan, 0xC0C0FE1, 0);
+                            VST_proc::VST_external_send_message(chan, EXTERNAL_VST_HIDE, 0);
                         } else {
                             if(VST_preset_data[chan]->vstWidget)
                                 VST_preset_data[chan]->vstWidget->hide();
@@ -3147,7 +3166,7 @@ int VST_proc::VST_LoadfromMIDIfile() {
 
                             VST_external_save_preset(chan, pre, VST_preset_data[chan]->preset[pre]);
 
-                            VST_proc::VST_external_send_message(chan, 0xABCE50, 1);
+                            VST_proc::VST_external_send_message(chan, EXTERNAL_UPDATE_PRESET_BKCOLOR, 1);
                             _block_timer2 = 0;
                         }
                         */
@@ -3285,7 +3304,7 @@ int VST_proc::VST_UpdatefromMIDIfile() {
                             //VST_proc::VST_show(chan, false);
                             if(VST_ON(chan)) {
                                 if(VST_preset_data[chan]->external) {
-                                    VST_proc::VST_external_send_message(chan, 0xC0C0FE1, 0);
+                                    VST_proc::VST_external_send_message(chan, EXTERNAL_VST_HIDE, 0);
                                 } else {
                                     if(VST_preset_data[chan]->vstWidget)
                                         VST_preset_data[chan]->vstWidget->hide();
@@ -3328,7 +3347,7 @@ int VST_proc::VST_UpdatefromMIDIfile() {
 
                                             _block_timer2 = 0;
 
-                                            VST_proc::VST_external_send_message(chan, 0xABCE50, 0);
+                                            VST_proc::VST_external_send_message(chan, EXTERNAL_UPDATE_PRESET_BKCOLOR, 0);
 
                                         } else
                                             ((VSTDialog *) VST_preset_data[chan]->vstWidget)->SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
@@ -3495,7 +3514,7 @@ int VST_proc::VST_UpdatefromMIDIfile() {
 
                                         _block_timer2 = 0;
 
-                                        VST_proc::VST_external_send_message(chan, 0xABCE50, 0);
+                                        VST_proc::VST_external_send_message(chan, EXTERNAL_UPDATE_PRESET_BKCOLOR, 0);
 
                                     } else
                                         ((VSTDialog *) VST_preset_data[chan]->vstWidget)->SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
@@ -3644,7 +3663,7 @@ int VST_proc::VST_UpdatefromMIDIfile() {
         if(VST_ON(chan) && VST_preset_data[chan]->vstWidget &&
                 !VST_preset_data[chan]->preset[VST_preset_data[chan]->curr_preset].length()) {
             if(VST_preset_data[chan]->external)
-                VST_proc::VST_external_send_message(chan, 0xABCE50, 0);
+                VST_proc::VST_external_send_message(chan, EXTERNAL_UPDATE_PRESET_BKCOLOR, 0);
             else
                 ((VSTDialog *) VST_preset_data[chan]->vstWidget)->SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
         }
@@ -5307,7 +5326,7 @@ void VSTExportDatas::ExportVST() {
                 //VST_proc::VST_show(chan, false);
                 if(VST_ON(chan)) {
                     if(VST_preset_data[chan]->external) {
-                        VST_proc::VST_external_send_message(chan, 0xC0C0FE1, 0);
+                        VST_proc::VST_external_send_message(chan, EXTERNAL_VST_HIDE, 0);
                     } else {
                         if(VST_preset_data[chan]->vstWidget)
                             VST_preset_data[chan]->vstWidget->hide();
@@ -5416,7 +5435,7 @@ void VSTExportDatas::ExportVST() {
 
                                     _block_timer2 = 0;
 
-                                    VST_proc::VST_external_send_message(chan, 0xABCE50, 0);
+                                    VST_proc::VST_external_send_message(chan, EXTERNAL_UPDATE_PRESET_BKCOLOR, 0);
 
                                 } else
                                     ((VSTDialog *) VST_preset_data[chan]->vstWidget)->SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
