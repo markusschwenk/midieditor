@@ -12,7 +12,7 @@ Downloads : [last release](https://github.com/markusschwenk/midieditor/releases/
 ### Building Dependencies
 * [Qt >= 5.7](https://www.qt.io/download-open-source/)
 * Linux :
-     * asound `sudo apt-get install libasound2-dev`
+     * `sudo apt-get install libasound2-dev qt5base-dev qt5multimedia-dev qt5-qmake`
 
 ### Introduction
 
