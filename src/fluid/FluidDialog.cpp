@@ -110,6 +110,14 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
 
 }
 
+void FluidDialog::dis() {
+
+    disconnect(fluid_output, SIGNAL(changeVolBalanceGain(int , int , int , int)), this, SLOT(changeVolBalanceGain(int , int , int , int)));
+    disconnect(fluid_output, SIGNAL(changeMainVolume(int)), this, SLOT(changeMainVolume(int)));
+    disconnect(fluid_output, SIGNAL(changeFilterValue(int , int)), this, SLOT(changeFilterValue(int , int)));
+
+}
+
 void FluidDialog::reject() {
     time_updat->stop();
     delete time_updat;

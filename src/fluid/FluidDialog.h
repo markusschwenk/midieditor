@@ -206,6 +206,7 @@ public:
 
 
     FluidDialog(QWidget* parent);
+    void dis();
     void tab_MainVolume(QDialog *FluidDialog);
     void tab_Config(QDialog */*FluidDialog*/);
 
