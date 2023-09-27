@@ -74,7 +74,7 @@ win32: {
     DEFINES += __WINDOWS_MM__
     LIBS += -lwinmm
     CONFIG += release
-    DEFINES += USE_FLUIDSYNTH CUSTOM_MIDIEDITOR #VISIBLE_VST_SYSEX
+    DEFINES += USE_FLUIDSYNTH CUSTOM_MIDIEDITOR CUSTOM_MIDIEDITOR_GUI #VISIBLE_VST_SYSEX
     LIBS += ../midieditor/lib64/windows/libfluidsynth.dll.a
     LIBS += ../midieditor/lib/windows/fluidsynth.lib
     RC_FILE = midieditor.rc

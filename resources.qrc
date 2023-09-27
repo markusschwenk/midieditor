@@ -97,5 +97,10 @@
         <file>run_environment/graphics/tool/record2.png</file>
         <file>run_environment/graphics/tool/play2.png</file>
         <file>run_environment/graphics/channelwidget/vst_effect.png</file>
+        <file>run_environment/graphics/custom/background.png</file>
+        <file>run_environment/graphics/custom/Midicustom.png</file>
+        <file>run_environment/graphics/custom/background2.png</file>
+        <file>run_environment/graphics/custom/drum.png</file>
+        <file>run_environment/graphics/custom/background3.png</file>
     </qresource>
 </RCC>
