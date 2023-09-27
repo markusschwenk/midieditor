@@ -23,6 +23,7 @@
 #include <QTextEdit>
 #include <QTimer>
 
+#include "midi/MidiFile.h"
 #include "midi/MidiInput.h"
 #include "midi/MidiOutput.h"
 
@@ -32,6 +33,8 @@ Terminal::Terminal()
 {
     _process = 0;
     _textEdit = new QTextEdit();
+    if(!_textEdit)
+        ERROR_CRITICAL_NO_MEMORY();
     _textEdit->setReadOnly(true);
 
     _inPort = "";
@@ -42,6 +45,8 @@ void Terminal::initTerminal(QString startString, QString inPort,
     QString outPort)
 {
     _terminal = new Terminal();
+    if(!_terminal)
+        ERROR_CRITICAL_NO_MEMORY();
     _terminal->execute(startString, inPort, outPort);
 }
 
@@ -64,6 +69,8 @@ void Terminal::execute(QString startString, QString inPort, QString outPort)
             _process->kill();
         }
         _process = new QProcess();
+        if(!_process)
+            ERROR_CRITICAL_NO_MEMORY();
 
         connect(_process, SIGNAL(readyReadStandardOutput()), this,
             SLOT(printToTerminal()));
@@ -145,6 +152,8 @@ void Terminal::processStarted()
     // if not both are set, try again in 1 second
     if ((MidiOutput::outputPort() == "" && _outPort != "") || (MidiInput::inputPort() == "" && _inPort != "")) {
         QTimer* timer = new QTimer();
+        if(!timer)
+            ERROR_CRITICAL_NO_MEMORY();
         connect(timer, SIGNAL(timeout()), this, SLOT(processStarted()));
         timer->setSingleShot(true);
         timer->start(1000);
