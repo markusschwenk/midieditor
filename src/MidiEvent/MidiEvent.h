@@ -38,6 +38,7 @@ class MidiEvent : public ProtocolEntry, public GraphicObject {
 public:
     MidiEvent(int channel, MidiTrack* track);
     MidiEvent(MidiEvent& other);
+    ~MidiEvent();
 
     static MidiEvent* loadMidiEvent(QDataStream* content,
         bool* ok, bool* endEvent, MidiTrack* track, quint8 startByte = 0,

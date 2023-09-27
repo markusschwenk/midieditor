@@ -61,6 +61,11 @@ MidiEvent::MidiEvent(MidiEvent& other)
     midiFile = other.midiFile;
 }
 
+MidiEvent::~MidiEvent() {
+
+    //qWarning("midi event destroyed");
+}
+
 MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
     bool* endEvent, MidiTrack* track, quint8 startByte, quint8 secondByte)
 {
@@ -104,7 +109,12 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         (*content) >> tempByte;
 
         OffEvent* event = new OffEvent(channel, 127 - note, track);
-        *ok = true;
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
         return event;
     }
 
@@ -126,9 +136,21 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
 
         if (velocity > 0) {
             NoteOnEvent* event = new NoteOnEvent(note, velocity, channel, track);
+            if(event)
+                *ok = true;
+            else {
+                *ok = false;
+                ERROR_CRITICAL_NO_MEMORY();
+            }
             return event;
         } else {
             OffEvent* event = new OffEvent(channel, 127 - note, track);
+            if(event)
+                *ok = true;
+            else {
+                *ok = false;
+                ERROR_CRITICAL_NO_MEMORY();
+            }
             return event;
         }
     }
@@ -148,9 +170,16 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         (*content) >> tempByte;
         int value = tempByte;
 
-        *ok = true;
 
-        return new KeyPressureEvent(channel, value, note, track);
+        KeyPressureEvent *event = new KeyPressureEvent(channel, value, note, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+
+        return event;
     }
 
     case 0xB0: {
@@ -163,8 +192,16 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         int control = tempByte;
         (*content) >> tempByte;
         int value = tempByte;
-        *ok = true;
-        return new ControlChangeEvent(channel, control, value, track);
+        ControlChangeEvent *event = new ControlChangeEvent(channel, control, value, track);
+
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+
+        return event;
     }
 
     case 0xC0: {
@@ -174,8 +211,15 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         } else {
             tempByte = secondByte;
         }
-        *ok = true;
-        return new ProgChangeEvent(channel, tempByte, track);
+
+        ProgChangeEvent *event =new ProgChangeEvent(channel, tempByte, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+        return event;
     }
 
     case 0xD0: {
@@ -187,9 +231,15 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         }
         int value = tempByte;
 
-        *ok = true;
+        ChannelPressureEvent *event = new ChannelPressureEvent(channel, value, track);
 
-        return new ChannelPressureEvent(channel, value, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+        return event;
     }
 
     case 0xE0: {
@@ -206,9 +256,15 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
 
         int value = (second << 7) | first;
 
-        *ok = true;
+        PitchBendEvent *event = new PitchBendEvent(channel, value, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+        return event;
 
-        return new PitchBendEvent(channel, value, track);
     }
 
     case 0xF0: {
@@ -245,10 +301,27 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
             *ok = true;
             if(array.size() == (int) (length + index)) // sysEx have length...
             {
-                return new SysExEvent(channel, QByteArray(array.constData() + index + 1, array.size() - index - 1), track);
+                SysExEvent *event = new SysExEvent(channel, QByteArray(array.constData() + index + 1, array.size() - index - 1), track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
+
             }
             // for old compatibility
-            return new SysExEvent(channel, array, track);
+            SysExEvent *event = new SysExEvent(channel, array, track);
+
+            if(event)
+                *ok = true;
+            else {
+                *ok = false;
+                ERROR_CRITICAL_NO_MEMORY();
+            }
+            return event;
         }
 
         case 0x0F: {
@@ -270,7 +343,16 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                 (*content) >> value;
                 // 1te Stelle abziehen,
                 value -= 50331648;
-                return new TempoChangeEvent(17, (int)value, track);
+
+                TempoChangeEvent *event = new TempoChangeEvent(17, (int)value, track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
             }
             case 0x58: {
                 // TimeSignature
@@ -288,7 +370,17 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                 int metronome = (int)tempByte;
                 (*content) >> tempByte;
                 int num32 = (int)tempByte;
-                return new TimeSignatureEvent(18, num, denom, metronome, num32, track);
+
+                TimeSignatureEvent *event = new TimeSignatureEvent(18, num, denom, metronome, num32, track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
+
             }
             case 0x59: {
                 // keysignature
@@ -305,7 +397,17 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                 if (tempByte == 0) {
                     minor = false;
                 }
-                return new KeySignatureEvent(channel, tonality, minor, track);
+
+                KeySignatureEvent *event = new KeySignatureEvent(channel, tonality, minor, track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
+
             }
             case 0x2F: {
                 // end Event
@@ -319,6 +421,14 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                     // textevent
                     // read type
                     TextEvent* textEvent = new TextEvent(channel, track);
+
+                    if(textEvent)
+                        *ok = true;
+                    else {
+                        *ok = false;
+                        ERROR_CRITICAL_NO_MEMORY();
+                    }
+
                     textEvent->setType(tempByte);
                     int length = MidiFile::variableLengthvalue(content);
 #if 0
@@ -387,8 +497,17 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                         (*content) >> tempByte;
                         array.append((char)tempByte);
                     }
-                    *ok = true;
-                    return new UnknownEvent(channel, typeByte, array, track);
+
+                    UnknownEvent *event = new UnknownEvent(channel, typeByte, array, track);
+
+                    if(event)
+                        *ok = true;
+                    else {
+                        *ok = false;
+                        ERROR_CRITICAL_NO_MEMORY();
+                    }
+                    return event;
+
                 }
             }
             }
@@ -408,9 +527,12 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
 void MidiEvent::setTrack(MidiTrack* track, bool toProtocol)
 {
     ProtocolEntry* toCopy = copy();
+    if(!toCopy)
+        ERROR_CRITICAL_NO_MEMORY2();
 
     _track = track;
     if (toProtocol) {
+        midi_modified = true;
         protocol(toCopy, this);
     } else {
         delete toCopy;
@@ -426,8 +548,11 @@ void MidiEvent::setChannel(int ch, bool toProtocol)
 {
     int oldChannel = channel();
     ProtocolEntry* toCopy = copy();
+    if(!toCopy)
+        ERROR_CRITICAL_NO_MEMORY2();
     numChannel = ch;
     if (toProtocol) {
+        midi_modified = true;
         protocol(toCopy, this);
         file()->channelEvents(oldChannel)->remove(midiTime(), this);
         // tells the new channel to add this event
@@ -463,18 +588,25 @@ void MidiEvent::setMidiTime(int t, bool toProtocol)
     }
 
     ProtocolEntry* toCopy = copy();
+    if(!toCopy)
+        ERROR_CRITICAL_NO_MEMORY2();
     file()->channelEvents(numChannel)->remove(timePos, this);
     timePos = t;
     if (timePos > file()->endTick()) {
         file()->setMaxLengthMs(file()->msOfTick(timePos) + 100);
     }
+    midi_modified = true;
+
     if (toProtocol) {
         protocol(toCopy, this);
     } else {
         delete toCopy;
     }
 
-    file()->channelEvents(numChannel)->insert(timePos, this);
+    if(numChannel >= 17)
+        file()->channelEvents(numChannel)->replace(timePos, this);
+    else
+        file()->channelEvents(numChannel)->insert(timePos, this);
 }
 
 int MidiEvent::midiTime()
@@ -515,7 +647,10 @@ void MidiEvent::draw2(QPainter* p, QColor c, Qt::BrushStyle bs)
 
 ProtocolEntry* MidiEvent::copy()
 {
-    return new MidiEvent(*this);
+    MidiEvent *event = new MidiEvent(*this);
+    if(!event)
+        ERROR_CRITICAL_NO_MEMORY3();
+    return event;
 }
 
 void MidiEvent::reloadState(ProtocolEntry* entry)
@@ -530,8 +665,12 @@ void MidiEvent::reloadState(ProtocolEntry* entry)
     numChannel = other->numChannel;
     file()->channelEvents(numChannel)->remove(timePos, this);
     timePos = other->timePos;
-    file()->channelEvents(numChannel)->insert(timePos, this);
+    if(numChannel >= 17)
+        file()->channelEvents(numChannel)->replace(timePos, this);
+    else
+        file()->channelEvents(numChannel)->insert(timePos, this);
     midiFile = other->midiFile;
+
 }
 
 QString MidiEvent::typeString()
@@ -604,6 +743,7 @@ void MidiEvent::moveToChannel(int ch)
 
     numChannel = ch;
 
+    midi_modified = true;
     protocol(toCopy, this);
 
     midiFile->channel(ch)->insertEvent(this, midiTime());
