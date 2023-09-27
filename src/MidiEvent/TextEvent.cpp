@@ -45,7 +45,7 @@ void TextEvent::setText(QString text)
     ProtocolEntry* toCopy = copy();
 
     _text = text;
-
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -58,6 +58,7 @@ void TextEvent::setType(int type)
 {
     ProtocolEntry* toCopy = copy();
     _type = type;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

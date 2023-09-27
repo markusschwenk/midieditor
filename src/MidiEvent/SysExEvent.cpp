@@ -89,5 +89,6 @@ void SysExEvent::setData(QByteArray d)
 {
     ProtocolEntry* toCopy = copy();
     _data = d;
+    midi_modified = true;
     protocol(toCopy, this);
 }

@@ -79,6 +79,7 @@ void UnknownEvent::setType(int type)
 {
     ProtocolEntry* toCopy = copy();
     _type = type;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -86,5 +87,6 @@ void UnknownEvent::setData(QByteArray d)
 {
     ProtocolEntry* toCopy = copy();
     _data = d;
+    midi_modified = true;
     protocol(toCopy, this);
 }
