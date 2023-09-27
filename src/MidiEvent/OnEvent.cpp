@@ -40,6 +40,7 @@ OnEvent::OnEvent(OnEvent& other)
 
 void OnEvent::setOffEvent(OffEvent* event)
 {
+    midi_modified = true;
     _offEvent = event;
 }
 
@@ -75,6 +76,13 @@ QString OnEvent::offEventMessage()
 
 void OnEvent::moveToChannel(int channel)
 {
+    midi_modified = true;
     MidiEvent::moveToChannel(channel);
     offEvent()->moveToChannel(channel);
+}
+
+void OnEvent::setMidiTime(int t, bool toProtocol)
+{
+    midi_modified = true;
+    MidiEvent::setMidiTime(t, toProtocol);
 }

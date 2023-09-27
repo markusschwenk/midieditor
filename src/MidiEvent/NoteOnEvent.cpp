@@ -57,6 +57,7 @@ void NoteOnEvent::setVelocity(int v)
         v = 127;
     }
     _velocity = v;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -69,6 +70,7 @@ void NoteOnEvent::setNote(int n)
 {
     ProtocolEntry* toCopy = copy();
     _note = n;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
