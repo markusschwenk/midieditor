@@ -34,6 +34,32 @@
 #include <QTextCodec>
 #include "../tool/EventMoveTool.h"
 
+#ifndef CUSTOM_MIDIEDITOR_GUI
+
+#define COLOR_BACKGROUND   QApplication::palette().window()
+#define COLOR_PIANO_LINES1 QColor(194, 230, 255)
+#define COLOR_PIANO_LINES2 QColor(234, 246, 255)
+#define COLOR_PIANO_NOTE   Qt::white
+#define COLOR_BACK_RASTER  QColor(234, 246, 255)
+#define COLOR_VEL_RASTER   QColor(194, 230, 255)
+#define COLOR_INK_EVENT    Qt::darkGray
+#define COLOR_MEASURES1    Qt::gray
+#define COLOR_MEASURES2    Qt::lightGray
+#define COLOR_MEASURES_BK  Qt::white
+#else
+// Estwald Color Changes
+#define COLOR_PIANO_LINES1 QColor(0xe0f0d0)
+#define COLOR_PIANO_LINES2 QColor(234, 246, 255)
+#define COLOR_PIANO_NOTE   QColor(0xffffe0)
+#define COLOR_BACKGROUND   background3 //QColor(0xf03030)
+#define COLOR_VEL_RASTER   Qt::darkGray
+#define COLOR_BACK_RASTER  QColor(0xe0e0f0)
+#define COLOR_INK_EVENT    QColor(0xe0e0f0)
+#define COLOR_MEASURES1    Qt::black
+#define COLOR_MEASURES2    Qt::black
+#define COLOR_MEASURES_BK  QColor(0xffffe0)
+#endif
+
 class MidiFile;
 class TempoChangeEvent;
 class TimeSignatureEvent;
@@ -52,6 +78,7 @@ public:
     QList<MidiEvent*>* activeEvents();
     QList<MidiEvent*>* velocityEvents();
 
+    int bpm_rhythm_ms;
     double lineHeight();
     int lineAtY(int y);
     int msOfXPos(int x);
@@ -78,7 +105,12 @@ public:
 
     bool visible_karaoke;
 
+    bool shadow_selection;
+
+    bool disable_ev;
+
 public slots:
+    void remote_click();
     void scrollXChanged(int scrollPositionX);
     void scrollYChanged(int scrollPositionY);
     void zoomHorIn();
@@ -93,6 +125,7 @@ public slots:
     void takeKeyReleaseEvent(QKeyEvent* event);
     void setDiv(int div);
     int div();
+    static void stop_remote_click();
 
 signals:
     void sizeChanged(int maxScrollTime, int maxScrollLine, int valueX,
@@ -114,6 +147,7 @@ protected:
     void wheelEvent(QWheelEvent* event);
 
 private:
+    bool paint_in_use;
     void paintChannel(QPainter* painter, int channel);
     void paintPianoKey(QPainter* painter, int number, int x, int y,
         int width, int height);
@@ -126,6 +160,13 @@ private:
     QRectF ToolArea, PianoArea, TimeLineArea, TimeLineArea2,
         TimeLineArea3, TimeLineArea4;
     bool screen_locked;
+    static int clicked;
+    static QTimer click_timer;
+    int x_mouse;
+    int y_mouse;
+    int note_mouse;
+    int chan_mouse;
+    int vel_mouse;
 
 
     // pixmap is the painted widget (without tools and cursorLines).
@@ -148,6 +189,7 @@ private:
     int _div;
 
     QMap<int, QRect> pianoKeys;
+    QMultiMap<int, int> listAreaSel;
 
     static const unsigned sharp_strip_mask = (1 << 4) | (1 << 6) | (1 << 9) | (1 << 11) | (1 << 1);
 

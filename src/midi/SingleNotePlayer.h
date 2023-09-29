@@ -19,6 +19,8 @@
 #ifndef SINGLENOTEPLAYER_H_
 #define SINGLENOTEPLAYER_H_
 
+#define SINGLE_NOTE_LENGTH_MS 2000
+
 #include <QObject>
 
 class NoteOnEvent;
@@ -30,7 +32,7 @@ class SingleNotePlayer : public QObject {
 
 public:
     SingleNotePlayer();
-    void play(NoteOnEvent* event);
+    void play(NoteOnEvent* event, int ms = SINGLE_NOTE_LENGTH_MS);
 
 public slots:
     void timeout();

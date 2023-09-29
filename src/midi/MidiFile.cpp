@@ -27,6 +27,7 @@
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/OnEvent.h"
+#include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/ProgChangeEvent.h"
 #include "../MidiEvent/TempoChangeEvent.h"
 #include "../MidiEvent/TextEvent.h"
@@ -47,6 +48,13 @@ int MidiFile::defaultTimePerQuarter = 192;
 int Bank_MIDI[17];
 int Prog_MIDI[17];
 int OctaveChan_MIDI[17];
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+// Estwald Color Changes
+QBrush background1(QImage(":/run_environment/graphics/custom/background.png"));
+QBrush background2(QImage(":/run_environment/graphics/custom/background2.png"));
+QBrush background3(QImage(":/run_environment/graphics/custom/background3.png"));
+#endif
 
 MidiFile::MidiFile()
 {
@@ -82,12 +90,12 @@ MidiFile::MidiFile()
     // add timesig
     TimeSignatureEvent* timeSig = new TimeSignatureEvent(18, 4, 2, 24, 8, tempoTrack);
     timeSig->setFile(this);
-    channel(18)->eventMap()->insert(0, timeSig);
+    channel(18)->eventMap()->replace(0, timeSig);
 
     // create tempo change
     TempoChangeEvent* tempoEv = new TempoChangeEvent(17, 500000, tempoTrack);
     tempoEv->setFile(this);
-    channel(17)->eventMap()->insert(0, tempoEv);
+    channel(17)->eventMap()->replace(0, tempoEv);
 
     playerMap = new QMultiMap<int, MidiEvent*>;
 
@@ -97,9 +105,11 @@ MidiFile::MidiFile()
 
 MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
 {
+    bool destroy_log = false;
 
     if (!log) {
         log = new QStringList();
+        destroy_log = true;
     }
 
     _pauseTick = -1;
@@ -116,6 +126,8 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
         *ok = false;
         log->append("Error: File could not be opened.");
         printLog(log);
+        if(destroy_log)
+            delete log;
         return;
     }
 
@@ -129,6 +141,9 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
     if (!readMidiFile(stream, log)) {
         *ok = false;
         printLog(log);
+        if(destroy_log)
+            delete log;
+        f->close();
         return;
     }
 
@@ -162,7 +177,10 @@ MidiFile::MidiFile(QString path, bool* ok, QStringList* log)
         }
     }
 
+    if(destroy_log)
+        delete log;
 
+    f->close();
 
 }
 
@@ -170,6 +188,50 @@ MidiFile::MidiFile(int ticks, Protocol* p)
 {
     midiTicks = ticks;
     prot = p;
+}
+
+MidiFile::~MidiFile() {
+
+    if(prot) {
+        prot->blockSignals(true);
+        prot->clean(true);
+        delete prot;
+        prot = NULL;
+    }
+
+    if(playerMap) {
+       playerMap->clear();
+       delete playerMap;
+       playerMap = NULL;
+    }
+
+    int count = 0;
+    for (int i = 0; i < 19; i++) {
+
+        foreach (MidiEvent* event, channels[i]->eventMap()->values()) {
+            if(event)
+                delete event;
+            count++;
+        }
+
+        channels[i]->eventMap()->clear();
+
+        delete channels[i];
+        channels[i] = NULL;
+    }
+
+    if(_tracks) {
+        for(int n = 0; n < _tracks->count(); n++) {
+            if(_tracks->at(n))
+                    delete _tracks->at(n);
+        }
+
+       _tracks->clear();
+       delete _tracks;
+       _tracks = NULL;
+    }
+
+    qWarning("~MidiFile() events deleted %i", count);
 }
 
 bool MidiFile::readMidiFile(QDataStream* content, QStringList* log)
@@ -348,7 +410,7 @@ bool MidiFile::readTrack(QDataStream* content, int num, QStringList* log)
         TimeSignatureEvent* timeSig = new TimeSignatureEvent(18, 4, 2, 24, 8, track);
         timeSig->setFile(this);
         timeSig->setTrack(track, false);
-        channel(18)->eventMap()->insert(0, timeSig);
+        channel(18)->eventMap()->replace(0, timeSig);
     }
 
     // check whether TempoChangeEvent at tick 0 is given. If not, create one.
@@ -357,7 +419,7 @@ bool MidiFile::readTrack(QDataStream* content, int num, QStringList* log)
         TempoChangeEvent* tempoEv = new TempoChangeEvent(17, 500000, track);
         tempoEv->setFile(this);
         tempoEv->setTrack(track, false);
-        channel(17)->eventMap()->insert(0, tempoEv);
+        channel(17)->eventMap()->replace(0, tempoEv);
     }
 
     // assign channel
@@ -494,10 +556,10 @@ int MidiFile::msOfTick(int tick, QList<MidiEvent*>* events, int
         if (!event || ev->midiTime() <= tick) {
             if (!event) {
                 // first event in the list at time msOfFirstEventInList
-                timeMs = msOfFirstEventInList;
+                timeMs = (double) msOfFirstEventInList;
             } else {
                 // any event before the endTick
-                timeMs += event->msPerTick() * (ev->midiTime() - event->midiTime());
+                timeMs += event->msPerTick() * (double) (ev->midiTime() - event->midiTime());
             }
             event = ev;
         } else {
@@ -510,7 +572,7 @@ int MidiFile::msOfTick(int tick, QList<MidiEvent*>* events, int
         return 0;
     }
 
-    timeMs += event->msPerTick() * (tick - event->midiTime());
+    timeMs += event->msPerTick() * (double) (tick - event->midiTime());
     return (int)timeMs;
 }
 
@@ -1437,11 +1499,14 @@ bool MidiFile::channelMuted(int ch)
     return channel(ch)->mute();
 }
 
+#define Tms(x) ((x < 0) ? 0 : x)
+
 void MidiFile::preparePlayerData(int tickFrom)
 {
 
     playerMap->clear();
-    QList<MidiEvent*>* prgList;
+    QList<MidiEvent*>* prgList; // before
+    QList<MidiEvent*>* prgList2; // after
 
     #ifdef USE_FLUIDSYNTH
 
@@ -1475,6 +1540,10 @@ void MidiFile::preparePlayerData(int tickFrom)
         // prgList saves all ProgramChangeEvents before cursorPosition. The last
         // will be sent when playing
         prgList = new QList<MidiEvent*>;
+        prgList2 = new QList<MidiEvent*>;
+
+        if(!prgList || !prgList2)
+            return;
 
         QMultiMap<int, MidiEvent*>* channelEvents = channels[i]->eventMap();
         QMultiMap<int, MidiEvent*>::iterator it = channelEvents->begin();
@@ -1487,24 +1556,38 @@ void MidiFile::preparePlayerData(int tickFrom)
                 // all Events after cursorTick are added
                 int ms = msOfTick(tick);
                 if (!event->track()->muted()) {
-                    playerMap->insert(ms, event);
+
+                    if(i >= 17)
+                        playerMap->replace(ms, event);
+                    else {
+                        ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
+                        if (prg) {
+                            // save ProgramChanges in the list, to be added
+                            // to the playerMap later
+                            prgList2->append(prg);
+
+                        }
+                        else playerMap->insert(ms, event);
+                    }
                 }
             } else {
                 ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
                 if (ctrl) {
-                    // insert all ControlChanges //on first position
-                     playerMap->insert(msOfTick(tick)-1, ctrl);
+                    // insert all ControlChanges before tickFrom position
+                     playerMap->insert(Tms(msOfTick(tick) - 1), ctrl);
                      goto skip;
                 }
+
+
                 PitchBendEvent* pitch = dynamic_cast<PitchBendEvent*>(event);
                 if (pitch) {
-                    // insert all ControlChanges //on first position
-                     playerMap->insert(msOfTick(tick)-1, pitch);
+                    // insert all PitchBend before tickFrom position
+                     playerMap->insert(Tms(msOfTick(tick) - 1), pitch);
                      goto skip;
                 }
                 ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
                 if (prg) {
-                    // save ProgramChenges in the list, the last will be added
+                    // save ProgramChanges in the list, the last will be added
                     // to the playerMap later
                     prgList->append(prg);
                     goto skip;
@@ -1532,13 +1615,27 @@ void MidiFile::preparePlayerData(int tickFrom)
             it++;
         }
 
+        // before
+
         if (prgList->count() > 0) {
             // set the program of the channel
-            playerMap->insert(msOfTick(tickFrom) - 1, prgList->last());
+            playerMap->insert(Tms(msOfTick(tickFrom) - 1), prgList->last());
+        }
+
+        // after
+        if (prgList2->count() > 0) {
+            for(int n = 0; n < prgList2->count(); n++) {
+                int ms = msOfTick(prgList2->at(n)->midiTime());
+
+                // set the program of the channel
+                playerMap->insert(ms, prgList2->at(n));
+            }
         }
 
         delete prgList;
         prgList = 0;
+        delete prgList2;
+        prgList2 = 0;
     }
 }
 
@@ -1568,6 +1665,98 @@ void MidiFile::setPauseTick(int tick)
     _pauseTick = tick;
 }
 
+static bool _lock_backup = false;
+
+bool MidiFile::lock_backup(bool locked) {
+    bool _last = _lock_backup;
+    _lock_backup = locked;
+    return _last;
+}
+
+bool MidiFile::backup(bool save_backup)
+{
+    QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_anti_crash_");
+
+    if(_lock_backup)
+        return true;
+
+    if(!save_backup) {
+
+        return true;
+    }
+
+    // update list
+    for(int n = 15; n > 0; n--) {
+        QFile f(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(n));
+        QFile m(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(n));
+
+        if(f.exists()) {
+            if(n + 1 == 16) {
+                QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path.16");
+            }
+            f.rename(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(n+1));
+        }
+
+        if(m.exists()) {
+            if(n + 1 == 16) {
+                QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.16");
+            }
+            m.rename(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(n+1));
+        }
+    }
+
+    QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
+    QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1");
+/*
+    if(path().isEmpty())
+        return true;
+*/
+    QFile f(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
+
+    bool saved = _saved;
+
+    bool error = false;
+
+    if(f.open(QIODevice::WriteOnly)) {
+        QString s = path();
+
+        if(f.write(s.toUtf8()) < 0)
+            error = true;
+        if(!error) {
+            if(!f.seek(1024))
+                error = true;
+            else if(f.write(this->protocol()->save_description.toUtf8()) < 0)
+                error = true;
+        }
+        f.close();
+    } else
+        error = true;
+
+    if(error) {
+
+        QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
+        QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
+        return false;
+    }
+
+    if(!save(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1")) {
+        QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1");
+        QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
+        _saved = saved;
+        return false;
+    }
+
+    _saved = saved;
+
+    QFile c(QDir::homePath() + "/Midieditor/file_cache/_anti_crash_");
+    if(c.open(QIODevice::WriteOnly))
+        c.close();
+
+    emit trackChanged();
+    return true;
+
+}
+
 bool MidiFile::save(QString path)
 {
 
@@ -1589,6 +1778,7 @@ bool MidiFile::save(QString path)
             allEvents.insert(it.key(), it.value());
             it++;
         }
+        channels[i]->midi_modified = false;
     }
 
     QByteArray data = QByteArray();
@@ -1914,7 +2104,7 @@ void MidiFile::meterAt(int tick, int* num, int* denum, TimeSignatureEvent **last
 void MidiFile::printLog(QStringList* log)
 {
     foreach (QString str, *log) {
-        qWarning(str.toUtf8().constData());
+        qWarning("%s", str.toUtf8().constData());
     }
 }
 
@@ -2097,9 +2287,9 @@ void MidiFile::insertMeasures(int after, int numMeasures){
     // Find meter at measure and compute number of inserted ticks.
     int num;
     int denom;
-    TimeSignatureEvent *lastTimeSig;
+    TimeSignatureEvent *lastTimeSig = NULL;
     meterAt(tick-1, &num, &denom, &lastTimeSig);
-    int numTicks = lastTimeSig->ticksPerMeasure() * numMeasures;
+    int numTicks = !lastTimeSig ? 1000 * numMeasures : lastTimeSig->ticksPerMeasure() * numMeasures;
     midiTicks = midiTicks + numTicks;
 
     // Shift all ticks.

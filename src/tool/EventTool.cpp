@@ -89,6 +89,9 @@ void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
                 }
             }
         }
+
+        return;
+
 #else
         return;
 #endif
@@ -109,7 +112,13 @@ void EventTool::selectEvent(MidiEvent* event, bool single, bool ignoreStr)
         selected.clear();
         NoteOnEvent* on = dynamic_cast<NoteOnEvent*>(event);
         if (on) {
-            MidiPlayer::play(on);
+            int ms = 2000;
+            if(on->offEvent()) {
+                ms = on->file()->msOfTick(on->offEvent()->midiTime() - on->midiTime());
+            }
+            if(ms > 2000) ms = 2000;
+
+            MidiPlayer::play(on, ms);
         }
     }
     if (!selected.contains(event) && (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier) || ignoreStr)) {
@@ -206,7 +215,8 @@ void EventTool::paintSelectedEvents(QPainter* painter)
         }
 
         if (show) {
-            if(OctaveChan_MIDI[event->channel()]) {
+            int channel = event->channel();
+            if(channel >= 0 && channel < 16 && OctaveChan_MIDI[channel]) {
 
                 OffEvent* offEvent = dynamic_cast<OffEvent*>(event);
                 OnEvent* onEvent = dynamic_cast<OnEvent*>(event);
@@ -244,7 +254,8 @@ void EventTool::changeTick(MidiEvent* event, int shiftX)
         typedef QPair<int, int> TMPPair;
         foreach (TMPPair p, matrixWidget->divs()) {
             int xt = p.first;
-            if (newX == xt) {
+            if (newX == xt)
+            {
                 tick = p.second;
                 break;
             }
@@ -629,9 +640,12 @@ int EventTool::rasteredX(int x, int* tick)
         return x;
     }
     typedef QPair<int, int> TMPPair;
+    int size_x = matrixWidget->divs().at(1).first - matrixWidget->divs().at(0).first - 2;
+    if(size_x < 5)
+        size_x = 5;
     foreach (TMPPair p, matrixWidget->divs()) {
         int xt = p.first;
-        if (qAbs(xt - x) <= 5) {
+        if (qAbs(xt - x) <= size_x) {
             if (tick) {
                 *tick = p.second;
             }

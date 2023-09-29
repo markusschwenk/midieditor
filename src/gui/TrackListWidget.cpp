@@ -61,7 +61,12 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
     QToolBar* toolBar = new QToolBar(this);
     toolBar->setIconSize(QSize(12, 12));
     QPalette palette = toolBar->palette();
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    palette.setColor(QPalette::Background, QColor(0xe0e0c0));
+#else
     palette.setColor(QPalette::Background, Qt::white);
+#endif
     toolBar->setPalette(palette);
     // visibility
     visibleAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/visible.png"), "Track visible", toolBar);
@@ -147,12 +152,31 @@ void TrackListItem::onBeforeUpdate()
     colored->setColor(*(track->color()));
 }
 
+void TrackListItem::paintEvent(QPaintEvent* event) {
+    QWidget::paintEvent(event);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    QPainter *p = new QPainter(this);
+    if(!p) return;
+    p->fillRect(0, 0, width(), height() - 2, background1);
+    p->end();
+    delete p;
+#endif
+
+}
+
+
 TrackListWidget::TrackListWidget(QWidget* parent)
     : QListWidget(parent)
 {
 
     setSelectionMode(QAbstractItemView::SingleSelection);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    setStyleSheet("QListWidget {background-color: #e0e0c0;} QListWidget::item { border-bottom: 1px solid black;}");
+#else
     setStyleSheet("QListWidget::item { border-bottom: 1px solid lightGray; }");
+#endif
     file = 0;
     connect(this, SIGNAL(itemClicked(QListWidgetItem*)), this, SLOT(chooseTrack(QListWidgetItem*)));
 }

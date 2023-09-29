@@ -22,20 +22,28 @@
 #include "SelectTool.h"
 #include "SizeChangeTool.h"
 
+#include <QTimer>
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/SysExEvent.h"
+#include "../MidiEvent/OnEvent.h"
+#include "../MidiEvent/OffEvent.h"
+#include "../MidiEvent/NoteOnEvent.h"
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiFile.h"
+#include "../midi/MidiPlayer.h"
 #include "../protocol/Protocol.h"
 #include "Selection.h"
 
 #define NO_ACTION 0
 #define SIZE_CHANGE_ACTION 1
 #define MOVE_ACTION 2
+#define SELECT_ACTION 3
 
 StandardTool::StandardTool()
     : EventTool()
 {
+
+    clicked = 0;
 
     setImage(":/run_environment/graphics/tool/select.png");
 
@@ -51,6 +59,10 @@ StandardTool::StandardTool()
     newNoteTool->setStandardTool(this);
 
     setToolTipText("Standard Tool");
+}
+
+bool StandardTool::isStandardTool() {
+    return true;
 }
 
 StandardTool::StandardTool(StandardTool& other)
@@ -70,12 +82,14 @@ void StandardTool::draw(QPainter* painter)
 bool StandardTool::press(bool leftClick)
 {
 
-    if (leftClick) {
+        if (leftClick) {
+
         // find event to handle
         MidiEvent* event = 0;
         bool onSelectedEvent = false;
         int minDiffToMouse = 0;
         int action = NO_ACTION;
+
         foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
 #ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(ev);
@@ -84,7 +98,17 @@ bool StandardTool::press(bool leftClick)
                 QByteArray c = sys->data();
                 if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
             }
+
 #endif
+            OnEvent* on = dynamic_cast<OnEvent*>(ev);
+            int sw = ev->width() / 2 - 2;
+            if(sw < 6)
+                sw = 2;
+            else
+                sw = 4;
+
+            int clicked = 0;
+
             if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + ev->width() + 2,
                     ev->y() + ev->height())) {
 
@@ -95,22 +119,30 @@ bool StandardTool::press(bool leftClick)
                 int diffToMousePos = 0;
                 int currentAction = NO_ACTION;
 
-                // left side means SizeChangeTool
-                if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + 2,
-                        ev->y() + ev->height())) {
-                    diffToMousePos = ev->x() - mouseX;
-                    currentAction = SIZE_CHANGE_ACTION;
-                }
 
                 // right side means SizeChangeTool
-                else if (pointInRect(mouseX, mouseY, ev->x() + ev->width() - 2, ev->y(),
+                if (on && pointInRect(mouseX, mouseY, ev->x() + ev->width() - sw, ev->y(),
                              ev->x() + ev->width() + 2, ev->y() + ev->height())) {
-                    diffToMousePos = ev->x() + ev->width() - mouseX;
-                    currentAction = SIZE_CHANGE_ACTION;
+                    if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                        diffToMousePos = ev->x() + ev->width() - mouseX;
+                        currentAction = SIZE_CHANGE_ACTION;
+                    } else {
+                        currentAction = NO_ACTION; // select tool
+                    }
+                }
+                // left side means SizeChangeTool
+                else if (on && pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + sw,
+                        ev->y() + ev->height())) {
+                    if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                        diffToMousePos = ev->x() - mouseX;
+                        currentAction = SIZE_CHANGE_ACTION;
+                    } else {
+                        currentAction = NO_ACTION; // select tool
+                    }
                 }
 
                 // in the event means EventMoveTool, except when CTRL is pressed
-                else {
+                else{
                     int diffRight = ev->x() + ev->width() - mouseX;
                     int diffLeft = diffToMousePos = ev->x() - mouseX;
                     if (diffLeft < 0) {
@@ -124,10 +156,21 @@ bool StandardTool::press(bool leftClick)
                     } else {
                         diffToMousePos = diffRight;
                     }
-                    if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
-                        currentAction = MOVE_ACTION;
+
+                    if(!this->clicked) {
+                        if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                            currentAction = SELECT_ACTION;
+                            clicked = 1;
+                        } else {
+                            currentAction = NO_ACTION; // select tool
+                        }
                     } else {
-                        currentAction = NO_ACTION; // select tool
+                        clicked = 0;
+                        if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                            currentAction = MOVE_ACTION;
+                        } else {
+                            currentAction = NO_ACTION; // select tool
+                        }
                     }
                 }
 
@@ -135,9 +178,10 @@ bool StandardTool::press(bool leftClick)
                     diffToMousePos *= -1;
                 }
 
-                if (!event || minDiffToMouse > diffToMousePos) {
+                if (!event || (minDiffToMouse > diffToMousePos && currentAction != NO_ACTION)) {
                     minDiffToMouse = diffToMousePos;
                     event = ev;
+                    this->clicked = clicked;
                     action = currentAction;
                 }
             }
@@ -148,6 +192,16 @@ bool StandardTool::press(bool leftClick)
             switch (action) {
 
             case NO_ACTION: {
+                NoteOnEvent* on = dynamic_cast<NoteOnEvent*>(event);
+                if (on) {
+                    int ms = 2000;
+                    if(on->offEvent()) {
+                        ms = on->file()->msOfTick(on->offEvent()->midiTime() - on->midiTime());
+                    }
+
+                    if(ms > 4000) ms = 4000; // no more time
+                    MidiPlayer::play(on, ms);
+                }
                 // no event means SelectTool
                 Tool::setCurrentTool(selectTool);
                 selectTool->move(mouseX, mouseY);
@@ -166,7 +220,7 @@ bool StandardTool::press(bool leftClick)
                     EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
                     int selected = Selection::instance()->selectedEvents().size();
                     file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
-
+                    midi_modified = false;
                     protocol(toCopy, this);
                     file()->protocol()->endAction();
                 }
@@ -185,7 +239,7 @@ bool StandardTool::press(bool leftClick)
                     EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
                     int selected = Selection::instance()->selectedEvents().size();
                     file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
-
+                    midi_modified = false;
                     protocol(toCopy, this);
                     file()->protocol()->endAction();
                 }
@@ -201,6 +255,26 @@ bool StandardTool::press(bool leftClick)
                 moveTool->press(leftClick);
                 return false;
             }
+
+            case SELECT_ACTION: {
+            if (!onSelectedEvent) {
+
+                file()->protocol()->startNewAction("Selection changed", image());
+
+                ProtocolEntry* toCopy = copy();
+                EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
+                int selected = Selection::instance()->selectedEvents().size();
+                file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
+                midi_modified = false;
+                protocol(toCopy, this);
+                file()->protocol()->endAction();
+            }
+
+            return false;
+        }
+
+
+            //
             }
         }
     } else {
@@ -222,11 +296,27 @@ bool StandardTool::move(int mouseX, int mouseY)
     EventTool::move(mouseX, mouseY);
     foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
         // left/right side means SizeChangeTool
-        if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + 2,
+        OnEvent* on = dynamic_cast<OnEvent*>(ev);
+
+        int sw = ev->width() / 2 - 2;
+        if(sw < 6)
+            sw = 2;
+        else
+            sw = 4;
+
+        if (on && (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + sw,
                 ev->y() + ev->height())
-            || pointInRect(mouseX, mouseY, ev->x() + ev->width() - 2, ev->y(),
+            || pointInRect(mouseX, mouseY, ev->x() + ev->width() - sw, ev->y(),
+                   ev->x() + ev->width() + 2, ev->y() + ev->height()))) {
+            if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
+                matrixWidget->setCursor(Qt::SplitHCursor);
+            return false;
+        }
+
+        if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(),
                    ev->x() + ev->width() + 2, ev->y() + ev->height())) {
-            matrixWidget->setCursor(Qt::SplitHCursor);
+            if(!clicked)
+                matrixWidget->setCursor(Qt::PointingHandCursor/*Qt::CrossCursor*/);
             return false;
         }
     }
@@ -255,6 +345,7 @@ void StandardTool::reloadState(ProtocolEntry* entry)
 
 bool StandardTool::release()
 {
+    clicked = 0;
     matrixWidget->setCursor(Qt::ArrowCursor);
     return true;
 }

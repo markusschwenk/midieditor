@@ -47,6 +47,7 @@ MidiChannel::MidiChannel(MidiFile* f, int num)
     _visible = true;
     _mute = false;
     _solo = false;
+    midi_modified = false;
 
     _events = new QMultiMap<int, MidiEvent*>;
 }
@@ -59,6 +60,7 @@ MidiChannel::MidiChannel(MidiChannel& other)
     _solo = other._solo;
     _events = new QMultiMap<int, MidiEvent*>(*(other._events));
     _num = other._num;
+    midi_modified = false;
 }
 
 ProtocolEntry* MidiChannel::copy()
@@ -151,6 +153,7 @@ NoteOnEvent* MidiChannel::insertNote(int note, int startTick, int endTick, int v
     onEvent->setFile(file());
     onEvent->setMidiTime(startTick, false);
 
+    midi_modified = true;
     protocol(toCopy, this);
 
     return onEvent;
@@ -177,6 +180,8 @@ bool MidiChannel::removeEvent(MidiEvent* event)
     if (on && on->offEvent()) {
         _events->remove(on->offEvent()->midiTime(), on->offEvent());
     }
+
+    midi_modified = true;
     protocol(toCopy, this);
 
     //if(MidiEvent::eventWidget()->events().contains(event)){
@@ -190,6 +195,7 @@ void MidiChannel::insertEvent(MidiEvent* event, int tick)
     ProtocolEntry* toCopy = copy();
     event->setFile(file());
     event->setMidiTime(tick, false);
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -197,6 +203,7 @@ void MidiChannel::deleteAllEvents()
 {
     ProtocolEntry* toCopy = copy();
     _events->clear();
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

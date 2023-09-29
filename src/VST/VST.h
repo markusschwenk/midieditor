@@ -127,6 +127,8 @@ private:
     QSemaphore *semaf;
     bool _dis_change;
 
+    bool in_use;
+
 public:
     QGroupBox *groupBox;
     QSpinBox *SpinBoxPreset;
@@ -178,7 +180,7 @@ public:
     static int VST_unload(int chan);
     static void VST_Resize(int chan, int w, int h);
     static int VST_exit();
-    static int VST_mix(float**in, int nchans, int samplerate, int nsamples);
+    static int VST_mix(float**in, int nchans, int samplerate, int nsamples, int mode = 0);
     static int VST_isLoaded(int chan);
     static bool VST_mix_disable(bool disable);
 

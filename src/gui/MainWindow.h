@@ -27,6 +27,7 @@
 #include <QDateTime>
 #include <QSemaphore>
 #include "../tool/FingerPatternDialog.h"
+#include "../tool/StandardTool.h"
 #include <QtWidgets/QProgressBar>
 
 class MatrixWidget;
@@ -74,21 +75,29 @@ public:
     void addInstrumentNames();
     void update_channel_list();
 
+    static void msDelay(int ms);
+
     void Notes_util(QWidget * _MW); // Notes_util.cpp
 
     QSettings* getSettings() {
         return _settings;
     }
 
+    QWidget* matrixArea;
+    QWidget* velocityArea;
     QTabWidget* upperTabWidget;
     QTabWidget* lowerTabWidget;
 
     bool rightSplitterMode;
     int EventSplitterTabPos;
 
+    bool shadow_selection;
+
     int skipVSTLoad;
-    QMenu*_skipvstload;
-    QAction *_skipvstload2[17];
+    QMenu* _skipvstload;
+    QAction * _skipvstload2[17];
+    QMenu* _recover_file;
+    QAction * _recover_file_act[17];
     ChannelListWidget* channelWidget;
 
 protected:
@@ -121,9 +130,11 @@ public slots:
     void load();
     void loadFile(QString file);
     void openFile(QString filePath);
+    bool restore_backup(int number);
     void save();
     void saveas();
     void clean_undo_redo_list();
+    void limit_undo_list();
     void undo();
     void redo();
     void muteAllChannels();
@@ -201,6 +212,8 @@ public slots:
     void mute_audio_effect();
     void conv_pattern_note();
     void finger_pattern();
+
+    void check_overlapped_notes();
 
     void setInstrumentForChannel(int i);
     void setSoundEffectForChannel(int i);
@@ -311,6 +324,7 @@ protected:
     void keyPressEvent(QKeyEvent* e) override;
     void keyReleaseEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 
 private:
@@ -327,7 +341,7 @@ private:
 
     MatrixWidget* mw_matrixWidget;
     QScrollBar *vert, *hori;
-    //ChannelListWidget* channelWidget;
+    StandardTool* stdTool;
     ProtocolWidget* protocolWidget;
     TrackListWidget* _trackWidget;
     MidiFile* file;
@@ -351,7 +365,7 @@ private:
 
     QComboBox *_miscMode, *_miscController, *_miscChannel;
     QAction *setSingleMode, *setLineMode, *setFreehandMode, *_allChannelsVisible, *_allChannelsInvisible, *_allTracksAudible, *_allTracksMute,
-        *_allChannelsAudible, *_allChannelsMute, *_allTracksVisible, *_allTracksInvisible, *stdToolAction, *clearundoredoAction, *undoAction, *redoAction, *_pasteAction, *pasteActionTB;
+        *_allChannelsAudible, *_allChannelsMute, *_allTracksVisible, *_allTracksInvisible, *stdToolAction, *clearundoredoAction, *limit_undoAction, *undoAction, *redoAction, *_pasteAction, *pasteActionTB;
     MiscWidget* _miscWidget;
 
     QWidget* setupActions(QWidget* parent);
@@ -360,6 +374,7 @@ private:
     int quantize(int t, QList<int> ticks);
     QList<QAction*> _activateWithSelections;
     QList<QWidget*> _disableWithPlay;
+    QList<QWidget*> _disableLoading;
 
     TweakTarget* currentTweakTarget;
     SelectionNavigator* selectionNavigator;

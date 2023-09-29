@@ -171,6 +171,11 @@ static int piano_keys_itime[128]; // note starts tick
 static char piano_keys_key[128]; // key for note
 static int playing_piano=-1; // note from mouse
 
+
+int MyInstrument::get_bpm_ms() {
+    return ((1000 * 64 / (indx_bpm_rhythm & 127))/16);
+}
+
 void MyInstrument::Init_time(int ms) {
     _system_time = QDateTime::currentMSecsSinceEpoch();
     _init_time = ms;
@@ -179,6 +184,12 @@ void MyInstrument::Init_time(int ms) {
 int MyInstrument::Get_time() {
     return ((int) (QDateTime::currentMSecsSinceEpoch() - _system_time)) + (_init_time);
 }
+
+int MyInstrument::GetmsPerTick(int ms) {
+
+    return file->tick(ms);
+}
+
 
 MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int is_drum) : QDialog(MAINW, Qt::WindowSystemMenuHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint){
 
@@ -199,7 +210,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
     I_NEED_TO_UPDATE = 0;
 
     is_playing = (MidiPlayer::isPlaying()) ? 1 : 0;
-
+/*
     foreach (MidiEvent* event, *(file->eventsBetween(0, 50))) {
         TempoChangeEvent* tempo = dynamic_cast<TempoChangeEvent*>(event);
         if(tempo) {
@@ -207,7 +218,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
             break;
         }
     }
-
+*/
     if (QD->objectName().isEmpty())
         QD->setObjectName(QString::fromUtf8("MyInstrument"));
 
@@ -1307,7 +1318,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
             if(appdir.isEmpty())
                 appdir = settings->value("drum_path").toString();
             if(appdir.isEmpty())
-                appdir = QDir::homePath();
+                appdir = QDir::homePath() + "/Midieditor";
 
             QString newPath = QFileDialog::getOpenFileName(this, "Open Drum Track file",
                 appdir, "Drum Files (*.drum)");
@@ -1815,16 +1826,21 @@ void MyInstrument::RecSave() {
 
     if(recNotes.isEmpty()) return;
 
-    file->protocol()->startNewAction("Create notes from Piano");
+    if(drum_mode == MY_PIANO)
+        file->protocol()->startNewAction("Create notes from Piano");
+    else
+        file->protocol()->startNewAction("Create notes from Drum");
 
     int last = 0;
 
     foreach (data_notes * dnote, recNotes) {
-        int end = dnote->end/msPerTick;
+        //int end = dnote->end/msPerTick;
+        int end = GetmsPerTick(dnote->end);
+
         if(end > last) last = end;
 
         NoteOnEvent* on = file->channel(dnote->chan)->
-        insertNote(dnote->note, dnote->start/msPerTick,
+        insertNote(dnote->note, GetmsPerTick(dnote->start)/*/msPerTick*/,
                    end,
                    dnote->velocity,
                    file->track(dnote->track));
@@ -2412,7 +2428,7 @@ void MyInstrument::load_track() {
 
     QString appdir = settings->value("drum_path").toString();
     if(appdir.isEmpty())
-        appdir = QDir::homePath();
+        appdir = QDir::homePath() + "/Midieditor";
 
     play_rhythm_track = 0;
     play_rhythm_sample = 0;
@@ -2461,7 +2477,7 @@ void MyInstrument::save_track() {
 
     appdir = settings->value("drum_path_sample").toString();
     if(appdir.isEmpty())
-        appdir = QDir::homePath();
+        appdir = QDir::homePath() + "/Midieditor";
 
     appdir+= "/default.drum";
 
@@ -2497,7 +2513,7 @@ void MyInstrument::load_sample() {
     if(appdir.isEmpty())
         appdir = settings->value("drum_path").toString();
     if(appdir.isEmpty())
-        appdir = QDir::homePath();
+        appdir = QDir::homePath() + "/Midieditor";
 
     play_rhythm_track = 0;
     play_rhythm_sample = 0;
@@ -2532,7 +2548,7 @@ void MyInstrument::save_sample() {
 
     appdir = settings->value("drum_path_sample").toString();
     if(appdir.isEmpty())
-        appdir = QDir::homePath();
+        appdir = QDir::homePath() + "/Midieditor";
 
     appdir+= "/" + titleEdit->text() + ".sdrm";
 
@@ -3632,6 +3648,7 @@ void MyInstrument::rplay2() {
     if(_piano_insert_mode && !MidiPlayer::isPlaying() && _piano_timer >= 0)
         return;
 
+    
     _piano_timer = -1;
     MainWindow * Q = (MainWindow *) _MAINW;
     Q->play();
@@ -3643,6 +3660,7 @@ void MyInstrument::rplay2() {
     }
 
     if(!play_rhythm_track) {
+        rhythmlist->setCurrentRow(0);
         ptButton->setChecked(true);
         emit ptButton->clicked();
         is_playsync = 1;

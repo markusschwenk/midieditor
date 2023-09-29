@@ -92,6 +92,8 @@ public:
 		 */
     ProtocolStep* releaseStep();
 
+    bool midi_modified = false;
+
 private:
     /**
 		 * \brief Holds the Steps Description.

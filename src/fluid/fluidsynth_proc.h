@@ -33,6 +33,7 @@
 #include <QAudioOutput>
 #include <QSettings>
 #include "FluidDialog.h"
+#include "../midi/MidiFile.h"
 #include "../midi/MidiPlayer.h"
 
 #include <QtCore/QVariant>
@@ -74,6 +75,14 @@ extern QSystemSemaphore *sys_sema_inW;
 #define GET_FILTER_GAIN 2
 #define GET_FILTER_RES  4
 
+#define PLAYER_STATUS_WAV_ERROR   -1
+#define PLAYER_STATUS_WAV_INIT     0
+#define PLAYER_STATUS_WAV_RUN      1
+#define PLAYER_STATUS_WAV_WAIT     3
+#define PLAYER_STATUS_WAV_END      2
+#define PLAYER_STATUS_WAV_NOTWRITE 4
+#define PLAYER_STATUS_WAV_BREAK    666
+
 class PROC_filter;
 class fluid_Thread;
 class fluid_Input_Thread;
@@ -106,6 +115,8 @@ class fluidsynth_proc: public QObject
 public:
     fluidsynth_proc();
     ~fluidsynth_proc();
+
+    static void msDelay(int ms);
 
     ProgressDialog *_bar;
     bool wavDIS;
@@ -283,18 +294,22 @@ public:
 
     int init_sequencer_player();
     int sequencer_player();
-    int sendCommand(MidiEvent*event);
-    int msOfTick(int tick);
+    int sendCommand(MidiEvent*event, int ms);
 
 private:
-    QMultiMap<int, MidiEvent*> * events2;
+    QMultiMap<int, MidiEvent*> * file_events;
+
+    bool lock_audio;
 
     int sequencer_tick_pos;
     int sequencer_tick_end;
+    int sequencer_note_tick_end;
     fluid_sequencer_t* sequencer;
     fluid_seq_id_t synthSeqID, mySeqID;
 
     fluidsynth_proc *_proc;
+
+    QMultiMap<int, MidiEvent*>::iterator it;
 
 signals:
     void setBar(int num);

@@ -79,7 +79,7 @@ void NewNoteTool::draw(QPainter* painter)
     if (inDrag) {
         int line2 = line;
 
-        if(OctaveChan_MIDI[_channel] && _channel != 9 && _channel < 16) {
+        if(_channel >= 0 && _channel < 16 && OctaveChan_MIDI[_channel] && _channel != 9) {
             line2-= 12 * OctaveChan_MIDI[_channel];
             if(line2 < 0) line2 = 0;
             if(line2 > 127) line2 = 127;
@@ -110,7 +110,7 @@ bool NewNoteTool::press(bool leftClick)
     inDrag = true;
     line = matrixWidget->lineAtY(mouseY);
 
-    if(OctaveChan_MIDI[_channel] && _channel != 9 && _channel < 16) {
+    if(_channel >= 0 && _channel < 16 && OctaveChan_MIDI[_channel] && _channel != 9) {
         line+= 12 * OctaveChan_MIDI[_channel];
         if(line < 0) line = 0;
         if(line > 127) line = 127;

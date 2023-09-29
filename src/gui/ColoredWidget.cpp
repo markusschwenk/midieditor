@@ -31,7 +31,12 @@ void ColoredWidget::paintEvent(QPaintEvent*)
 
     p.begin(this);
     p.setRenderHint(QPainter::Antialiasing);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    p.fillRect(0, 0, width(), height(), Qt::transparent /*QColor(0xe0e0d0)*/);
+#else
     p.fillRect(0, 0, width(), height(), Qt::white);
+#endif
     p.setPen(Qt::lightGray);
     p.setBrush(_color);
     p.drawRoundedRect(x, y, l, l, 30, 30, Qt::RelativeSize);

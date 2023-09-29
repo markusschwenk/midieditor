@@ -84,6 +84,7 @@ void MidiTrack::setNumber(int number)
 {
     ProtocolEntry* toCopy = copy();
     _number = number;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -97,6 +98,7 @@ void MidiTrack::setNameEvent(TextEvent* nameEvent)
     if (_nameEvent) {
         _nameEvent->setType(TextEvent::TRACKNAME);
     }
+    midi_modified = true;
     protocol(toCopy, this);
     emit trackChanged();
 }
@@ -130,6 +132,7 @@ void MidiTrack::setHidden(bool hidden)
 {
     ProtocolEntry* toCopy = copy();
     _hidden = hidden;
+    midi_modified = false;
     protocol(toCopy, this);
     emit trackChanged();
 }
@@ -143,6 +146,7 @@ void MidiTrack::setMuted(bool muted)
 {
     ProtocolEntry* toCopy = copy();
     _muted = muted;
+    midi_modified = false;
     protocol(toCopy, this);
     emit trackChanged();
 }

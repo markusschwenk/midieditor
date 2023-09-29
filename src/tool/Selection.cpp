@@ -49,6 +49,10 @@ Selection* Selection::instance()
 
 void Selection::setFile(MidiFile* file)
 {
+    if(_selectionInstance) {
+        _selectionInstance->clearSelection();
+        delete _selectionInstance;
+    }
 
     // create new selection
     _selectionInstance = new Selection(file);
@@ -63,6 +67,7 @@ void Selection::setSelection(QList<MidiEvent*> selections)
 {
     ProtocolEntry* toCopy = copy();
     _selectedEvents = selections;
+    midi_modified = false;
     protocol(toCopy, this);
     if (_eventWidget) {
         _eventWidget->setEvents(_selectedEvents);

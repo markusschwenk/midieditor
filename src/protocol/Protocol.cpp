@@ -21,8 +21,11 @@
 #include <QImage>
 
 #include "../midi/MidiFile.h"
+#include "../tool/EventTool.h"
 #include "ProtocolItem.h"
 #include "ProtocolStep.h"
+
+static bool _limit_undo = true;
 
 Protocol::Protocol(MidiFile* f)
 {
@@ -36,14 +39,27 @@ Protocol::Protocol(MidiFile* f)
 }
 
 
-void Protocol::clean() {
+void Protocol::clean(bool forced) {
 
     _currentStep = 0;
+
+    for(int n = 0; n < _undoSteps->count(); n++)  {
+        if(_undoSteps->at(n))
+            delete _undoSteps->at(n);
+    }
+
+    for(int n = 0; n < _redoSteps->count(); n++)  {
+        if(_redoSteps->at(n))
+            delete _redoSteps->at(n);
+    }
 
     _undoSteps->clear();
     _redoSteps->clear();
 
-    addEmptyAction("Clear Undo/Redo list");
+    if(forced)
+        return;
+
+    addEmptyAction("Reset Undo/Redo list");
 
     emit protocolChanged();
     emit actionFinished();
@@ -63,20 +79,41 @@ void Protocol::enterUndoStep(ProtocolItem* item)
 void Protocol::undo(bool emitChanged)
 {
 
+    bool file_modified = false;
+    bool magnet = EventTool::magnetEnabled();
+    EventTool::enableMagnet(false);
+
     if (!_undoSteps->empty()) {
 
         // Take last undoStep from the Stack
         ProtocolStep* step = _undoSteps->last();
         _undoSteps->removeLast();
 
-        // release it and copy it to the redo Stack
-        ProtocolStep* redoAction = step->releaseStep();
-        if (redoAction) {
-            _redoSteps->append(redoAction);
+        if(step) {
+
+            file_modified = step->midi_modified;
+
+            // release it and copy it to the redo Stack
+            ProtocolStep* redoAction = step->releaseStep();
+            if (redoAction) {
+
+                redoAction->midi_modified = file_modified;
+
+                _redoSteps->append(redoAction);
+
+                if(file_modified)
+                    save_description = "(-) " + redoAction->description();
+                if(file_modified)
+                    _file->setSaved(false);
+                else
+                    _file->setSaved(true);
+            }
+
+            // delete the old Step
+            delete step;
         }
 
-        // delete the old Step
-        delete step;
+        EventTool::enableMagnet(magnet);
 
         if (emitChanged) {
             emit protocolChanged();
@@ -88,20 +125,48 @@ void Protocol::undo(bool emitChanged)
 void Protocol::redo(bool emitChanged)
 {
 
+    bool file_modified = false;
+
+    bool magnet = EventTool::magnetEnabled(); // save magnet flag
+    EventTool::enableMagnet(false);
+
     if (!_redoSteps->empty()) {
 
         // Take last redoSteo from the Stack
         ProtocolStep* step = _redoSteps->last();
         _redoSteps->removeLast();
 
-        // release it and copy it to the undoStack
-        ProtocolStep* undoAction = step->releaseStep();
-        if (undoAction) {
-            _undoSteps->append(undoAction);
+        if(step) {
+
+            file_modified = step->midi_modified;
+
+            // release it and copy it to the undoStack
+            ProtocolStep* undoAction = step->releaseStep();
+            if (undoAction) {
+
+                undoAction->midi_modified = file_modified;
+
+                _undoSteps->append(undoAction);
+
+                if(file_modified)
+                    save_description = "(+) " + undoAction->description();
+                if(file_modified)
+                    _file->setSaved(false);
+                else
+                    _file->setSaved(true);
+
+                if(_limit_undo && _undoSteps->count() > 64) {
+
+                    if(!_undoSteps->isEmpty()) _undoSteps->pop_front();
+
+                }
+            }
+
+            // delete the old Step
+            delete step;
         }
 
-        // delete the old Step
-        delete step;
+        EventTool::enableMagnet(magnet); // restore magnet flag
 
         if (emitChanged) {
             emit protocolChanged();
@@ -128,19 +193,44 @@ void Protocol::changeDescription(QString description) {
         _currentStep->setDescription(description);
 }
 
+
+void Protocol::limitUndoAction(bool limit) {
+    _limit_undo = limit;
+}
+
 void Protocol::endAction()
 {
 
+    bool step_added = false;
+    bool file_modified = false;
     // only create the Step when it exists and its size is bigger 0
     if (_currentStep && _currentStep->items() > 0) {
         _undoSteps->append(_currentStep);
+
+        file_modified = _currentStep->midi_modified;
+        if(file_modified) {
+            save_description = "(+) " + _currentStep->description();
+        }
+
+        step_added = true;
     }
+
+    if(!_currentStep) return;
 
     // the action is ended so there is no currentStep
     _currentStep = 0;
 
     // the file has been changed
-    _file->setSaved(false);
+    if(file_modified)
+        _file->setSaved(false);
+    else
+        _file->setSaved(true);
+
+    if(_limit_undo && step_added && _undoSteps->count() > 64) {
+
+        if(!_undoSteps->isEmpty()) _undoSteps->pop_front();
+
+    }
 
     emit protocolChanged();
     emit actionFinished();
@@ -158,22 +248,34 @@ int Protocol::stepsForward()
 
 ProtocolStep* Protocol::undoStep(int i)
 {
+    if(!_undoSteps || i < 0 || i >= _undoSteps->count())
+        return NULL;
     return _undoSteps->at(i);
 }
 
 ProtocolStep* Protocol::redoStep(int i)
 {
+    if(!_redoSteps || i < 0 || i >= _redoSteps->count())
+        return NULL;
+
     return _redoSteps->at(i);
 }
 
 void Protocol::goTo(ProtocolStep* toGo)
 {
 
+    QString description;
+    bool file_modified = false;
+
     if (_undoSteps->contains(toGo)) {
 
         // do undo() until toGo is the last Step on the undoStack
         while (_undoSteps->last() != toGo && _undoSteps->size() > 1) {
             undo(false);
+            if(!_file->saved()) {
+                description = "Goto " + save_description;
+                file_modified = true;
+            }
         }
 
     } else if (_redoSteps->contains(toGo)) {
@@ -181,8 +283,18 @@ void Protocol::goTo(ProtocolStep* toGo)
         // do redo() until toGo is the last Step on the undoStep
         while (_redoSteps->contains(toGo)) {
             redo(false);
+            if(!_file->saved()) {
+                description = "Goto " + save_description;
+                file_modified = true;
+            }
         }
     }
+
+    save_description = description;
+    if(file_modified)
+        _file->setSaved(false);
+    else
+        _file->setSaved(true);
 
     emit protocolChanged();
     emit actionFinished();
@@ -191,4 +303,9 @@ void Protocol::goTo(ProtocolStep* toGo)
 void Protocol::addEmptyAction(QString name)
 {
     _undoSteps->append(new ProtocolStep(name));
+    if(_limit_undo && _undoSteps->count() > 64) {
+
+        if(!_undoSteps->isEmpty()) _undoSteps->pop_front();
+
+    }
 }

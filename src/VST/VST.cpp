@@ -85,10 +85,13 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     channel = chan;
     _parent = parent;
     _dis_change = false;
+    in_use = false;
 
     semaf = new QSemaphore(1);
     if(!semaf) {
         qFatal("VSTDialog: new semaf fail\n");
+
+        ERROR_CRITICAL("VSTDialog: new semaf fail\n");
         exit(-1);
     }
 
@@ -99,11 +102,15 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     Dialog->resize(400, 64);
 
     scrollArea = new QScrollArea(Dialog);
+    if(!scrollArea)
+        ERROR_CRITICAL("VSTDialog: scrollArea fail\n");
     scrollArea->setObjectName(QString::fromUtf8("scrollArea"));
     scrollArea->setGeometry(QRect(0, 41, 400, 80));
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
     subWindow = new QWidget();
+    if(!subWindow)
+        ERROR_CRITICAL("VSTDialog: subWindow fail\n");
     subWindow->setObjectName(QString::fromUtf8("scrollAreaWidgetContents"));
     subWindow->setGeometry(QRect(0, 0, 400, 80));
     //subWindow->setStyleSheet(QString::fromUtf8("background-color: black;"));
@@ -112,6 +119,8 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     scrollArea->verticalScrollBar()->setStyleSheet(QString::fromUtf8("background-color: #E5E5E5;"));
 
     groupBox = new QGroupBox(Dialog);
+    if(!groupBox)
+        ERROR_CRITICAL("VSTDialog: groupBox fail\n");
     if(chan == PRE_CHAN) groupBox->setEnabled(false);
     groupBox->setStyleSheet(QString::fromUtf8("background-color: #E5E5E5;"));
     groupBox->setObjectName(QString::fromUtf8("groupBox"));
@@ -120,6 +129,8 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
 
     int x = 10, y = 10;
     pushButtonSave = new QPushButton(groupBox);
+    if(!pushButtonSave)
+        ERROR_CRITICAL("VSTDialog: pushButtonSave fail\n");
     pushButtonSave->setObjectName(QString::fromUtf8("pushButtonSave"));
     pushButtonSave->setGeometry(QRect(x, y, 75, 23));
     pushButtonSave->setText("Save");
@@ -127,41 +138,55 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     pushButtonSave->setFocusPolicy(Qt::NoFocus);
     x+=80;
     pushButtonReset = new QPushButton(groupBox);
+    if(!pushButtonReset)
+        ERROR_CRITICAL("VSTDialog: pushButtonReset fail\n");
     pushButtonReset->setObjectName(QString::fromUtf8("pushButtonReset"));
     pushButtonReset->setGeometry(QRect(x, y, 75, 23));
     pushButtonReset->setText("Reset");
     pushButtonReset->setToolTip("set factory preset");
     x+=80;
     pushButtonDelete = new QPushButton(groupBox);
+    if(!pushButtonDelete)
+        ERROR_CRITICAL("VSTDialog: pushButtonDelete fail\n");
     pushButtonDelete->setObjectName(QString::fromUtf8("pushButtonDelete"));
     pushButtonDelete->setGeometry(QRect(x, y, 75, 23));
     pushButtonDelete->setText("Delete");
     pushButtonDelete->setToolTip("delete the current preset");
     x+=100;
     pushButtonSet = new QPushButton(groupBox);
+    if(!pushButtonSet)
+        ERROR_CRITICAL("VSTDialog: pushButtonSet fail\n");
     pushButtonSet->setObjectName(QString::fromUtf8("pushButtonSet"));
     pushButtonSet->setGeometry(QRect(x, y, 75, 23));
     pushButtonSet->setText("Set Preset");
     pushButtonSet->setToolTip("Set the current preset in cursor position");
     x+=80;
     pushButtonDis = new QPushButton(groupBox);
+    if(!pushButtonDis)
+        ERROR_CRITICAL("VSTDialog: pushButtonDis fail\n");
     pushButtonDis->setObjectName(QString::fromUtf8("pushButtonDis"));
     pushButtonDis->setGeometry(QRect(x, y, 75, 23));
     pushButtonDis->setText("Dis Preset");
     pushButtonDis->setToolTip("Disable VST plugin from cursor position");
     x+=80;
     pushButtonUnset = new QPushButton(groupBox);
+    if(!pushButtonUnset)
+        ERROR_CRITICAL("VSTDialog: pushButtonUnset fail\n");
     pushButtonUnset->setObjectName(QString::fromUtf8("pushButtonUnset"));
     pushButtonUnset->setGeometry(QRect(x, y, 75, 23));
     pushButtonUnset->setText("Unset Preset");
     pushButtonUnset->setToolTip("Remove presets in cursor position");
     x+=80;
     labelPreset = new QLabel(groupBox);
+    if(!labelPreset)
+        ERROR_CRITICAL("VSTDialog: labelPreset fail\n");
     labelPreset->setObjectName(QString::fromUtf8("labelPreset"));
     labelPreset->setGeometry(QRect(x, y, 47, 21));
     x+=50;
 
     SpinBoxPreset = new QSpinBox(groupBox);
+    if(!SpinBoxPreset)
+        ERROR_CRITICAL("VSTDialog: SpinBoxPreset fail\n");
     SpinBoxPreset->setObjectName(QString::fromUtf8("SpinBoxPreset"));
     SpinBoxPreset->setGeometry(QRect(x, y - 10, 51, 41));
     QSizePolicy sizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
@@ -211,6 +236,8 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     QMetaObject::connectSlotsByName(Dialog);
 
     time_updat= new QTimer(this);
+    if(!time_updat)
+        ERROR_CRITICAL("VSTDialog: time_updat fail\n");
     time_updat->setSingleShot(false);
 
     connect(time_updat, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
@@ -321,8 +348,14 @@ VSTDialog::~VSTDialog() {
 
 void VSTDialog::ChangePreset(int sel) {
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(channel)) return;
     if(!VST_preset_data[channel]->vstEffect) return;
+
+    in_use = true;
 
     int chan = channel;
 
@@ -387,12 +420,20 @@ void VSTDialog::ChangePreset(int sel) {
 
                     if(ind == 0) last = head2[1];
                     if(!data2) data2 = (char *) malloc(head2[1] * 80 + 84);
-                    if(!data2) return; // out of memory
+                    if(!data2) {
+                        in_use = false;
+                        return; // out of memory
+                    }
 
                     if(!flag) {
                         flag =  (char *) malloc(head2[1]);
+
+                        if(!flag) {
+                            in_use = false;
+                            return;
+                        }
+
                         memset(flag, 0, head2[1]);
-                        if(!flag) return;
                     }
 
                     for(int n = 0; n < len; n+= 4) {
@@ -420,7 +461,10 @@ void VSTDialog::ChangePreset(int sel) {
 
                     if(data2) free(data2);
                     data2 = (char *) malloc(clen + 4);
-                    if(!data2) return;
+                    if(!data2) {
+                        in_use = false;
+                        return;
+                    }
 
                     memset(data2, 0, clen + 4);
 
@@ -457,6 +501,7 @@ void VSTDialog::ChangePreset(int sel) {
 
         if(data2) free(data2);
         if(flag) free(flag);
+        in_use = false;
         return;
     } else {
 
@@ -468,6 +513,7 @@ void VSTDialog::ChangePreset(int sel) {
                     SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: white;"));
                 if(data2) free(data2);
                 if(flag) free(flag);
+                in_use = false;
                 return;
             }
         }
@@ -500,6 +546,7 @@ void VSTDialog::ChangePreset(int sel) {
         if (VST_proc::dispatcher(chan, effBeginLoadProgram, 0, 0, (void *) &info, 0.0) == -1)
         {
             if(data2) free(data2);
+            in_use = false;
             return;
         }
 
@@ -512,6 +559,7 @@ void VSTDialog::ChangePreset(int sel) {
     } else {
         if(VST_preset_data[chan]->numParams != clen/4) {
             if(data2) free(data2);
+            in_use = false;
             return;
         }
 
@@ -525,6 +573,7 @@ void VSTDialog::ChangePreset(int sel) {
     }
 
     if(data2) free(data2);
+    in_use = false;
 }
 
 void VSTDialog::ChangeFastPresetI(int sel) {
@@ -550,10 +599,14 @@ void VSTDialog::ChangeFastPresetI(int sel) {
 
 void VSTDialog::ChangeFastPresetI2(int sel) {
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(channel)) return;
     if(VST_preset_data[channel]->external) {
 
-
+        in_use = true;
         _dis_change = true;
 
         SpinBoxPreset->setValue(sel);
@@ -561,6 +614,7 @@ void VSTDialog::ChangeFastPresetI2(int sel) {
         _dis_change = false;
 
         VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_WINSETPRESET, sel);
+        in_use = false;
         return ;
     }
 
@@ -569,6 +623,7 @@ void VSTDialog::ChangeFastPresetI2(int sel) {
             VST_proc::VST_external_send_message(channel, EXTERNAL_UPDATE_PRESET_BKCOLOR, -1);
         else
             SpinBoxPreset->setStyleSheet(QString::fromUtf8("background-color: lightgray;"));
+        in_use = false;
         return;
     } else {
         int clen = VST_preset_data[channel]->preset[sel].length();
@@ -593,15 +648,21 @@ void VSTDialog::ChangeFastPresetI2(int sel) {
     SpinBoxPreset->setValue(sel);
 
     _dis_change = false;
+
+    in_use = false;
 }
 
 void VSTDialog::ChangeFastPreset(int sel) {
 
     if(sel < 0 || sel > 7) return;
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(channel)) return;
     if(channel == PRE_CHAN || (!VST_preset_data[channel]->vstEffect && !VST_preset_data[channel]->external)) return;
-
+    in_use = true;
 
     semaf->acquire(1);
 
@@ -623,6 +684,7 @@ void VSTDialog::ChangeFastPreset(int sel) {
     if(!clen) {
         _block_timer2 = 0;
         semaf->release(1);
+        in_use = false;
         return;
     }
 
@@ -630,6 +692,7 @@ void VSTDialog::ChangeFastPreset(int sel) {
 
         _block_timer2 = 0;
         semaf->release(1);
+        in_use = false;
         return;
     }
 
@@ -649,6 +712,7 @@ void VSTDialog::ChangeFastPreset(int sel) {
         if (VST_proc::dispatcher(chan, effBeginLoadProgram, 0, 0, (void *) &info, 0.0) == -1) {
             _block_timer2 = 0;
             semaf->release(1);
+            in_use = false;
             return;
         }
 
@@ -665,6 +729,7 @@ void VSTDialog::ChangeFastPreset(int sel) {
         if(VST_preset_data[chan]->numParams != clen/4) {
             _block_timer2 = 0;
             semaf->release(1);
+            in_use = false;
             return;
         }
 
@@ -682,14 +747,22 @@ void VSTDialog::ChangeFastPreset(int sel) {
     _block_timer2 = 0;
     semaf->release(1);
 
+    in_use = false;
+
 }
 
 void VSTDialog::Save() {
 
     int chan = channel;
 
+    if(in_use) { // skip button action
+        return;
+    }
+
     if(!VST_ON(chan)) return;
     if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) return;
+
+    in_use = true;
 
     MainWindow *MWin = ((MainWindow *) _parentS);
     MidiFile* file = MWin->getFile();
@@ -751,8 +824,10 @@ void VSTDialog::Save() {
 
     _block_timer2 = 0;
 
-    if(!VST_preset_data[chan]->preset[pre].length())
+    if(!VST_preset_data[chan]->preset[pre].length()) {
+        in_use = false;
         return; // is void data..
+    }
 
     ///-> filename
 
@@ -821,6 +896,8 @@ void VSTDialog::Save() {
         }
 
         SysExEvent *sys_event = new SysExEvent(16, b, file->track(0));
+        if(!sys_event)
+            ERROR_CRITICAL("VSTDialog: Save() sys_event fail\n");
         file->channel(16)->insertEvent(sys_event, 0);
 
     }
@@ -956,6 +1033,8 @@ skip:
 
     file->protocol()->endAction();
 
+    in_use = false;
+
     return;
 
 }
@@ -964,9 +1043,15 @@ void VSTDialog::Reset() {
 
     int chan = channel;
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(chan)) return;
 
     if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) return;
+
+    in_use = true;
 
     if(VST_preset_data[chan]->external) {
 
@@ -982,6 +1067,8 @@ void VSTDialog::Reset() {
         _block_timer2 = 0;
 
         VST_preset_data[chan]->needUpdate = true;
+
+        in_use = false;
         return;
     }
 
@@ -1002,6 +1089,7 @@ void VSTDialog::Reset() {
         // Ask the effect if this is an acceptable program
         if (VST_proc::dispatcher(chan, effBeginLoadProgram, 0, 0, (void *) &info, 0.0) == -1) {
             _block_timer2 = 0;
+            in_use = false;
             return;
         }
 
@@ -1021,6 +1109,7 @@ void VSTDialog::Reset() {
         if(VST_preset_data[chan]->numParams != VST_preset_data[chan]->factory.length()/4) {
 
             _block_timer2 = 0;
+            in_use = false;
             return;
         }
 
@@ -1038,22 +1127,31 @@ void VSTDialog::Reset() {
     }
 
     _block_timer2 = 0;
+    in_use = false;
 }
 
 void VSTDialog::Delete() {
 
     int chan = channel;
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(channel)) return;
     if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) return;
 
+    in_use = true;
     if(!VST_preset_data[chan]->external) {
 
         setStyleSheet(QString::fromUtf8("background-color: #E5E5E5;"));
         int r = QMessageBox::question(this, "MidiEditor", "Delete preset\nAre you sure?                         ");
 
         setStyleSheet(QString::fromUtf8("background-color: #FF000040;"));
-        if(r != QMessageBox::Yes) return;
+        if(r != QMessageBox::Yes) {
+            in_use = false;
+            return;
+        }
 
     }
 
@@ -1126,6 +1224,7 @@ void VSTDialog::Delete() {
 
     file->protocol()->endAction();
 
+    in_use = false;
     return;
 }
 
@@ -1134,9 +1233,14 @@ void VSTDialog::Set() {
 
     int chan = channel;
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(chan)) return;
     if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) return;
 
+    in_use = true;
 
     MainWindow *MWin = ((MainWindow *) _parentS);
     MidiFile* file = MWin->getFile();
@@ -1177,14 +1281,22 @@ void VSTDialog::Set() {
 
     file->protocol()->endAction();
 
+    in_use = false;
+
 }
 
 void VSTDialog::Dis() {
 
     int chan = channel;
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(chan)) return;
     if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) return;
+
+    in_use = true;
 
     MainWindow *MWin = ((MainWindow *) _parentS);
     MidiFile* file = MWin->getFile();
@@ -1227,14 +1339,21 @@ void VSTDialog::Dis() {
 
     file->protocol()->endAction();
 
+    in_use = false;
 }
 
 void VSTDialog::Unset() {
 
     int chan = channel;
 
+    if(in_use) {
+        return;
+    }
+
     if(!VST_ON(chan)) return;
     if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) return;
+
+    in_use = true;
 
     MainWindow *MWin = ((MainWindow *) _parentS);
     MidiFile* file = MWin->getFile();
@@ -1269,6 +1388,8 @@ void VSTDialog::Unset() {
     }
 
     file->protocol()->endAction();
+
+    in_use = false;
 
 }
 
@@ -1557,9 +1678,10 @@ int VST_proc::VST_exit() {
 
     vst_mix_disable = 1;
 
+    int *p = &_block_timer;
     while(1) {
 
-        if(!_block_timer) break;
+        if(!*p) break;
         else {QCoreApplication::processEvents();QThread::msleep(50);}
     }
 
@@ -1884,7 +2006,7 @@ int VST_proc::VST_unload(int chan) {
         VST_preset_data[chan] = NULL;
 
 
-        if(fluid_control && chan < PRE_CHAN)
+        if(fluid_control && !fluid_control->disable_mainmenu && chan < PRE_CHAN)
             fluid_control->wicon[chan]->setVisible(false);
 
         if(mux) {
@@ -1894,13 +2016,17 @@ int VST_proc::VST_unload(int chan) {
 
         if(VST_temp->vstWidget) {
             ((VSTDialog *) VST_temp->vstWidget)->subWindow->close();
-
         }
         VST_proc::VST_external_unload(chan);
+
         //emit ((VSTDialog *) VST_temp->vstWidget)->update();
 
         if(VST_temp->vstWidget) {
+            MainWindow::msDelay(50);
             ((VSTDialog *) VST_temp->vstWidget)->close();
+            MainWindow::msDelay(15);
+            //VST_temp->vstWidget->blockSignals(true);
+
             //((VSTDialog *) VST_temp->vstWidget)->deleteLater();
             //VST_temp->vstWidget->close();
             delete ((VSTDialog *) VST_temp->vstWidget);
@@ -1940,7 +2066,7 @@ int VST_proc::VST_unload(int chan) {
 
     VST_preset_data[chan] = NULL;
 
-    if(fluid_control && chan < PRE_CHAN)
+    if(fluid_control && !fluid_control->disable_mainmenu && chan < PRE_CHAN)
         fluid_control->wicon[chan]->setVisible(false);
 
 
@@ -1972,7 +2098,11 @@ int VST_proc::VST_unload(int chan) {
     }
 
     if(VST_temp->vstWidget) {
+        ((VSTDialog *) VST_temp->vstWidget)->subWindow->close();
+        MainWindow::msDelay(50);
         VST_temp->vstWidget->close();
+        MainWindow::msDelay(15);
+        VST_temp->vstWidget->blockSignals(true);
         delete VST_temp->vstWidget;
         VST_temp->vstWidget = NULL;
     }
@@ -2066,9 +2196,10 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
 
     vst_mix_disable = 1;
 
+    int *p = &_block_timer;
     while(1) {
 
-        if(!_block_timer) break;
+        if(!*p) break;
         else {QCoreApplication::processEvents();QThread::msleep(50);}
     }
 
@@ -2152,7 +2283,7 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
     if(machine == 1) {
         if(!sys_sema_in) {
             ((MainWindow *) main_widget)->remote_VST();
-            QThread::msleep(200); // wait a time...
+            MainWindow::msDelay(200); // wait a time...
         }
 
         if(sys_sema_in) {
@@ -2167,7 +2298,7 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
 
                 delete VST_temp;
 
-                if(fluid_control && chan < PRE_CHAN) {
+                if(fluid_control && !fluid_control->disable_mainmenu && chan < PRE_CHAN) {
                     fluid_control->wicon[chan]->setVisible(true);
                 }
 
@@ -2299,9 +2430,11 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
 
             VST_PowerOn(chan);
 
+            QCoreApplication::processEvents();
             _block_timer2 = 1;
+            QThread::msleep(100);
 
-            VstRect *rect =NULL;
+            VstRect *rect = NULL;
 
             // Some effects like to have us get their rect before opening them.
 
@@ -2309,6 +2442,7 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
 
             VST_preset_data[chan]->vstWidget = new VSTDialog(_parentS, chan);
             VST_preset_data[chan]->vstWidget->move(0, 0);
+            VST_preset_data[chan]->vstWidget->blockSignals(true);
 
             if(rect && rect->right !=0 && rect->bottom !=0)  {
                 ((VSTDialog *) VST_preset_data[chan]->vstWidget)->subWindow->resize(rect->right, rect->bottom);
@@ -2330,6 +2464,7 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
             if(name.length() > 79) {
                 vst_mix_disable = 0;
                 _block_timer2 = 0;
+                VST_preset_data[chan]->vstWidget->blockSignals(false);
                 return -1; // file name too long...
             }
 
@@ -2369,12 +2504,14 @@ nochunk:
 
             VST_preset_data[chan]->vstEffect->ptr2 = VST_preset_data[chan];
 
-            if(fluid_control && chan < PRE_CHAN) {
+            if(fluid_control && !fluid_control->disable_mainmenu && chan < PRE_CHAN) {
                 fluid_control->wicon[chan]->setVisible(true);
             }
 
             _block_timer2 = 0;
             vst_mix_disable = 0;
+
+            VST_preset_data[chan]->vstWidget->blockSignals(false);
 
             if(chan < PRE_CHAN) emit ((MainWindow *)main_widget)->ToggleViewVST(chan, true);
             return 0;
@@ -2459,7 +2596,7 @@ typedef struct {
 
 extern QProcess *process;
 
-int VST_proc::VST_mix(float**in, int nchans, int samplerate, int nsamples) {
+int VST_proc::VST_mix(float**in, int nchans, int samplerate, int nsamples, int mode) {
 
     if(vst_mix_disable/* || _block_timer2*/) return 0;
 
@@ -2488,7 +2625,13 @@ int VST_proc::VST_mix(float**in, int nchans, int samplerate, int nsamples) {
             vstEvents[n] = NULL;
     }
 
-    for(int chan = 0; chan < nchans; chan++) {
+    int chan = (mode == 2) ? 16 : 0;
+
+    if(mode == 1)
+        nchans = 16;
+
+
+    for(; chan < nchans; chan++) {
 
         if(vst_mix_disable) {
             _block_timer = 0;
@@ -2633,10 +2776,7 @@ int VST_proc::VST_LoadParameterStream(QByteArray array) {
     if(array[2+ind] == id[1] && array[3+ind] == id[2] && array[4+ind] == 'W') {
        sel = array[5+ind];
     } else return 0;
-/*
-qWarning("sasasa %x %x %x %x %x", (unsigned int) array[1+ind], (unsigned int) array[2+ind],
-        (unsigned int) array[3+ind], (unsigned int) array[4+ind], (unsigned int) array[5+ind]);
-        */
+
     if(!VST_ON(chan)) return -1;
     if(!VST_preset_data[chan]->vstEffect && !VST_preset_data[chan]->external) return -1;
     if(!VST_preset_data[chan]->vstWidget) return -1;
@@ -3372,7 +3512,6 @@ int VST_proc::VST_UpdatefromMIDIfile() {
 
                         }
                     }
-
 
 
                     if(r == 0) {
@@ -4342,7 +4481,7 @@ void VST_chan::SetVST() {
         VST_preset_data[chan]->on = true;
         ((VSTDialog *) VST_preset_data[chan]->vstWidget)->groupBox->setEnabled(true);
 
-        if(fluid_control && chan < PRE_CHAN) {
+        if(fluid_control && !fluid_control->disable_mainmenu && chan < PRE_CHAN) {
             fluid_control->wicon[chan]->setVisible(true);
         }
 
@@ -4906,9 +5045,14 @@ VSTlogo::VSTlogo(QWidget* parent, QString text) : QDialog(parent, Qt::FramelessW
 
     if (Dialog->objectName().isEmpty())
         Dialog->setObjectName(QString::fromUtf8("VSTlogo"));
-    Dialog->setStyleSheet(QString::fromUtf8("background-color: black;"));
-    Dialog->resize(513, 300);
-    VSTlabel = new QLabel(Dialog);
+    Dialog->setStyleSheet(QString::fromUtf8("background-color: white;"));
+    Dialog->resize(513 + 16, 300 + 16);
+    Dialog->setFixedSize(513 + 16, 300 + 16);
+    QWidget *groupBox = new QWidget(Dialog);
+    groupBox->setStyleSheet(QString::fromUtf8("color: black; background-color: black;"));
+    groupBox->setObjectName(QString::fromUtf8("VSTlogo group"));
+    groupBox->setGeometry(QRect(8, 8, 513, 300));
+    VSTlabel = new QLabel(groupBox);
     VSTlabel->setObjectName(QString::fromUtf8("VSTlabel"));
     VSTlabel->setGeometry(QRect(132, 15, 250, 156));
     QFont font;
@@ -4921,7 +5065,7 @@ VSTlogo::VSTlogo(QWidget* parent, QString text) : QDialog(parent, Qt::FramelessW
     _counterG = 0x20;
     VSTlabel->setStyleSheet(QString::asprintf("color: #%x;  ", 0x000020 + (_counterR << 16) + (_counterG << 8)));
 
-    Text = new QLabel(Dialog);
+    Text = new QLabel(groupBox);
     Text->setObjectName(QString::fromUtf8("Text"));
     Text->setGeometry(QRect(53, 174, 404, 51));
     QFont font1;

@@ -22,6 +22,9 @@
 #include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/TimeSignatureEvent.h"
 #include "../MidiEvent/TextEvent.h"
+#include "../MidiEvent/SysExEvent.h"
+#include "../MidiEvent/ControlChangeEvent.h"
+#include "../MidiEvent/ProgChangeEvent.h"
 #include "MidiFile.h"
 #include "MidiInput.h"
 #include "MidiOutput.h"
@@ -61,12 +64,32 @@ void PlayerThread::setInterval(int i)
     interval = i;
 }
 
+void msDelay(int ms) {
+
+    qint64 one = QDateTime::currentMSecsSinceEpoch();
+    qint64 diff;
+    do {
+
+        QCoreApplication::processEvents();
+
+        diff = QDateTime::currentMSecsSinceEpoch() - one;
+
+    } while(diff < ms);
+
+}
+
+static bool update_prg[16]; // real time prg change event
+
 void PlayerThread::run()
 {
     for(int n = 0; n < 8; n++) {
         text_ev[n] = -1;
         midi_text[n] = NULL;
     }
+
+    // real time prg change event off
+    for(int n = 0; n < 16; n++)
+        update_prg[n] = false;
 
     realtimecount = QDateTime::currentMSecsSinceEpoch();
 
@@ -108,9 +131,15 @@ void PlayerThread::run()
             break;
         }
 
+        ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(it.value());
+        if(ctrl && ctrl->control() == 0) {
+            update_prg[ctrl->channel()] = true;
+        }
+
         MidiOutput::sendCommand(it.value());
         it++;
     }
+
 
     setInterval(INTERVAL_TIME);
 
@@ -226,7 +255,6 @@ void PlayerThread::timeout()
                         it.value()->isOnEvent() && it.key() >= sendPosition
                         && it.key() <= sendPosition + 500) {
 
-
                     if(textev->type() == (char) TextEvent::TEXT) {
 
                         int n;
@@ -281,20 +309,53 @@ void PlayerThread::timeout()
         while (it != events->end() && it.key() < newPos) {
 
             // save events for the given tick
-            QList<MidiEvent *> onEv, offEv;
+            QList<MidiEvent *> onEv, offEv, ctrlEv, prgEv, sysEv;
             int sendPosition = it.key();
 
             do {
                 TextEvent* textev = dynamic_cast<TextEvent*>(it.value());
+                ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(it.value());
+                ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(it.value());
+                SysExEvent* sys = dynamic_cast<SysExEvent*>(it.value());
+
                 // ignore text event
                 if(textev/*it.value()->line() == MidiEvent::TEXT_EVENT_LINE*/) ;
-                    else if (it.value()->isOnEvent()) {
+
+                else if (sys) {
+                    sysEv.append(it.value());
+                } else if (ctrl) {
+                    if(ctrl && ctrl->control() == 0) {
+                        // it needs a real time prg change event
+                        update_prg[ctrl->channel()] = true;
+                    }
+                    ctrlEv.append(it.value());
+                } else if (prg) {
+                    prgEv.append(it.value());
+                } else if (it.value()->isOnEvent()) {
                     onEv.append(it.value());
                 } else {
                     offEv.append(it.value());
                 }
                 it++;
             } while (it != events->end() && it.key() == sendPosition);
+
+            // SysEx event
+            foreach (MidiEvent* event, sysEv) {
+
+                MidiOutput::sendCommand(event);
+            }
+
+            // CtrlEv event
+            foreach (MidiEvent* event, ctrlEv) {
+
+                MidiOutput::sendCommand(event);
+            }
+
+            // PrgEv event
+            foreach (MidiEvent* event, prgEv) {
+
+                MidiOutput::sendCommand(event);
+            }
 
             foreach (MidiEvent* ev, offEv) {
                 MidiOutput::sendCommand(ev);
@@ -305,11 +366,26 @@ void PlayerThread::timeout()
                     if (keySig) {
                         emit tonalityChanged(keySig->tonality());
                     }
-                }
-                if (ev->line() == MidiEvent::TIME_SIGNATURE_EVENT_LINE) {
+                } else if (ev->line() == MidiEvent::TIME_SIGNATURE_EVENT_LINE) {
                     TimeSignatureEvent* timeSig = dynamic_cast<TimeSignatureEvent*>(ev);
                     if (timeSig) {
                         emit meterChanged(timeSig->num(), timeSig->denom());
+                    }
+                } else {
+
+/* For some stupid reason fluidsynth has problems when changing banks and programs.
+   Sending program change just before first note works */
+
+                    int chan = ev->channel();
+
+                    if(ev->line() < 128 && update_prg[chan]) {
+                        update_prg[chan] = false;
+
+                        QByteArray array;
+                        array.clear();
+                        array.append(0xC0 | chan); // program change
+                        array.append(char(Prog_MIDI[chan]));
+                        MidiOutput::sendCommand(array);
                     }
                 }
 

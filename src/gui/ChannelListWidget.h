@@ -82,6 +82,9 @@ private:
     int channel;
     ColoredWidget* colored;
     QAction *visibleAction, *loudAction, *soloAction;
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
 };
 
 class ChannelListWidget : public QListWidget {

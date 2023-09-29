@@ -49,6 +49,9 @@ class Protocol : public QObject {
     Q_OBJECT
 
 public:
+
+    QString save_description;
+
     /**
 		 * \brief creates a new Protocol for the MidiFile f.
 		 */
@@ -62,7 +65,7 @@ public:
 		 */
     void undo(bool emitChanged = true);
 
-    void clean();
+    void clean(bool forced = false);
 
     /**
 		 * \brief redo the last ProtocolStep on the redo stack.
@@ -138,6 +141,14 @@ public:
 		 * This is useful to generate Actions like "File opened"
 		 */
     void addEmptyAction(QString name);
+
+    /**
+         * \brief Limit Undo Actions to 64 if true.
+         *
+         * This is useful to limit the usage of the memory
+         */
+
+    static void limitUndoAction(bool limit);
 
 signals:
     /**

@@ -1344,6 +1344,7 @@ void Main_Thread::conv_pattern_note() {
 
 void Main_Thread::NotesCorrection(int mode) {
 
+
     if(mode != 0 && !(Selection::instance()->selectedEvents().size() > 0 && file)) {
         emit endBar();
         return;
@@ -1371,7 +1372,7 @@ void Main_Thread::NotesCorrection(int mode) {
         NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
         if(on) {
             int chan = e->channel();
-            if(chan >= 0 && chan < 16 && (((mode == 3) && chan != 9) || ((mode != 3) && chan == 9))) { // only notes chans
+            if(chan >= 0 && chan < 16 && (((mode == 3) && chan != 9) || !((mode == 3) && chan != 9))) { // only notes chans
                 max_counter++;
                 notesListChan[chan].append(e);
             }
@@ -1383,7 +1384,7 @@ void Main_Thread::NotesCorrection(int mode) {
         return;
     }
 
-    //qWarning("num. notes %i", max_counter);
+    // qWarning("num. notes %i", max_counter);
 
     if(mode == 3) file->protocol()->startNewAction("Strech Correction", 0);
     else if(mode == 2) file->protocol()->startNewAction("Long Notes Correction", 0);
@@ -1404,7 +1405,7 @@ void Main_Thread::NotesCorrection(int mode) {
              counter++;
 
              if (on) {
-                 int offtime = on->offEvent()->midiTime();
+                 int offtime = on->offEvent() ? on->offEvent()->midiTime() : on->midiTime();
                  if(mode == 3) offtime = file->endTick();
 
                  foreach (MidiEvent* e2, file->channel(chan)->eventMap()->values()) {
@@ -1725,7 +1726,9 @@ void MainWindow::FluidControl(){
         return;
     }
     if(fluid_control) {
-
+        fluid_control->disable_mainmenu = true;
+        fluid_control->blockSignals(true);
+        fluid_control->dis();
         delete fluid_control;
     }
     fluid_control= new FluidDialog(MW);
@@ -1744,16 +1747,59 @@ void MainWindow::FluidSaveAsWav() {
         return;
     if (MidiPlayer::isPlaying()) return;
 
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(false);
+
+    }
+
+    { // save file before start
+        QString oldPath = startDirectory;
+        if (file) {
+            oldPath = file->path();
+            if (!file->saved()) {
+                switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before export to WAV?", "Save", "Export without saving", "Abort", 0, 2)) {
+                case 0: {
+                    // save
+                    if (QFile(file->path()).exists()) {
+                        if(file->save(file->path())) {
+                            setWindowModified(false);
+                        } else {
+                            QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                        }
+                    } else {
+                        saveas();
+                    }
+                    break;
+                }
+                case 1: {
+                    // close
+                    break;
+                }
+                case 2: {
+                    // break
+                    foreach (QWidget* w, _disableLoading) {
+                        if(w)
+                            w->setEnabled(true);
+
+                    }
+                    return;
+                }
+                }
+            }
+        }
+    } // save file before ends
+
     QString oldPath = file->path();
 
     QString path;
-    if(oldPath.endsWith(".mid")) {
+    if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
         path =  oldPath;
-        path.remove(path.lastIndexOf(".mid"), 20);
+        path.remove(path.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
         path+=".wav";
-    } else if(oldPath.endsWith(".kar")) {
+    } else if(oldPath.endsWith(".kar", Qt::CaseInsensitive)) {
         path =  oldPath;
-        path.remove(path.lastIndexOf(".kar"), 20);
+        path.remove(path.lastIndexOf(".kar", -1, Qt::CaseInsensitive), 20);
         path+=".wav";
     } else path = startDirectory+"/default.wav";
 
@@ -1761,14 +1807,29 @@ void MainWindow::FluidSaveAsWav() {
                                                     path, "WAV Files (*.wav)");
 
     if(savePath.isEmpty()) {
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+
+        }
         return; // canceled
     }
 
     QFile *wav = new QFile(savePath);
     if(wav->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
 
-        fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
-        delete wav;
+        if(!fluid_output->MIDtoWAV(wav, mw_matrixWidget, file)) {
+            delete wav;
+            QMessageBox::information(this, "WAV Saving", "    Done!    ");
+        } else
+            QMessageBox::critical(this, "WAV Saving", "Error building WAV!");
+
+    } else
+        QMessageBox::critical(this, "WAV Saving", "Error creating WAV!");
+
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(true);
 
     }
 
@@ -1781,16 +1842,59 @@ void MainWindow::FluidSaveAsMp3() {
 
     if (MidiPlayer::isPlaying()) return;
 
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(false);
+
+    }
+
+    { // save file before start
+        QString oldPath = startDirectory;
+        if (file) {
+            oldPath = file->path();
+            if (!file->saved()) {
+                switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before export to MP3?", "Save", "Export without saving", "Abort", 0, 2)) {
+                case 0: {
+                    // save
+                    if (QFile(file->path()).exists()) {
+                        if(file->save(file->path())) {
+                            setWindowModified(false);
+                        } else {
+                            QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                        }
+                    } else {
+                        saveas();
+                    }
+                    break;
+                }
+                case 1: {
+                    // close
+                    break;
+                }
+                case 2: {
+                    // break
+                    foreach (QWidget* w, _disableLoading) {
+                        if(w)
+                            w->setEnabled(true);
+
+                    }
+                    return;
+                }
+                }
+            }
+        }
+    } // save file before ends
+
     QString oldPath = file->path();
 
     QString path;
-    if(oldPath.endsWith(".mid")) {
+    if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
         path =  oldPath;
-        path.remove(path.lastIndexOf(".mid"), 20);
+        path.remove(path.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
         path+=".mp3";
-    } else if(oldPath.endsWith(".kar")) {
+    } else if(oldPath.endsWith(".kar", Qt::CaseInsensitive)) {
         path =  oldPath;
-        path.remove(path.lastIndexOf(".kar"), 20);
+        path.remove(path.lastIndexOf(".kar", -1, Qt::CaseInsensitive), 20);
         path+=".mp3";
     } else path = startDirectory+"/default.mp3";
 
@@ -1798,6 +1902,11 @@ void MainWindow::FluidSaveAsMp3() {
                                                     path, "MP3 Files (*.mp3)");
 
     if(savePath.isEmpty()) {
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+
+        }
         return; // canceled
     }
 
@@ -1816,97 +1925,94 @@ void MainWindow::FluidSaveAsMp3() {
         //////////
         QString oldPath = file->path();
 
-        QString path2;
-        if(oldPath.endsWith(".mid")) {
-            path2 =  oldPath;
-            path2.remove(path2.lastIndexOf(".mid"), 20);
-            path2+=".mic.wav";
-        } else if(oldPath.endsWith(".kar")) {
-            path2 =  oldPath;
-            path2.remove(path2.lastIndexOf(".kar"), 20);
-            path2+=".mic.wav";
-        } else path2 = startDirectory+"/default.mic.wav";
+        if(!fluid_output->MIDtoWAV(wav, mw_matrixWidget, file)) {
 
-        fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
+            bool exist = wav->exists();
+            delete wav;
 
-        bool exist = wav->exists();
-        delete wav;
+            if(exist) {
 
-        if(exist) {
+                QFile::remove(savePath);
 
-            QFile::remove(savePath);
+                QProcess *process = new QProcess(this);
 
-            QProcess *process = new QProcess(this);
+                QStringList args;
+                args.append("--disptime");
+                args.append("5");
+                args.append("-b");
+                int index = fluid_output->fluid_settings->value("mp3_bitrate").toInt();
+                int tab_bitrate[] = {128, 160, 192, 224, 256, 320};
+                args.append(QString::number(tab_bitrate[index]));
 
-            QStringList args;
-            args.append("--disptime");
-            args.append("5");
-            args.append("-b");
-            int index = fluid_output->fluid_settings->value("mp3_bitrate").toInt();
-            int tab_bitrate[] = {128, 160, 192, 224, 256, 320};
-            args.append(QString::number(tab_bitrate[index]));
+                if(fluid_output->fluid_settings->value("mp3_vbr").toBool())
+                    args.append("--vbr-new");
+                else
+                    args.append("--cbr");
 
-            if(fluid_output->fluid_settings->value("mp3_vbr").toBool())
-                args.append("--vbr-new");
-            else
-                args.append("--cbr");
-
-            if(fluid_output->fluid_settings->value("mp3_hq").toBool()) {
-                args.append("-q");
-                args.append("0");
-            }
-
-            args.append("-m");
-            if(fluid_output->fluid_settings->value("mp3_mode").toBool())
-                args.append("s");
-            else
-                args.append("j");
-
-
-            QString title = fluid_output->fluid_settings->value("mp3_title").toString();
-
-            if(title.isEmpty()) {
-
-                // get name from filename
-
-                title = savePath.mid(savePath.lastIndexOf("/") + 1);
-                title = title.mid(title.lastIndexOf("\\") + 1);
-                if(title.endsWith(".mp3")) {
-
-                    title.remove(title.lastIndexOf(".mp3"), 20);
-
+                if(fluid_output->fluid_settings->value("mp3_hq").toBool()) {
+                    args.append("-q");
+                    args.append("0");
                 }
+
+                args.append("-m");
+                if(fluid_output->fluid_settings->value("mp3_mode").toBool())
+                    args.append("s");
+                else
+                    args.append("j");
+
+
+                QString title = fluid_output->fluid_settings->value("mp3_title").toString();
+
+                if(title.isEmpty()) {
+
+                    // get name from filename
+
+                    title = savePath.mid(savePath.lastIndexOf("/") + 1);
+                    title = title.mid(title.lastIndexOf("\\") + 1);
+                    if(title.endsWith(".mp3")) {
+
+                        title.remove(title.lastIndexOf(".mp3"), 20);
+
+                    }
+                }
+
+                if(fluid_output->fluid_settings->value("mp3_id3").toBool()) {
+                    args.append("--tt");
+                    args.append(title);
+                    args.append("--ta");
+                    args.append(fluid_output->fluid_settings->value("mp3_artist").toString());
+                    args.append("--tl");
+                    args.append(fluid_output->fluid_settings->value("mp3_album").toString());
+                    args.append("--tg");
+                    args.append(fluid_output->fluid_settings->value("mp3_genre").toString());
+                    args.append("--ty");
+                    args.append(QString::number(fluid_output->fluid_settings->value("mp3_year").toInt()));
+                    args.append("--tn");
+                    args.append(QString::number(fluid_output->fluid_settings->value("mp3_track").toInt()));
+                }
+
+                args.append(savePath + ".wav");
+                args.append(savePath);
+
+                int r = process->execute(file_mp3, args);
+
+                QFile::remove(savePath + ".wav");
+
+                if(r) QMessageBox::critical(this, "MP3 Saving", "Error!");
+                else QMessageBox::information(this, "MP3 Saving", "    Done!    ");
+
+                delete process;
             }
+        } else
+            QMessageBox::critical(this, "MP3 Saving", "Error building WAV!");
+    } else
+        QMessageBox::critical(this, "MP3 Saving", "Error creating WAV!");
 
-            if(fluid_output->fluid_settings->value("mp3_id3").toBool()) {
-                args.append("--tt");
-                args.append(title);
-                args.append("--ta");
-                args.append(fluid_output->fluid_settings->value("mp3_artist").toString());
-                args.append("--tl");
-                args.append(fluid_output->fluid_settings->value("mp3_album").toString());
-                args.append("--tg");
-                args.append(fluid_output->fluid_settings->value("mp3_genre").toString());
-                args.append("--ty");
-                args.append(QString::number(fluid_output->fluid_settings->value("mp3_year").toInt()));
-                args.append("--tn");
-                args.append(QString::number(fluid_output->fluid_settings->value("mp3_track").toInt()));
-            }
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(true);
 
-            args.append(savePath + ".wav");
-            args.append(savePath);
-
-            int r = process->execute(file_mp3, args);
-
-            QFile::remove(savePath + ".wav");
-
-            if(r) QMessageBox::critical(this, "MP3 Saving", "Error!");
-            else QMessageBox::information(this, "MP3 Saving", "Succeeded");
-
-            delete process;
-        }
     }
-
 }
 
 void MainWindow::FluidSaveAsFlac() {
@@ -1916,16 +2022,59 @@ void MainWindow::FluidSaveAsFlac() {
 
     if (MidiPlayer::isPlaying()) return;
 
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(false);
+
+    }
+
+    { // save file before start
+        QString oldPath = startDirectory;
+        if (file) {
+            oldPath = file->path();
+            if (!file->saved()) {
+                switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before export to FLAC?", "Save", "Export without saving", "Abort", 0, 2)) {
+                case 0: {
+                    // save
+                    if (QFile(file->path()).exists()) {
+                        if(file->save(file->path())) {
+                            setWindowModified(false);
+                        } else {
+                            QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                        }
+                    } else {
+                        saveas();
+                    }
+                    break;
+                }
+                case 1: {
+                    // close
+                    break;
+                }
+                case 2: {
+                    // break
+                    foreach (QWidget* w, _disableLoading) {
+                        if(w)
+                            w->setEnabled(true);
+
+                    }
+                    return;
+                }
+                }
+            }
+        }
+    } // save file before ends
+
     QString oldPath = file->path();
 
     QString path;
-    if(oldPath.endsWith(".mid")) {
+    if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
         path =  oldPath;
-        path.remove(path.lastIndexOf(".mid"), 20);
+        path.remove(path.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
         path+=".flac";
-    } else if(oldPath.endsWith(".kar")) {
+    } else if(oldPath.endsWith(".kar", Qt::CaseInsensitive)) {
         path =  oldPath;
-        path.remove(path.lastIndexOf(".kar"), 20);
+        path.remove(path.lastIndexOf(".kar", -1, Qt::CaseInsensitive), 20);
         path+=".flac";
     } else path = startDirectory+"/default.flac";
 
@@ -1933,6 +2082,11 @@ void MainWindow::FluidSaveAsFlac() {
                                                     path, "FLAC Files (*.flac)");
 
     if(savePath.isEmpty()) {
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+
+        }
         return; // canceled
     }
 
@@ -1951,63 +2105,72 @@ void MainWindow::FluidSaveAsFlac() {
         fluid_output->wav_is_float = 0;
         fluid_output->fluid_settings->setValue("Wav to Float", fluid_output->wav_is_float);
 
-        fluid_output->MIDtoWAV(wav, mw_matrixWidget, file);
+        if(!fluid_output->MIDtoWAV(wav, mw_matrixWidget, file)) {
 
-        bool exist = wav->exists();
-        delete wav;
+            bool exist = wav->exists();
+            delete wav;
 
-        // restore wav_is_float
-        fluid_output->wav_is_float = isf;
-        fluid_output->fluid_settings->setValue("Wav to Float", fluid_output->wav_is_float);
+            // restore wav_is_float
+            fluid_output->wav_is_float = isf;
+            fluid_output->fluid_settings->setValue("Wav to Float", fluid_output->wav_is_float);
 
-        if(exist) {
-            QFile::remove(savePath);
+            if(exist) {
+                QFile::remove(savePath);
 
-            QProcess *process = new QProcess(this);
+                QProcess *process = new QProcess(this);
 
-            QStringList args;
+                QStringList args;
 
-            args.append("-f");
+                args.append("-f");
 
-            QString title = fluid_output->fluid_settings->value("mp3_title").toString();
+                QString title = fluid_output->fluid_settings->value("mp3_title").toString();
 
-            if(title.isEmpty()) {
+                if(title.isEmpty()) {
 
-                // get name from filename
+                    // get name from filename
 
-                title = savePath.mid(savePath.lastIndexOf("/") + 1);
-                title = title.mid(title.lastIndexOf("\\") + 1);
-                if(title.endsWith(".flac")) {
+                    title = savePath.mid(savePath.lastIndexOf("/") + 1);
+                    title = title.mid(title.lastIndexOf("\\") + 1);
+                    if(title.endsWith(".flac")) {
 
-                    title.remove(title.lastIndexOf(".flac"), 20);
+                        title.remove(title.lastIndexOf(".flac"), 20);
 
+                    }
                 }
+
+                if(fluid_output->fluid_settings->value("mp3_id3").toBool()) {
+                    args.append("--tag=TITLE=""" + title + """");
+                    args.append("--tag=ARTIST=""" + fluid_output->fluid_settings->value("mp3_artist").toString() + """");
+                    args.append("--tag=ALBUM=""" + fluid_output->fluid_settings->value("mp3_album").toString() + """");
+                    args.append("--tag=GENRE=""" + fluid_output->fluid_settings->value("mp3_genre").toString() + """");
+                    args.append("--tag=YEAR=""" + QString::number(fluid_output->fluid_settings->value("mp3_year").toInt()) + """");
+                    args.append("--tag=TRACKNUMBER=""" + QString::number(fluid_output->fluid_settings->value("mp3_track").toInt()) + """");
+                }
+
+                args.append("-o");
+                args.append(savePath);
+                args.append(savePath + ".wav");
+
+                int r = process->execute(file_flac, args);
+
+                QFile::remove(savePath + ".wav");
+
+                if(r) QMessageBox::critical(this, "FLAC Saving", "Error!");
+                else QMessageBox::information(this, "FLAC Saving", "    Done!    ");
+
+                delete process;
             }
+        } else
+            QMessageBox::critical(this, "FLAC Saving", "Error building WAV!");
 
-            if(fluid_output->fluid_settings->value("mp3_id3").toBool()) {
-                args.append("--tag=TITLE=""" + title + """");
-                args.append("--tag=ARTIST=""" + fluid_output->fluid_settings->value("mp3_artist").toString() + """");
-                args.append("--tag=ALBUM=""" + fluid_output->fluid_settings->value("mp3_album").toString() + """");
-                args.append("--tag=GENRE=""" + fluid_output->fluid_settings->value("mp3_genre").toString() + """");
-                args.append("--tag=YEAR=""" + QString::number(fluid_output->fluid_settings->value("mp3_year").toInt()) + """");
-                args.append("--tag=TRACKNUMBER=""" + QString::number(fluid_output->fluid_settings->value("mp3_track").toInt()) + """");
-            }
+    } else
+        QMessageBox::critical(this, "FLAC Saving", "Error creating WAV!");
 
-            args.append("-o");
-            args.append(savePath);
-            args.append(savePath + ".wav");
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(true);
 
-            int r = process->execute(file_flac, args);
-
-            QFile::remove(savePath + ".wav");
-
-            if(r) QMessageBox::critical(this, "FLAC Saving", "Error!");
-            else QMessageBox::information(this, "FLAC Saving", "Succeeded");
-
-            delete process;
-        }
     }
-
 }
 #endif
 
@@ -2350,6 +2513,65 @@ void MainWindow::finger_pattern() {
     delete d;
 }
 
+void MainWindow::check_overlapped_notes() {
+
+    bool use_protocol = false;
+
+    foreach(MidiEvent* e, *(file->eventsBetween(0, file->endTick()))) {
+        NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
+        if(on) {
+
+            bool never_selected = true;
+
+            int chan = e->channel();
+            if(chan >= 0 && chan < 16) { // only notes chans
+                int offtime = on->offEvent() ? on->offEvent()->midiTime() : on->midiTime();
+                foreach(MidiEvent* e2, *file->channel(chan)->eventMap()) {
+                    NoteOnEvent *on2 = dynamic_cast<NoteOnEvent*>(e2);
+
+                    if(on && on2 && on != on2) {
+                        if(on2->midiTime() >= on->midiTime()
+                                && on2->midiTime() <= offtime
+                                && (on2->midiTime() - on->midiTime()) > 2
+                                && on->note() == on2->note()) {
+                            if(!use_protocol) {
+                                use_protocol = true;
+                                file->protocol()->startNewAction("loadfile: Overlapped notes found (selected notes");
+                            }
+                            if(never_selected) {
+                                EventTool::selectEvent(e, false, false);
+                                never_selected = false;
+                            }
+
+                            EventTool::selectEvent(e2, false, false);
+
+                        }
+                    }
+                }
+
+            }
+        }
+    }
+
+    if(use_protocol) {
+        file->protocol()->endAction();
+
+        switch (QMessageBox::question(this, "MidiEditor", "Midieditor has detected overlapping notes in the file\nthat affects the currently selected notes\nOverlapped Notes Correction?", "Apply correction", "Don't do anything", QString(), 0, 1)) {
+
+            case 0: {
+                overlappedNotesCorrection();
+                break;
+            }
+            case 1: {
+                // close
+                break;
+            }
+        }
+
+    }
+
+}
+
 #ifdef USE_FLUIDSYNTH
 
 QProcess *VSTprocess = NULL;
@@ -2427,7 +2649,7 @@ void MainWindow::remote_VST() {
             dat[1] = 0;
             dat[0x39] = 0;
             sys_sema_inW->release();
-            QThread::msleep(200); // wait a time...
+            msDelay(200); // wait a time...
             if(dat[0x39] == (int) 0xCACABACA) {
                 dat[0x39] = 0;
                 // other Midieditor is working here!
@@ -2449,13 +2671,13 @@ void MainWindow::remote_VST() {
             dat[0x40] = (int) 0xCACABACA; // send an exit message to remoteVST
             sys_sema_in2->release();
 
-            QThread::msleep(50); // wait a short time...
+            msDelay(50); // wait a short time...
 
             if(dat[0x1000] == (int) 0xCACABACA) {
                 sharedVSText = NULL;
 
                 // exiting from remoteVST
-                QThread::msleep(2000); // wait a time...
+                msDelay(2000); // wait a time...
                 ret = 1;
                 qDebug("remoteVST exiting...");
             }

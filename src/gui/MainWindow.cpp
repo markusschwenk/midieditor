@@ -202,6 +202,7 @@ MainWindow::~MainWindow() {
     MidiInControl::my_exit();
     MyInstrument::exit_and_clean_MyInstrument();
 
+
 #ifdef USE_FLUIDSYNTH
 
     VST_proc::VST_exit();
@@ -215,11 +216,43 @@ MainWindow::~MainWindow() {
     remote_VST_exit();
 
 #endif
+
+    if(file)
+        delete file;
 }
 
 void MainWindow::mousePressEvent(QMouseEvent* ) {
 #ifdef USE_FLUIDSYNTH
     VST_proc::VST_external_show(-1); // force to see external windows
+#endif
+}
+
+void MainWindow::paintEvent(QPaintEvent* event) {
+
+    QMainWindow::paintEvent(event);
+
+#ifdef CUSTOM_MIDIEDITOR
+    // Estwald Color Changes
+    static QPixmap p1(":/run_environment/graphics/custom/Midicustom.png");
+    static QPixmap p2(":/run_environment/graphics/icon.png");
+    static int one = 1;
+
+    if(one) {
+        one = 0;
+
+        p2 =  p2.scaled(70, 70);
+    }
+
+    QPainter* painter = new QPainter(this);
+    if(!painter)
+        return;
+    int w = painter->window().width();
+    if(w < 1280)
+        w = 1280;
+    painter->drawPixmap(w - 308, 30, p2);
+    painter->drawPixmap(w - 240, 20, p1);
+    painter->end();
+    delete painter;
 #endif
 }
 
@@ -238,6 +271,8 @@ MainWindow::MainWindow(QString initFile)
 
     rightSplitterMode = _settings->value("rightSplitterMode", true).toBool();
     if(rightSplitterMode) EventSplitterTabPos = 2; else EventSplitterTabPos = 1;
+
+    shadow_selection = _settings->value("shadow_selection", true).toBool();
 
     skipVSTLoad = 0;
 
@@ -315,7 +350,10 @@ MainWindow::MainWindow(QString initFile)
     connect(MidiPlayer::playerThread(),
         SIGNAL(playerStarted()), Metronome::instance(), SLOT(playbackStarted()));
 
-    startDirectory = QDir::homePath();
+    startDirectory = QDir::homePath() + "/Midieditor";
+    QDir d;
+    d.mkdir(startDirectory);
+    d.mkdir(startDirectory + "/file_cache");
 
     if (_settings->value("open_path").toString() != "") {
         startDirectory = _settings->value("open_path").toString();
@@ -334,6 +372,19 @@ MainWindow::MainWindow(QString initFile)
 
     setWindowTitle(QApplication::applicationName() + " " + QApplication::applicationVersion());
     setWindowIcon(QIcon(":/run_environment/graphics/icon.png"));
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+
+    QPalette palette = this->palette();
+    palette.setBrush(QPalette::Window, background1);
+    setPalette(palette);
+    setBackgroundRole(QPalette::Window);
+    setAutoFillBackground(true);
+
+    QPalette palette2 = this->palette();
+    palette2.setBrush(QPalette::Window, background2);
+#endif
 
     QWidget* central = new QWidget(this);
     QGridLayout* centralLayout = new QGridLayout(central);
@@ -363,25 +414,55 @@ MainWindow::MainWindow(QString initFile)
     // the channelWidget and the trackWidget are tabbed
     //QTabWidget*
             upperTabWidget = new QTabWidget(rightSplitter);
+
     rightSplitter->addWidget(upperTabWidget);
     rightSplitter->setContentsMargins(0, 0, 0, 0);
 
     // protocolList and EventWidget are tabbed
     lowerTabWidget = new QTabWidget(rightSplitter);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    lowerTabWidget->setPalette(palette2);
+    lowerTabWidget->setAutoFillBackground(true);
+    lowerTabWidget->setBackgroundRole(QPalette::Window);
+#endif
+
     rightSplitter->addWidget(lowerTabWidget);
 
     // MatrixArea
-    QWidget* matrixArea = new QWidget(leftSplitter);
+    matrixArea = new QWidget(leftSplitter);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    QPalette paletteM = matrixArea->palette();
+    paletteM.setColor(QPalette::Window, QColor(0xc0c0c0));
+    setBackgroundRole(QPalette::Window);
+    matrixArea->setPalette(paletteM);
+    matrixArea->setAutoFillBackground(true);
+#endif
+
     leftSplitter->addWidget(matrixArea);
     matrixArea->setContentsMargins(0, 0, 0, 0);
     mw_matrixWidget = new MatrixWidget(matrixArea);
+    mw_matrixWidget->bpm_rhythm_ms = _settings->value("get_bpm_ms", 250).toInt();
     mw_matrixWidget->visible_Controlflag = _settings->value("visible_Controlflag", true).toBool();
     mw_matrixWidget->visible_PitchBendflag = _settings->value("visible_PitchBendflag", true).toBool();
     mw_matrixWidget->visible_TimeLineArea3 = _settings->value("visible_TimeLineArea3", true).toBool();
     mw_matrixWidget->visible_TimeLineArea4 = _settings->value("visible_TimeLineArea4", true).toBool();
     mw_matrixWidget->visible_karaoke = _settings->value("visible_karaoke", true).toBool();
+    mw_matrixWidget->shadow_selection = shadow_selection;
 
     vert = new QScrollBar(Qt::Vertical, matrixArea);
+
+    vert->setVisible(false);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+
+    QString scrollSS = QString::fromUtf8("QScrollBar {color: black; background-color: #a0a070;} \n");
+    vert->setStyleSheet(scrollSS);
+#endif
+
     QGridLayout* matrixAreaLayout = new QGridLayout(matrixArea);
     matrixAreaLayout->setHorizontalSpacing(6);
     QWidget* placeholder0 = new QWidget(matrixArea);
@@ -399,22 +480,56 @@ MainWindow::MainWindow(QString initFile)
     mw_matrixWidget->setDiv(div);
 
     // VelocityArea
-    QWidget* velocityArea = new QWidget(leftSplitter);
+    velocityArea = new QWidget(leftSplitter);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    QPalette paletteV = velocityArea->palette();
+    paletteV.setColor(QPalette::Window, QColor(0xc0c0c0));
+    paletteV.setColor(QPalette::Text, QColor(0x303030));
+    paletteV.setColor(QPalette::Base, Qt::white);;
+    velocityArea->setPalette(paletteV);
+    setBackgroundRole(QPalette::Window);
+    velocityArea->setAutoFillBackground(true);
+#endif
+
     velocityArea->setContentsMargins(0, 0, 0, 0);
     leftSplitter->addWidget(velocityArea);
     hori = new QScrollBar(Qt::Horizontal, velocityArea);
+
+    hori->setVisible(false);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    hori->setStyleSheet(scrollSS);
+#endif
+
+    velocityArea->setVisible(false);
     hori->setSingleStep(500);
     hori->setPageStep(5000);
     QGridLayout* velocityAreaLayout = new QGridLayout(velocityArea);
     velocityAreaLayout->setContentsMargins(0, 0, 0, 0);
     velocityAreaLayout->setHorizontalSpacing(6);
-    _miscWidgetControl = new QWidget(velocityArea);
+    QWidget *_miscWidgetControl = new QWidget(velocityArea);
     _miscWidgetControl->setFixedWidth(110 - velocityAreaLayout->horizontalSpacing());
-
     velocityAreaLayout->addWidget(_miscWidgetControl, 0, 0, 1, 1);
+
+
+    QGroupBox *_miscBackground = new QGroupBox(_miscWidgetControl);
+    _miscBackground->setStyleSheet(QString::fromUtf8("background-color: #E5E5E5;"));
+   // _miscWidgetControl->setObjectName(QString::fromUtf8("groupBox"));
+
+    _miscBackground->setGeometry(QRect(4, 4, 110 - velocityAreaLayout->horizontalSpacing() - 8, 768));
+
     // there is a Scrollbar on the right side of the velocityWidget doing
     // nothing but making the VelocityWidget as big as the matrixWidget
     QScrollBar* scrollNothing = new QScrollBar(Qt::Vertical, velocityArea);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    scrollNothing->setStyleSheet(scrollSS);
+#endif
+
     scrollNothing->setMinimum(0);
     scrollNothing->setMaximum(0);
     velocityAreaLayout->addWidget(scrollNothing, 0, 2, 1, 1);
@@ -432,7 +547,7 @@ MainWindow::MainWindow(QString initFile)
     //_miscWidgetControl->setContentsMargins(0,0,0,0);
     //_miscControlLayout->setContentsMargins(0,0,0,0);
     _miscWidgetControl->setLayout(_miscControlLayout);
-    _miscMode = new QComboBox(_miscWidgetControl);
+    _miscMode = new QComboBox(_miscBackground/*_miscWidgetControl*/);
     for (int i = 0; i < MiscModeEnd; i++) {
         _miscMode->addItem(MiscWidget::modeToString(i));
     }
@@ -442,7 +557,7 @@ MainWindow::MainWindow(QString initFile)
     connect(_miscMode, SIGNAL(currentIndexChanged(int)), this, SLOT(changeMiscMode(int)));
 
     //_miscControlLayout->addWidget(new QLabel("Control:", _miscWidgetControl), 2, 0, 1, 3);
-    _miscController = new QComboBox(_miscWidgetControl);
+    _miscController = new QComboBox(_miscBackground/*_miscWidgetControl*/);
     for (int i = 0; i < 128; i++) {
         _miscController->addItem(MidiFile::controlChangeName(i));
     }
@@ -451,14 +566,14 @@ MainWindow::MainWindow(QString initFile)
     connect(_miscController, SIGNAL(currentIndexChanged(int)), _miscWidget, SLOT(setControl(int)));
 
     //_miscControlLayout->addWidget(new QLabel("Channel:", _miscWidgetControl), 4, 0, 1, 3);
-    _miscChannel = new QComboBox(_miscWidgetControl);
+    _miscChannel = new QComboBox(_miscBackground/*_miscWidgetControl*/);
     for (int i = 0; i < 15; i++) {
         _miscChannel->addItem("Channel " + QString::number(i));
     }
     _miscChannel->view()->setMinimumWidth(_miscChannel->minimumSizeHint().width());
     _miscControlLayout->addWidget(_miscChannel, 5, 0, 1, 3);
     connect(_miscChannel, SIGNAL(currentIndexChanged(int)), _miscWidget, SLOT(setChannel(int)));
-    _miscControlLayout->setRowStretch(6, 1);
+    //_miscControlLayout->setRowStretch(6, 1);
     _miscMode->setCurrentIndex(0);
     _miscChannel->setEnabled(false);
     _miscController->setEnabled(false);
@@ -478,7 +593,7 @@ MainWindow::MainWindow(QString initFile)
     setSingleMode->setChecked(true);
     connect(group, SIGNAL(triggered(QAction*)), this, SLOT(selectModeChanged(QAction*)));
 
-    QToolButton* btnSingle = new QToolButton(_miscWidgetControl);
+    QToolButton* btnSingle = new QToolButton(_miscBackground /*_miscWidgetControl*/);
     btnSingle->setDefaultAction(setSingleMode);
     QToolButton* btnHand = new QToolButton(_miscWidgetControl);
     btnHand->setDefaultAction(setFreehandMode);
@@ -488,6 +603,7 @@ MainWindow::MainWindow(QString initFile)
     _miscControlLayout->addWidget(btnSingle, 9, 0, 1, 1);
     _miscControlLayout->addWidget(btnHand, 9, 1, 1, 1);
     _miscControlLayout->addWidget(btnLine, 9, 2, 1, 1);
+    _miscControlLayout->setRowStretch(10, 1);
 
     // Set the sizes of leftSplitter
     leftSplitter->setStretchFactor(0, 8);
@@ -495,6 +611,14 @@ MainWindow::MainWindow(QString initFile)
 
     // Track
     QWidget* tracks = new QWidget(upperTabWidget);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    tracks->setPalette(palette2);
+    tracks->setBackgroundRole(QPalette::Window);
+    tracks->setAutoFillBackground(true);
+#endif
+
     QGridLayout* tracksLayout = new QGridLayout(tracks);
     tracks->setLayout(tracksLayout);
     QToolBar* tracksTB = new QToolBar(tracks);
@@ -545,6 +669,14 @@ MainWindow::MainWindow(QString initFile)
 
     // Channels
     QWidget* channels = new QWidget(upperTabWidget);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    channels->setPalette(palette2);
+    channels->setAutoFillBackground(true);
+    channels->setBackgroundRole(QPalette::Window);
+#endif
+
     QGridLayout* channelsLayout = new QGridLayout(channels);
     channels->setLayout(channelsLayout);
     QToolBar* channelsTB = new QToolBar(channels);
@@ -588,7 +720,7 @@ MainWindow::MainWindow(QString initFile)
 #endif
     channelsLayout->addWidget(channelWidget, 1, 0, 1, 1);
     upperTabWidget->addTab(channels, "Channels");
-
+    upperTabWidget->setCurrentIndex(1);// set channels by default
 
     // terminal
     Terminal::initTerminal(_settings->value("start_cmd", "").toString(),
@@ -598,6 +730,7 @@ MainWindow::MainWindow(QString initFile)
 
     // Protocollist
     protocolWidget = new ProtocolWidget(lowerTabWidget);
+
     lowerTabWidget->addTab(protocolWidget, "Protocol");
 
     // EventWidget
@@ -615,9 +748,31 @@ MainWindow::MainWindow(QString initFile)
         MidiEvent::setEventWidget(_eventWidget);
     }
 
+    _disableLoading.append(_miscWidget);
+    _disableLoading.append(channelWidget);
+    _disableLoading.append(protocolWidget);
+    _disableLoading.append(mw_matrixWidget);
+    _disableLoading.append(_trackWidget);
+    _disableLoading.append(_eventWidget);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    palette2.setBrush(QPalette::Base, background1);
+    _eventWidget->setPalette(palette2);
+    _eventWidget->setBackgroundRole(QPalette::Window);
+    _eventWidget->setAutoFillBackground(true);
+#endif
+
     // below add two rows for choosing track/channel new events shall be assigned to
     QWidget* chooser = new QWidget(rightSplitter);
     chooser->setMinimumWidth(350);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    chooser->setPalette(palette2);
+    chooser->setBackgroundRole(QPalette::Window);
+    chooser->setAutoFillBackground(true);
+#endif
 
     rightSplitter->addWidget(chooser);
     QGridLayout* chooserLayout = new QGridLayout(chooser);
@@ -646,13 +801,24 @@ MainWindow::MainWindow(QString initFile)
 
     connect(channelWidget, SIGNAL(channelStateChanged()), mw_matrixWidget,
         SLOT(repaint()));
+    /*
     connect(mw_matrixWidget, SIGNAL(sizeChanged(int, int, int, int)), this,
         SLOT(matrixSizeChanged(int, int, int, int)));
 
     connect(mw_matrixWidget, SIGNAL(scrollChanged(int, int, int, int)), this,
         SLOT(scrollPositionsChanged(int, int, int, int)));
-
+    */
     setCentralWidget(central);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    QFont font;
+    font.setPointSize(11);
+    font.setBold(true);
+    menuBar()->setFont(font);
+    menuBar()->setStyleSheet(QString::fromUtf8(
+    "QMenuBar {color: white; background: #401080; border: 1px solid black;}\n"));
+#endif
 
     QWidget* buttons = setupActions(central);
 
@@ -671,7 +837,7 @@ MainWindow::MainWindow(QString initFile)
     centralLayout->setRowStretch(1, 1);
     central->setLayout(centralLayout);
 
-    if (_settings->value("colors_from_channel", false).toBool()) {
+    if (_settings->value("colors_from_channel", true).toBool()) {
         colorsByChannel();
     } else {
         colorsByTrack();
@@ -682,7 +848,7 @@ MainWindow::MainWindow(QString initFile)
     currentTweakTarget = new TimeTweakTarget(this);
     selectionNavigator = new SelectionNavigator(this);
 
-    QTimer::singleShot(200, this, SLOT(loadInitFile()));
+    QTimer::singleShot(250, this, SLOT(loadInitFile()));
 #ifndef CUSTOM_MIDIEDITOR
     if (UpdateManager::autoCheckForUpdates()) {
         QTimer::singleShot(500, UpdateManager::instance(), SLOT(checkForUpdates()));
@@ -698,19 +864,104 @@ MainWindow::MainWindow(QString initFile)
         QTimer::singleShot(300, this, SLOT(promtUpdatesDeactivatedDialog()));
     }
 #endif
-#ifdef USE_FLUIDSYNTH
-    connect(this, SIGNAL(signal_remote_VST()), this, SLOT(remote_VST()), Qt::BlockingQueuedConnection);
-#endif
 
+
+}
+
+void MainWindow::msDelay(int ms) {
+
+    qint64 one = QDateTime::currentMSecsSinceEpoch();
+    qint64 diff;
+    do {
+
+        QCoreApplication::processEvents();
+
+        diff = QDateTime::currentMSecsSinceEpoch() - one;
+
+    } while(diff < ms);
 
 }
 
 void MainWindow::loadInitFile()
 {
-    if (_initFile != "")
-        loadFile(_initFile);
-    else
-        newFile();
+    bool restore_step = false;
+    bool restore_load = false;
+    msDelay(250);
+    QFile c(QDir::homePath() + "/Midieditor/file_cache/_anti_crash_");
+    if(c.exists()) {
+        if(QMessageBox::question(this, "MidiEditor", "Midieditor closed unexpectedly the last time.\nDo you want to recover the last copied file?") == QMessageBox::Yes) {
+            hori->setVisible(true);
+            vert->setVisible(true);
+            velocityArea->setVisible(true);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+            // Estwald Color Changes   
+            QPalette paletteM = matrixArea->palette();
+            //paletteM.setColor(QPalette::Window, QColor(0x303030));
+            paletteM.setBrush(QPalette::Window, background3);
+            matrixArea->setPalette(paletteM);
+            matrixArea->setBackgroundRole(QPalette::Window);
+            matrixArea->setAutoFillBackground(true);
+
+            QPalette paletteV = velocityArea->palette();
+            //paletteV.setColor(QPalette::Window, QColor(0x303030));
+            paletteV.setBrush(QPalette::Window, background3);
+            paletteV.setColor(QPalette::Text, QColor(0x303030));
+            paletteV.setColor(QPalette::Base, Qt::white);
+            velocityArea->setPalette(paletteV);
+            velocityArea->setBackgroundRole(QPalette::Window);
+            velocityArea->setAutoFillBackground(true);
+            restore_step = true;
+
+#endif
+
+            if(restore_backup(1))
+                restore_load = true;
+
+        }
+
+    }
+
+    hori->setVisible(true);
+    vert->setVisible(true);
+    velocityArea->setVisible(true);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+
+    if(!restore_step) {
+
+        QPalette paletteM = matrixArea->palette();
+        //paletteM.setColor(QPalette::Window, QColor(0x303030));
+        paletteM.setBrush(QPalette::Window, background3);
+        matrixArea->setPalette(paletteM);
+        matrixArea->setBackgroundRole(QPalette::Window);
+        matrixArea->setAutoFillBackground(true);
+
+        QPalette paletteV = velocityArea->palette();
+        paletteV.setColor(QPalette::Window, QColor(0x303030));
+        paletteV.setBrush(QPalette::Window, background3);
+        paletteV.setColor(QPalette::Text, QColor(0x303030)); 
+        paletteV.setColor(QPalette::Base, Qt::white);
+        velocityArea->setPalette(paletteV);
+        velocityArea->setBackgroundRole(QPalette::Window);
+        velocityArea->setAutoFillBackground(true);
+
+    }
+
+#endif
+
+    if(!restore_load) {
+        if (_initFile != "")
+            loadFile(_initFile);
+        else {
+            newFile();
+        }
+    }
+
+#ifdef USE_FLUIDSYNTH
+    connect(this, SIGNAL(signal_remote_VST()), this, SLOT(remote_VST()), Qt::BlockingQueuedConnection);
+#endif
+
 }
 
 void MainWindow::dropEvent(QDropEvent* ev)
@@ -741,8 +992,37 @@ void MainWindow::scrollPositionsChanged(int startMs, int maxMs, int startLine,
 
 void MainWindow::setFile(MidiFile* file)
 {
+    MidiFile* old_file = this->file;
 
     EventTool::clearSelection();
+    stdTool->buttonClick();
+
+    disconnect(mw_matrixWidget, SIGNAL(sizeChanged(int, int, int, int)), this,
+        SLOT(matrixSizeChanged(int, int, int, int)));
+
+    disconnect(mw_matrixWidget, SIGNAL(scrollChanged(int, int, int, int)), this,
+        SLOT(scrollPositionsChanged(int, int, int, int)));
+
+    // destroy old file connection
+    if(this->file && this->file != file && this->file != NULL) {
+        disconnect(this->file->protocol(), SIGNAL(actionFinished()), protocolWidget, SLOT(protocolChanged()));
+        disconnect(this->file->protocol(), SIGNAL(actionFinished()), _trackWidget, SLOT(update()));
+
+        disconnect(this->file, SIGNAL(trackChanged()), this, SLOT(updateTrackMenu()));
+        disconnect(this->file, SIGNAL(cursorPositionChanged()), channelWidget, SLOT(update()));
+        disconnect(this->file, SIGNAL(recalcWidgetSize()), mw_matrixWidget, SLOT(calcSizes()));
+        disconnect(this->file->protocol(), SIGNAL(actionFinished()), this, SLOT(markEdited()));
+        disconnect(this->file->protocol(), SIGNAL(actionFinished()), eventWidget(), SLOT(reload()));
+        disconnect(this->file->protocol(), SIGNAL(actionFinished()), this, SLOT(checkEnableActionsForSelection()));
+
+        QCoreApplication::processEvents();
+    }
+
+    if(!file) {
+        mw_matrixWidget->disable_ev = false;
+        return;
+    }
+
     Selection::setFile(file);
     Metronome::instance()->setFile(file);
     protocolWidget->setFile(file);
@@ -753,8 +1033,10 @@ void MainWindow::setFile(MidiFile* file)
 #endif
     eventWidget()->setFile(file);
 
+
     Tool::setFile(file);
     this->file = file;
+
     connect(file, SIGNAL(trackChanged()), this, SLOT(updateTrackMenu()));
     setWindowTitle(QApplication::applicationName() + " - " + file->path() + "[*]");
     connect(file, SIGNAL(cursorPositionChanged()), channelWidget, SLOT(update()));
@@ -763,11 +1045,28 @@ void MainWindow::setFile(MidiFile* file)
     connect(file->protocol(), SIGNAL(actionFinished()), eventWidget(), SLOT(reload()));
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(checkEnableActionsForSelection()));
 
+    mw_matrixWidget->registerRelayout();
+    mw_matrixWidget->disable_ev = false;
     mw_matrixWidget->setFile(file);
+
+    DELETE(old_file); // destroy old file
+
+    connect(mw_matrixWidget, SIGNAL(sizeChanged(int, int, int, int)), this,
+        SLOT(matrixSizeChanged(int, int, int, int)));
+
+    connect(mw_matrixWidget, SIGNAL(scrollChanged(int, int, int, int)), this,
+        SLOT(scrollPositionsChanged(int, int, int, int)));
+
+    mw_matrixWidget->repaint();
+
+    file->blockSignals(false);
+
     updateChannelMenu();
     updateTrackMenu();
+
     mw_matrixWidget->update();
     _miscWidget->update();
+
     checkEnableActionsForSelection();
 
 #ifdef USE_FLUIDSYNTH
@@ -775,7 +1074,7 @@ void MainWindow::setFile(MidiFile* file)
 
     if(!skipVSTLoad) {
         VST_proc::VST_LoadfromMIDIfile();
-        QThread::msleep(2000); // time to loading VST modules
+        msDelay(2000); // time to loading VST modules
     }
     else {
 
@@ -845,6 +1144,7 @@ void MainWindow::matrixSizeChanged(int maxScrollTime, int maxScrollLine,
     hori->setMaximum(maxScrollTime);
     vert->setValue(vY);
     hori->setValue(vX);
+
     mw_matrixWidget->repaint();
 }
 
@@ -889,6 +1189,8 @@ void MainWindow::play()
         }
     }
 #endif
+
+    stdTool->buttonClick();
 
     if (file && !MidiInput::recording() && !MidiPlayer::isPlaying()) {
         mw_matrixWidget->timeMsChanged(file->msOfTick(file->cursorTick()), true);
@@ -1313,6 +1615,34 @@ void MainWindow::save()
         if (!file->save(file->path())) {
             QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
         } else {
+            QFile fname(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
+            QFile fmidi(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1");
+
+            if(fname.exists() && fmidi.exists()) {
+
+                bool error = false;
+                QByteArray file_path;
+
+                if(fname.open(QIODevice::ReadOnly)) {
+
+                    file_path = fname.read(1024);
+                    fname.close();
+
+                    if(file_path.isEmpty())
+                        error = true;
+
+                } else
+                    error = true;
+
+                if(!error) {
+                    if (!file->save(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1")) {
+                        fname.remove();
+                        fmidi.remove();
+
+                    }
+
+                }
+            }
             setWindowModified(false);
         }
     } else {
@@ -1333,11 +1663,12 @@ void MainWindow::saveas()
         QFileInfo(*f).dir().path();
     }
     QString newPath = QFileDialog::getSaveFileName(this, "Save file as...",
-        dir);
+        dir, "MIDI Files(*.mid *.midi *.kar);;All Files(*)");
 
     if (newPath == "") {
         return;
     }
+
 
     // automatically add '.mid' extension
     if (!newPath.endsWith(".kar", Qt::CaseInsensitive) && !newPath.endsWith(".mid", Qt::CaseInsensitive) && !newPath.endsWith(".midi", Qt::CaseInsensitive)) {
@@ -1385,7 +1716,11 @@ void MainWindow::load()
             case 0: {
                 // save
                 if (QFile(file->path()).exists()) {
-                    file->save(file->path());
+                    if(file->save(file->path())) {
+                        setWindowModified(false);
+                    } else {
+                        QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                    }
                 } else {
                     saveas();
                 }
@@ -1426,7 +1761,11 @@ void MainWindow::loadFile(QString nfile)
             case 0: {
                 // save
                 if (QFile(file->path()).exists()) {
-                    file->save(file->path());
+                    if(file->save(file->path())) {
+                        setWindowModified(false);
+                    } else {
+                        QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                    }
                 } else {
                     saveas();
                 }
@@ -1448,27 +1787,92 @@ void MainWindow::loadFile(QString nfile)
     }
 }
 
-void MainWindow::openFile(QString filePath)
+bool MainWindow::restore_backup(int number)
 {
+    QFile fname(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(number));
+    QFile fmidi(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(number));
 
-    bool ok = true;
+    if(!fname.exists())
+        return false;
+    if(!fmidi.exists())
+        return false;
 
-    QFile nf(filePath);
+    bool error = false;
+    QByteArray file_path;
 
-    if (!nf.exists()) {
+    if(fname.open(QIODevice::ReadOnly)) {
 
-        QMessageBox::warning(this, "Error", QString("The file [" + filePath + "]does not exist!"));
-        return;
+        file_path = fname.read(1024);
+        fname.close();
+
+        if(!file_path.isEmpty()) {
+            int index = file_path.indexOf((char) 0);
+            if(index >= 0) {
+                file_path.truncate(index);
+            }
+        }
+
+        if(file_path.isEmpty())
+            setWindowTitle(QApplication::applicationName() + " - Untitled Document[*]");
+
+            //error = true;
+
+    } else
+        error = true;
+
+    if(error) {
+
+        QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(number));
+        QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(number));
+        return false;
     }
 
-    startDirectory = QFileInfo(nf).absoluteDir().path() + "/";
 
-    MidiFile* mf = new MidiFile(filePath, &ok);
+    // clone the file to avoid undesirable locks and writes to the backup file
+    if(QFile::exists(QDir::homePath() + "/Midieditor/file_cache/_cache_midi_.mid") &&!QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_cache_midi_.mid")) {
+        QMessageBox::warning(this, "Error", QString("The file _cache_midi_.mid is locked."));
+        return false;
+    }
+    if(!fmidi.copy(QDir::homePath() + "/Midieditor/file_cache/_cache_midi_.mid")) {
+        QMessageBox::warning(this, "Error", QString("The file _cache_midi_.mid cannot be created"));
+        return false;
+    }
 
-    if (ok) {
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(false);
+
+    }
+
+    mw_matrixWidget->disable_ev = true;
+
+    bool ok = true;
+    MidiFile* mf = new MidiFile(QDir::homePath() + "/Midieditor/file_cache/_cache_midi_.mid", &ok);
+    if(!mf) {
+        mw_matrixWidget->disable_ev = false;
+
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+
+        }
+        return false;
+    }
+
+    QString filePath = QString::fromUtf8(file_path);
+
+    mf->setPath(filePath);
+
+    if (mf && ok) {
         stop();
+        mf->lock_backup(true);
         setFile(mf);
-        updateRecentPathsList();
+
+        if(!filePath.isEmpty())
+            updateRecentPathsList();
+        else
+            setWindowTitle(QApplication::applicationName() + " - Untitled Document[*]");
+
 
         setWindowModified(false);
 
@@ -1478,6 +1882,7 @@ void MainWindow::openFile(QString filePath)
 
         if(fluid_control) { // anti-crash!
             fluid_control->disable_mainmenu = true;
+            fluid_control->dis();
             fluid_control->deleteLater();
             fluid_control = NULL;
         }
@@ -1501,12 +1906,12 @@ void MainWindow::openFile(QString filePath)
             fluid_output->fluid_settings->setValue("mp3_title", s);
         } else {
             QString name;
-            if(filePath.endsWith(".mid")) {
+            if(filePath.endsWith(".mid", Qt::CaseInsensitive) || filePath.endsWith(".midi", Qt::CaseInsensitive)) {
                 name =  filePath;
-                name.remove(name.lastIndexOf(".mid"), 20);
-            } else if(filePath.endsWith(".kar")) {
+                name.remove(name.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
+            } else if(filePath.endsWith(".kar", Qt::CaseInsensitive)) {
                 name =  filePath;
-                name.remove(name.lastIndexOf(".kar"), 20);
+                name.remove(name.lastIndexOf(".kar", -1, Qt::CaseInsensitive), 20);
             }
 
             name = name.mid(name.lastIndexOf("/") + 1);
@@ -1595,11 +2000,222 @@ void MainWindow::openFile(QString filePath)
         fluid_output->fluid_settings->setValue("mp3_id3", true);
 
 #endif
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
 
+        }
 
+        msDelay(50);
+
+        if(!filePath.isEmpty())
+            QMessageBox::warning(this, "Warning", QString("This file has been recovered from the backup stack and will overwrite the original file if it is saved"));
+
+        QCoreApplication::processEvents();
+        mf->lock_backup(false);
+
+        check_overlapped_notes();
 
     } else {
+
+        mw_matrixWidget->disable_ev = false;
+
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+        }
+
         QMessageBox::warning(this, "Error", QString("The file is damaged and cannot be opened. "));
+        DELETE(mf);
+
+    }
+
+    return true;
+}
+
+void MainWindow::openFile(QString filePath)
+{
+
+    bool ok = true;
+
+    QFile nf(filePath);
+
+    if (!nf.exists()) {
+
+        QMessageBox::warning(this, "Error", QString("The file [" + filePath + "]does not exist!"));
+        return;
+    }
+
+    startDirectory = QFileInfo(nf).absoluteDir().path() + "/";
+
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(false);
+
+    }
+
+    mw_matrixWidget->disable_ev = true;
+
+    MidiFile* mf = new MidiFile(filePath, &ok);
+
+    if (mf && ok) {
+        stop();
+        mf->lock_backup(true);
+        setFile(mf);
+        updateRecentPathsList();
+
+        setWindowModified(false);
+
+        QString info;
+
+#ifdef USE_FLUIDSYNTH
+
+        if(fluid_control) { // anti-crash!
+            fluid_control->disable_mainmenu = true;
+            fluid_control->dis();
+            fluid_control->deleteLater();
+            fluid_control = NULL;
+        }
+
+        sysExChecker(mf);
+
+        // get COPYRIGHT event
+        foreach (MidiEvent* event, *(getFile()->eventsBetween(0, 10))) {
+            TextEvent* te = dynamic_cast<TextEvent*>(event);
+            if (te && te->channel()== 16 && te->type() == TextEvent::COPYRIGHT) {
+                info = te->text();
+                break;
+            }
+        }
+
+        QString s = info.mid(info.indexOf("title: "));
+        if(!s.isEmpty()) {
+            s = s.mid(7);
+            s = s.left(s.indexOf("\n"));
+
+            fluid_output->fluid_settings->setValue("mp3_title", s);
+        } else {
+            QString name;
+            if(filePath.endsWith(".mid", Qt::CaseInsensitive) || filePath.endsWith(".midi", Qt::CaseInsensitive)) {
+                name =  filePath;
+                name.remove(name.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
+            } else if(filePath.endsWith(".kar", Qt::CaseInsensitive)) {
+                name =  filePath;
+                name.remove(name.lastIndexOf(".kar", -1, Qt::CaseInsensitive), 20);
+            }
+
+            name = name.mid(name.lastIndexOf("/") + 1);
+            name = name.mid(name.lastIndexOf("\\") + 1);
+            fluid_output->fluid_settings->setValue("mp3_title", name);
+        }
+
+        s = info.mid(info.indexOf("artist: "));
+        if(!s.isEmpty()) {
+            s = s.mid(8);
+            s = s.left(s.indexOf("\n"));
+
+            fluid_output->fluid_settings->setValue("mp3_artist", s);
+        } /* else
+            fluid_output->fluid_settings->setValue("mp3_artist", "");*/
+
+        s = info.mid(info.indexOf("album: "));
+        if(!s.isEmpty()) {
+            s = s.mid(7);
+            s = s.left(s.indexOf("\n"));
+
+            fluid_output->fluid_settings->setValue("mp3_album", s);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_album", "");
+
+        s = info.mid(info.indexOf("genre: "));
+        if(!s.isEmpty()) {
+            s = s.mid(7);
+            s = s.left(s.indexOf("\n"));
+
+            fluid_output->fluid_settings->setValue("mp3_genre", s);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_genre", "");
+
+        s = info.mid(info.indexOf("mp3_year: "));
+        if(!s.isEmpty()) {
+            s = s.mid(10);
+            s = s.left(s.indexOf("\n"));
+
+            fluid_output->fluid_settings->setValue("mp3_year", s.toInt());
+        } else
+            fluid_output->fluid_settings->setValue("mp3_year", QDate::currentDate().year());
+
+        s = info.mid(info.indexOf("mp3_track: "));
+        if(!s.isEmpty()) {
+            s = s.mid(11);
+            s = s.left(s.indexOf("\n"));
+
+            fluid_output->fluid_settings->setValue("mp3_track", s.toInt());
+        } else
+            fluid_output->fluid_settings->setValue("mp3_track", 1);
+
+        s = info.mid(info.indexOf("mp3_bitrate: "));
+        if(!s.isEmpty()) {
+            s = s.mid(13);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_bitrate", s.toInt());
+        } else
+            fluid_output->fluid_settings->setValue("mp3_bitrate", 5);
+
+        s = info.mid(info.indexOf("mp3_mode: "));
+        if(!s.isEmpty()) {
+            s = s.mid(10);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_mode", s.toInt() ? true : false);
+        }  else
+            fluid_output->fluid_settings->setValue("mp3_mode", true);
+
+        s = info.mid(info.indexOf("mp3_vbr: "));
+        if(!s.isEmpty()) {
+            s = s.mid(9);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_vbr", s.toInt() ? true : false);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_vbr", false);
+
+
+        s = info.mid(info.indexOf("mp3_hq: "));
+        if(!s.isEmpty()) {
+            s = s.mid(8);
+            s = s.left(s.indexOf("\n"));
+            fluid_output->fluid_settings->setValue("mp3_hq", s.toInt() ? true : false);
+        } else
+            fluid_output->fluid_settings->setValue("mp3_hq", false);
+
+        fluid_output->fluid_settings->setValue("mp3_id3", true);
+
+
+
+#endif
+        QCoreApplication::processEvents();
+        mf->lock_backup(false);
+
+        check_overlapped_notes();
+
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+
+        }
+
+        msDelay(50);
+
+    } else {
+
+        mw_matrixWidget->disable_ev = false;
+
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+
+        }
+        QMessageBox::warning(this, "Error", QString("The file is damaged and cannot be opened. "));
+        DELETE(mf);
     }
 }
 
@@ -1618,6 +2234,12 @@ void MainWindow::clean_undo_redo_list()
 
 }
 
+void MainWindow::limit_undo_list() {
+    limit_undoAction->setChecked(limit_undoAction->isChecked());
+    Protocol::limitUndoAction(limit_undoAction->isChecked());
+    _settings->setValue("limit_undo_action", limit_undoAction->isChecked());
+}
+
 void MainWindow::redo()
 {
     if (file) {
@@ -1626,9 +2248,14 @@ void MainWindow::redo()
     }
     updateTrackMenu();
 
+    if (file) {
+
 #ifdef USE_FLUIDSYNTH
-    VST_proc::VST_UpdatefromMIDIfile();
+
+        VST_proc::VST_UpdatefromMIDIfile();
 #endif
+
+    }
 
 }
 
@@ -1640,9 +2267,14 @@ void MainWindow::undo()
     }
     updateTrackMenu();
 
+    if (file) {
+
 #ifdef USE_FLUIDSYNTH
-    VST_proc::VST_UpdatefromMIDIfile();
+
+        VST_proc::VST_UpdatefromMIDIfile();
 #endif
+
+    }
 
 }
 
@@ -1702,7 +2334,7 @@ void MainWindow::allChannelsInvisible()
 void MainWindow::closeEvent(QCloseEvent* event)
 {
 
-    if (!file || file->saved()) {
+    if (file && file->saved()) {
         if(QMessageBox::question(this, "MidiEditor", "Do you want to exit?") == QMessageBox::Yes) {
             event->accept();
         } else {
@@ -1710,12 +2342,16 @@ void MainWindow::closeEvent(QCloseEvent* event)
             event->ignore();
             return;
         }
-    } else {
+    } else if(file){
         switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before closing?", "Save", "Close without saving", "Cancel", 0, 2)) {
         case 0: {
             // save
             if (QFile(file->path()).exists()) {
-                file->save(file->path());
+                if(file->save(file->path())) {
+                    setWindowModified(false);
+                } else {
+                    QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                }
                 event->accept();
             } else {
                 saveas();
@@ -1776,6 +2412,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
     _settings->setValue("has_prompted_for_updates", true); // Happens on first start
 
     Appearance::writeSettings(_settings);
+    if(file)
+        file->backup(false);
 }
 
 void MainWindow::donate()
@@ -1833,12 +2471,20 @@ void MainWindow::newFile()
         }
     }
 
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(false);
+
+    }
+
+    mw_matrixWidget->disable_ev = true;
+
     // create new File
     MidiFile* f = new MidiFile();
 
     setFile(f);
-
     editTrack(1);
+
     setWindowTitle(QApplication::applicationName() + " - Untitled Document[*]");
 
     QString info;
@@ -1846,10 +2492,10 @@ void MainWindow::newFile()
 #ifdef USE_FLUIDSYNTH
     if(fluid_control) { // anti-crash!
         fluid_control->disable_mainmenu = true;
+        fluid_control->dis();
         fluid_control->deleteLater();
         fluid_control = NULL;
     }
-
 
     // get COPYRIGHT event
     foreach (MidiEvent* event, *(getFile()->eventsBetween(0, 10))) {
@@ -1943,6 +2589,15 @@ void MainWindow::newFile()
 
     //fluid_output->fluid_settings->setValue("mp3_id3", 0);
 #endif
+
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(true);
+
+    }
+
+    msDelay(50);
+
 
 }
 
@@ -2362,15 +3017,20 @@ void MainWindow::updateRecentPathsList()
 
         QString currentPath = file->path();
         QStringList newList;
+        currentPath.replace("\\", "/");
         newList.append(currentPath);
 
+
         foreach (QString str, _recentFilePaths) {
-            if (str != currentPath && newList.size() < 10) {
+            str.replace("\\", "/");
+            if (str != currentPath && newList.size() < 16) {
                 newList.append(str);
             }
         }
 
         _recentFilePaths = newList;
+
+        _recentFilePaths.removeDuplicates();
     }
 
     // save list
@@ -2387,6 +3047,7 @@ void MainWindow::updateRecentPathsList()
         QAction* openRecentFileAction = new QAction(name, this);
         openRecentFileAction->setData(variant);
         _recentPathsMenu->addAction(openRecentFileAction);
+
     }
 }
 
@@ -2543,6 +3204,85 @@ void MainWindow::updateTrackMenu()
         _pasteToTrackMenu->actions().first()->setChecked(true);
         EventTool::setPasteTrack(0);
     }
+
+    // recover file menu update
+
+    if(_recover_file) {
+        int i = 0;
+        _recover_file->clear();
+        _recover_file->addAction(_recover_file_act[i]);
+        for(int n = 1; n < 17; n++) {
+            if(_recover_file_act[n]) {
+                delete _recover_file_act[n];
+                _recover_file_act[n] = NULL;
+            }
+        }
+        i++;
+        for(int n = 1; n < 17; n++) {
+            QFile f(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(n));
+            QFile m(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(n));
+            if(f.exists() && m.exists()) {
+
+                QByteArray file_readed;
+                QByteArray desc_readed;
+                QString file_name;
+                QString description;
+
+                if(f.open(QIODevice::ReadOnly)) {
+
+
+                    file_readed = f.read(1024);
+                    if(f.seek(1024)) {
+                        desc_readed = f.read(1024);
+                    }
+
+                    f.close();
+                }
+
+                if(!file_readed.isEmpty()) {
+                    int index = file_readed.indexOf((char) 0);
+                    if(index >= 0) {
+                        file_readed.truncate(index);
+                    }
+
+                }
+
+                if(!desc_readed.isEmpty()) {
+                    int index = desc_readed.indexOf((char) 0);
+                    if(index >= 0) {
+                        desc_readed.truncate(index);
+                    }
+                }
+
+                if(file_readed.isEmpty())
+                    file_readed.append("Untitled Document");
+                file_name = QString::fromUtf8(file_readed);
+
+                if(!desc_readed.isEmpty())
+                    description = " -> " + QString::fromUtf8(desc_readed);
+
+                file_name = file_name.mid(file_name.lastIndexOf("/") + 1);
+                file_name = file_name.mid(file_name.lastIndexOf("\\") + 1);
+                file_name.truncate(32); // only 32 char for descriptive file
+                file_name = QString::number(n) +": " + file_name + description;
+
+
+                _recover_file_act[i] = new QAction(file_name, this);
+
+                _recover_file_act[i]->setCheckable(false);
+                _recover_file_act[i]->setChecked(false);
+                _recover_file->addAction(_recover_file_act[i]);
+
+                connect(_recover_file_act[i], QOverload<bool>::of(&QAction::triggered), [=](bool){
+                    if(restore_backup(n))
+                        return;
+                });
+
+            }
+
+        }
+    }
+    // ends recover file menu update
 }
 
 void MainWindow::muteChannel(QAction* action)
@@ -3091,6 +3831,8 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     _disableWithPlay.append(toolsMB);
     _disableWithPlay.append(notesMB);
 
+    _disableLoading.append(menuBar());
+
     // File
     QAction* newAction = new QAction("New", this);
     newAction->setShortcut(QKeySequence::New);
@@ -3139,6 +3881,127 @@ QWidget* MainWindow::setupActions(QWidget* parent)
                 _skipvstload2[i]->setChecked((skipVSTLoad & (1 << (i - 1))) != 0);
             }
         });
+    }
+
+    // recover file menu
+
+    if(1) {
+        bool recover_flag = false;
+        _recover_file = new QMenu("Recover file from Backup list", fileMB);
+        int i = 0;
+        _recover_file_act[0] = NULL;
+        for(int n = 1; n < 17; n++) {
+            _recover_file_act[n] = NULL;
+            QFile f(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(n));
+            QFile m(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(n));
+            if(f.exists() && m.exists()) {
+                if(!recover_flag) {
+                    fileMB->addMenu(_recover_file);
+                    _recover_file_act[i] =  new QAction("Reset list", this);
+
+                    _recover_file_act[i]->setCheckable(false);
+                    _recover_file_act[i]->setChecked(false);
+                    _recover_file->addAction(_recover_file_act[i]);
+
+                    connect(_recover_file_act[i], QOverload<bool>::of(&QAction::triggered), [=](bool){
+                        _recover_file->clear();
+                        _recover_file->addAction(_recover_file_act[0]);
+
+                        for(int n = 1; n < 17; n++) {
+                           DELETE(_recover_file_act[n]);
+                           QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(n));
+                           QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(n));
+                        }
+
+                    });
+
+                    i++;
+
+                    recover_flag = true;
+                }
+
+                QByteArray file_readed;
+                QByteArray desc_readed;
+                QString file_name;
+                QString description;
+
+                if(f.open(QIODevice::ReadOnly)) {
+
+
+                    file_readed = f.read(1024);
+                    if(f.seek(1024)) {
+                        desc_readed = f.read(1024);
+                    }
+
+                    f.close();
+                }
+
+                if(!file_readed.isEmpty()) {
+                    int index = file_readed.indexOf((char) 0);
+                    if(index >= 0) {
+                        file_readed.truncate(index);
+                    }
+                }
+
+                if(!desc_readed.isEmpty()) {
+                    int index = desc_readed.indexOf((char) 0);
+                    if(index >= 0) {
+                        desc_readed.truncate(index);
+                    }
+                }
+
+                if(file_readed.isEmpty())
+                    file_readed.append("Untitled Document");
+                file_name = QString::fromUtf8(file_readed);
+
+                if(!desc_readed.isEmpty())
+                    description = " -> " + QString::fromUtf8(desc_readed);
+
+                file_name= description;
+
+                file_name = file_name.mid(file_name.lastIndexOf("/") + 1);
+                file_name = file_name.mid(file_name.lastIndexOf("\\") + 1);
+                file_name.truncate(32); // only 32 char for descriptive file
+                file_name = QString::number(n) +": " + file_name + description;
+
+
+                _recover_file_act[i] = new QAction(file_name, this);
+
+                _recover_file_act[i]->setCheckable(false);
+                _recover_file_act[i]->setChecked(false);
+                _recover_file->addAction(_recover_file_act[i]);
+
+                connect(_recover_file_act[i], QOverload<bool>::of(&QAction::triggered), [=](bool){
+                    if(restore_backup(n))
+                        return;
+                });
+
+            }
+
+        }
+
+        if(!recover_flag) {
+            int i = 0;
+            fileMB->addMenu(_recover_file);
+            _recover_file_act[i] =  new QAction("Reset list", this);
+
+            _recover_file_act[i]->setCheckable(false);
+            _recover_file_act[i]->setChecked(false);
+            _recover_file->addAction(_recover_file_act[i]);
+
+
+            connect(_recover_file_act[i], QOverload<bool>::of(&QAction::triggered), [=](bool){
+                _recover_file->clear();
+                _recover_file->addAction(_recover_file_act[0]);
+                for(int n = 1; n < 17; n++) {
+                   DELETE(_recover_file_act[n]);
+                   QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(n));
+                   QFile::remove(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(n));
+                }
+
+            });
+
+        }
     }
 
     fileMB->addSeparator();
@@ -3200,10 +4063,17 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     editMB->addAction(redoAction);
 
     editMB->addSeparator();
-
-    clearundoredoAction = new QAction("Clean undo/redo list", this);
+    clearundoredoAction = new QAction("Reset Undo/Redo list", this);
     connect(clearundoredoAction, SIGNAL(triggered()), this, SLOT(clean_undo_redo_list()));
     editMB->addAction(clearundoredoAction);
+
+    limit_undoAction = new QAction("Limit list Undo to 64 steps", this);
+    limit_undoAction->setCheckable(true);
+    limit_undoAction->setChecked(_settings->value("limit_undo_action", true).toBool());
+    Protocol::limitUndoAction(limit_undoAction->isChecked());
+
+    connect(limit_undoAction, SIGNAL(triggered()), this, SLOT(limit_undo_list()));
+    editMB->addAction(limit_undoAction);
 
     editMB->addSeparator();
 
@@ -3312,11 +4182,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     // Tools
     QMenu* toolsToolsMenu = new QMenu("Current tool...", toolsMB);
 
-    StandardTool* tool = new StandardTool();
-    Tool::setCurrentTool(tool);
-    stdToolAction = new ToolButton(tool, QKeySequence(Qt::Key_F1), toolsToolsMenu);
+    stdTool = new StandardTool();
+    Tool::setCurrentTool(stdTool);
+    stdToolAction = new ToolButton(stdTool, QKeySequence(Qt::Key_F1), toolsToolsMenu);
     toolsToolsMenu->addAction(stdToolAction);
-    tool->buttonClick();
+    stdTool->buttonClick();
 
     QAction* newNoteAction = new ToolButton(new NewNoteTool(), QKeySequence(Qt::Key_F2), toolsToolsMenu);
     toolsToolsMenu->addAction(newNoteAction);
@@ -3868,7 +4738,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     QActionGroup* divGroup = new QActionGroup(viewMB);
     divGroup->setExclusive(true);
 
-    for (int i = -1; i <= 5; i++) {
+    for (int i = -1; i <= 6; i++) {
         QVariant variant(i);
         QString text = "Off";
         if (i == 0) {
@@ -3878,7 +4748,10 @@ QWidget* MainWindow::setupActions(QWidget* parent)
         } else if (i == 2) {
             text = "Quarter note";
         } else if (i > 0) {
-            text = QString::number((int)qPow(2, i)) + "th note";
+            if(i >= 6)
+                text = "Get from Rhythm Box";
+            else
+                text = QString::number((int)qPow(2, i)) + "th note";
         }
         QAction* a = new QAction(text, this);
         a->setData(variant);
@@ -3943,6 +4816,18 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     });
 
+    QAction *_backShadowSel = new QAction("Notes Selection Background Shadow", this);
+    _backShadowSel->setCheckable(true);
+    _backShadowSel->setChecked(shadow_selection);
+    viewMB->addAction(_backShadowSel);
+    connect(_backShadowSel, QOverload<bool>::of(&QAction::triggered), [=](bool){
+        shadow_selection^=1;
+         _settings->setValue("shadow_selection", shadow_selection);
+         mw_matrixWidget->shadow_selection = shadow_selection;
+         mw_matrixWidget->registerRelayout();
+         mw_matrixWidget->update();
+
+    });
 
     viewMB->addSeparator();
 
@@ -4218,10 +5103,15 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     QWidget* buttonBar = new QWidget(parent);
     QGridLayout* btnLayout = new QGridLayout(buttonBar);
+
+    _disableLoading.append(buttonBar);
+
     buttonBar->setLayout(btnLayout);
     btnLayout->setSpacing(0);
     buttonBar->setContentsMargins(0, 0, 0, 0);
+
     QToolBar* fileTB = new QToolBar("File", buttonBar);
+
     _disableWithPlay.append((QWidget *) fileTB);
 
     fileTB->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -4230,7 +5120,17 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     fileTB->layout()->setSpacing(0);
     fileTB->setIconSize(QSize(35, 35));
     fileTB->addAction(newAction);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    QString ss = "QToolBar { border: 0px } QToolBar::separator {background: darkGray; width: 2px;  height: 10px;\n"
+                 "margin-left: 3px; margin-right: 3px; }";
+
+    // Estwald Color Changes
+    fileTB->setStyleSheet(ss);
+#else
     fileTB->setStyleSheet("QToolBar { border: 0px }");
+#endif
+
     QAction* loadAction2 = new QAction("Open...", this);
     loadAction2->setIcon(QIcon(":/run_environment/graphics/tool/load.png"));
     connect(loadAction2, SIGNAL(triggered()), this, SLOT(load()));
@@ -4249,6 +5149,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     if (QApplication::arguments().contains("--large-playback-toolbar")) {
 
         QToolBar* playTB = new QToolBar("Playback", buttonBar);
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    playTB->setStyleSheet(ss);
+#endif
 
         playTB->setFloatable(false);
         playTB->setContentsMargins(0, 0, 0, 0);
@@ -4282,8 +5187,15 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     lowerTB->setContentsMargins(0, 0, 0, 0);
     lowerTB->layout()->setSpacing(0);
     lowerTB->setIconSize(QSize(20, 20));
+
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    lowerTB->setStyleSheet(ss);
+    upperTB->setStyleSheet(ss);
+#else
     lowerTB->setStyleSheet("QToolBar { border: 0px }");
     upperTB->setStyleSheet("QToolBar { border: 0px }");
+#endif
 
     lowerTB->addAction(copyAction);
 
@@ -4380,6 +5292,8 @@ void MainWindow::pasteToTrack(QAction* action)
 
 void MainWindow::divChanged(QAction* action)
 {
+    _settings->setValue("get_bpm_ms", MyInstrument::get_bpm_ms());
+    mw_matrixWidget->bpm_rhythm_ms = MyInstrument::get_bpm_ms();
     mw_matrixWidget->setDiv(action->data().toInt());
 }
 

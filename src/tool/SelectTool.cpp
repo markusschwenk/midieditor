@@ -188,6 +188,7 @@ bool SelectTool::release()
             y_end = mouseY + 1;
         }
         foreach (MidiEvent* event, *(matrixWidget->activeEvents())) {
+
 #ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
 
@@ -272,7 +273,7 @@ bool SelectTool::release()
                 int line = off->line();
                 int channel = event->channel();
 
-                if(OctaveChan_MIDI[channel]) { // line displacement
+                if(channel >= 0 && channel < 16 && OctaveChan_MIDI[channel]) { // line displacement
                     line = (127 - line) + OctaveChan_MIDI[channel] * 12;
                     if(line < 0) line = 0;
                     if(line > 127) line = 127;
@@ -299,6 +300,7 @@ bool SelectTool::release()
     int selected = Selection::instance()->selectedEvents().size();
     file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
 
+    midi_modified = false;
     protocol(toCopy, this);
 
     file()->protocol()->endAction();

@@ -22,6 +22,10 @@
 #include "../protocol/Protocol.h"
 #include "../protocol/ProtocolStep.h"
 
+#ifdef USE_FLUIDSYNTH
+#include "../VST/VST.h"
+#endif
+
 #include <QLinearGradient>
 #include <QPainter>
 
@@ -42,6 +46,9 @@ ProtocolWidget::ProtocolWidget(QWidget* parent)
 
 void ProtocolWidget::setFile(MidiFile* f)
 {
+    if(file) {
+        disconnect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(protocolChanged()));
+    }
     file = f;
     protocolHasChanged = true;
     nextChangeFromList = false;
@@ -58,13 +65,20 @@ void ProtocolWidget::protocolChanged()
 void ProtocolWidget::update()
 {
 
+    bool update_vst = false;
     if (protocolHasChanged) {
+
+        bool it_needs_save = false;
 
         clear();
 
         if (!file) {
             QListWidget::update();
             return;
+        }
+
+        if(!file->saved()) {
+            it_needs_save = true;
         }
 
         // construct list
@@ -83,7 +97,9 @@ void ProtocolWidget::update()
             ProtocolStep* step;
             QColor bg = Qt::black;
             QFont f = undoFont;
+
             if (i < stepsBack) {
+
                 step = file->protocol()->undoStep(i);
                 if (i == stepsBack - 1) {
                     f = currentFont;
@@ -93,6 +109,9 @@ void ProtocolWidget::update()
                 bg = Qt::lightGray;
                 f = redoFont;
             }
+
+            if(!step)
+                continue;
 
             // construct item
             QListWidgetItem* item = new QListWidgetItem(step->description());
@@ -113,9 +132,16 @@ void ProtocolWidget::update()
             if (i >= stepsBack && !firstToRedo) {
                 firstToRedo = item;
             }
+
+
         }
 
         protocolHasChanged = false;
+
+        if(it_needs_save) {
+            qWarning("backup %s", file->protocol()->save_description.toUtf8().constData());
+            file->backup(true);
+        }
 
         if (!nextChangeFromList) {
             if (!firstToRedo) {
@@ -123,11 +149,22 @@ void ProtocolWidget::update()
             } else {
                 scrollToItem(firstToRedo, QAbstractItemView::PositionAtCenter);
             }
-        }
+        } else
+            update_vst = true;
         nextChangeFromList = false;
     }
 
     QListWidget::update();
+
+    if (file) {
+#ifdef USE_FLUIDSYNTH
+        if(update_vst) {
+
+            VST_proc::VST_UpdatefromMIDIfile();
+        }
+#endif
+    }
+
 }
 
 void ProtocolWidget::stepClicked(QListWidgetItem* item)
@@ -148,8 +185,12 @@ void ProtocolWidget::stepClicked(QListWidgetItem* item)
     if (num < stepsBack) {
         step = file->protocol()->undoStep(num);
     } else {
-        step = file->protocol()->redoStep(stepsForward - num + stepsBack - 1);
+        step = file->protocol()->redoStep(stepsForward - num + stepsBack - 1); 
     }
 
+    if(!step)
+        return;
+
     file->protocol()->goTo(step);
+
 }

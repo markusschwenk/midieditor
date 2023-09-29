@@ -23,6 +23,7 @@
 MiscWidget::MiscWidget(MatrixWidget* mw, QWidget* parent)
     : PaintWidget(parent)
 {
+    paint_in_use = false;
     setRepaintOnMouseMove(true);
     setRepaintOnMousePress(true);
     setRepaintOnMouseRelease(true);
@@ -94,18 +95,23 @@ void MiscWidget::paintEvent(QPaintEvent*)
     if (!matrixWidget->midiFile())
         return;
 
+    if(paint_in_use)
+        return;
+    paint_in_use = true;
+
     // draw background
     QPainter painter(this);
     QFont f = painter.font();
     f.setPixelSize(9);
     painter.setFont(f);
-    QColor c(234, 246, 255);
+    QColor c;
+    c = COLOR_BACK_RASTER;
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::gray);
     painter.setBrush(c);
     painter.drawRect(0, 0, width() - 1, height() - 1);
 
-    painter.setPen(QColor(194, 230, 255));
+    painter.setPen(COLOR_VEL_RASTER);
     for (int i = 0; i < 8; i++) {
         painter.drawLine(0, (i * height()) / 8, width(), (i * height()) / 8);
     }
@@ -277,10 +283,15 @@ void MiscWidget::paintEvent(QPaintEvent*)
 
         painter.drawLine(lineX, lineY, mouseX, mouseY);
     }
+
+    paint_in_use = false;
 }
 
 void MiscWidget::mouseMoveEvent(QMouseEvent* event)
 {
+    if (!matrixWidget->midiFile())
+        return;
+
     if (edit_mode == SINGLE_MODE) {
         if (mode == VelocityEditor) {
             bool above = dragging;
@@ -363,6 +374,8 @@ void MiscWidget::mouseMoveEvent(QMouseEvent* event)
 
 void MiscWidget::mousePressEvent(QMouseEvent* event)
 {
+    if (!matrixWidget->midiFile())
+        return;
 
     if (edit_mode == SINGLE_MODE) {
 
@@ -487,6 +500,8 @@ void MiscWidget::mousePressEvent(QMouseEvent* event)
 
 void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (!matrixWidget->midiFile())
+        return;
 
     int channelToUse = (mode == TempoEditor) ? 17 : channel;
 

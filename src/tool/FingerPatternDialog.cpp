@@ -312,7 +312,7 @@ static int Unpackfinger(QByteArray a) {
 
 void FingerPatternDialog::save() {
 
-    QString dir = QDir::homePath();
+    QString dir = QDir::homePath() + "/Midieditor";
 
     if(_settings) {
 
@@ -349,7 +349,7 @@ void FingerPatternDialog::save() {
 
 void FingerPatternDialog::load() {
 
-    QString dir = QDir::homePath();
+    QString dir = QDir::homePath() + "/Midieditor";
 
     if(_settings) {
 

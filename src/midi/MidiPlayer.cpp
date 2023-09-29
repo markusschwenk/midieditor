@@ -73,9 +73,9 @@ void MidiPlayer::start() {
     playing = true;
 }
 
-void MidiPlayer::play(NoteOnEvent* event)
+void MidiPlayer::play(NoteOnEvent* event, int ms)
 {
-    singleNotePlayer->play(event);
+    singleNotePlayer->play(event, ms);
 }
 
 void MidiPlayer::stop()

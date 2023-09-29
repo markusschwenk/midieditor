@@ -57,6 +57,8 @@ private:
     MidiTrack* track;
     ColoredWidget* colored;
     QAction *visibleAction, *loudAction;
+protected:
+    void paintEvent(QPaintEvent* event) override;
 };
 
 class TrackListWidget : public QListWidget {

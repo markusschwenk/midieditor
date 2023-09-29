@@ -32,7 +32,7 @@ class MidiPlayer : public QObject {
 
 public:
     static void play(MidiFile* file, int mode = 0);
-    static void play(NoteOnEvent* event);
+    static void play(NoteOnEvent* event, int ms = 2000);
     static void start();
     static void stop();
     static bool isPlaying();

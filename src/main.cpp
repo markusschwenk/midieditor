@@ -107,12 +107,15 @@ int main(int argc, char* argv[])
 
     MainWindow* w;
 
+#if 0
+
     if (argc == 2)
         w = new MainWindow(argv[1]);
     else
         w = new MainWindow();
     w->showMaximized();
-#if 0
+ #else
+
     if (argc == 2) {
         // Modified by Estwald: get ANSI or UTF8 string
 

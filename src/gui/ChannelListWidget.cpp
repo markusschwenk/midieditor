@@ -49,6 +49,9 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     layout->setVerticalSpacing(1);
 
     colored = new ColoredWidget(*(Appearance::channelColor(channel)), this);
+
+    colored->setToolTip("Double click to show this channel only");
+
     layout->addWidget(colored, 0, 0, 2, 1);
 
     connect(colored, SIGNAL(doubleClick()), this, SLOT(doubleClick()));
@@ -71,7 +74,12 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     QToolBar* toolBar = new QToolBar(this);
     toolBar->setIconSize(QSize(12, 12));
     QPalette palette = toolBar->palette();
-    palette.setColor(QPalette::Window, Qt::white);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    palette.setColor(QPalette::Background, QColor(0xe0e0c0));
+#else
+    palette.setColor(QPalette::Background, Qt::white);
+#endif
     toolBar->setPalette(palette);
 
     // visibility
@@ -165,7 +173,7 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
     layout->addWidget(toolBar, 2, 1, 1, 1);
 
 
-    if(channel < 16 && channel != 9) {
+    if(channel >= 0 && channel < 16 && channel != 9) {
 
         spinOctave = new QSpinBox(this);
         spinOctave->setObjectName(QString::fromUtf8("spinOctave"));
@@ -182,6 +190,9 @@ ChannelListItem::ChannelListItem(int ch, ChannelListWidget* parent)
                 spinOctave->setStyleSheet(QString::fromUtf8("background-color: #ffffff;"));
             else
                 spinOctave->setStyleSheet(QString::fromUtf8("background-color: #8010f030;"));
+
+            if(channel < 0 || channel >= 16)
+                return;
 
             if(OctaveChan_MIDI[channel] == v) return;
 
@@ -269,6 +280,11 @@ void ChannelListItem::toggleSolo(bool solo)
     }
     channelList->midiFile()->protocol()->startNewAction(text);
     channelList->midiFile()->channel(channel)->setSolo(solo);
+    for(int n = 0; n < 16; n++) {
+        if(n == channel)
+            continue;
+        channelList->midiFile()->channel(n)->setSolo(false);
+    }
     channelList->midiFile()->protocol()->endAction();
     emit channelStateChanged();
 }
@@ -387,8 +403,30 @@ void ChannelListItem::doubleClick()
 
 void ChannelListItem::WidgeUpdate()
 {
-    int v = OctaveChan_MIDI[channel];
+
+    int v = (channel >= 0 && channel < 16) ? OctaveChan_MIDI[channel] : 0;
     spinOctave->setValue(v);
+
+}
+
+void ChannelListItem::paintEvent(QPaintEvent* event) {
+    QWidget::paintEvent(event);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    QPainter *p = new QPainter(this);
+    if(!p) return;
+
+    p->fillRect(0, 0, width(), height() - 2, background1);
+
+    if(this->channel == 9) {
+        QColor c(0x80ffff);
+        c.setAlpha(32);
+
+            p->fillRect(0, 0, width(), height() - 2, c);
+    }
+    p->end();
+    delete p;
+#endif
 
 }
 
@@ -421,11 +459,16 @@ ChannelListWidget::ChannelListWidget(QWidget* parent)
 {
 
     setSelectionMode(QAbstractItemView::NoSelection);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    setStyleSheet("QListWidget {background-color: #e0e0c0;} QListWidget::item { border-bottom: 1px solid black;}");
+#else
     setStyleSheet("QListWidget::item { border-bottom: 1px solid lightGray; }");
+#endif
 
     for (int channel = 0; channel < 17; channel++) {
         ChannelListItem* widget = new ChannelListItem(channel, this);
-        QListWidgetItem* item = new QListWidgetItem();
+        QListWidgetItem* item = new QListWidgetItem();        
         item->setSizeHint(QSize(0, ROW_HEIGHT));
         addItem(item);
         setItemWidget(item, widget);
@@ -483,18 +526,6 @@ void ChannelListWidget::OctaveUpdate()
         }
 
         OctaveChan_MIDI[i] = v;
-
-        if(0)
-        if(i < 16 && i != 9 && OctaveChan_MIDI[i] != v) {
-
-
-            emit items.at(i)->spinOctave->valueChanged(v);
-            //
-        }
-
-
-
-
     }
 
 

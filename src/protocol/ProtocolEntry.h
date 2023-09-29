@@ -71,6 +71,8 @@ public:
 		 * \brief return the entries file.
 		 */
     virtual MidiFile* file();
+
+    bool midi_modified = false;
 };
 
 #endif

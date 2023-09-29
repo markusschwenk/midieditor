@@ -240,6 +240,9 @@ public:
 
     static void exit_and_clean_MyInstrument();
 
+    int GetmsPerTick(int ms);
+    static int get_bpm_ms();
+
 public slots:
     void reject() override;
     void paintEvent(QPaintEvent* event) override;
@@ -288,7 +291,7 @@ private:
     int xx,yy;
 
     int mstotick;
-    double msPerTick;
+    //double msPerTick;
     int _piano_insert_mode;
 
     qint64 _system_time;

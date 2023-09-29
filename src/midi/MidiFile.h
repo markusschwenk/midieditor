@@ -25,10 +25,15 @@
 #include <QList>
 #include <QMultiMap>
 #include <QObject>
+#include <QMessageBox>
 
 extern int Bank_MIDI[17];
 extern int Prog_MIDI[17];
 extern int OctaveChan_MIDI[17];
+
+extern QBrush background1;
+extern QBrush background2;
+extern QBrush background3;
 
 class MidiEvent;
 class TimeSignatureEvent;
@@ -36,6 +41,29 @@ class TempoChangeEvent;
 class Protocol;
 class MidiChannel;
 class MidiTrack;
+
+#define ERROR_CRITICAL(x) {\
+    QMessageBox::critical(new QWidget(), "MidiEditor (irrecoverable)", x);\
+    exit(-1);\
+}
+
+#define ERROR_CRITICAL2(x) {\
+    QMessageBox::critical(new QWidget(), "MidiEditor", x);\
+}
+
+#define ERROR_CRITICAL_NO_MEMORY() {\
+    QMessageBox::critical(new QWidget(), "MidiEditor (irrecoverable)", "Out of memory\n");\
+    exit(-1);\
+}
+
+#define ERROR_CRITICAL_NO_MEMORY2() {\
+    QMessageBox::critical(new QWidget(), "MidiEditor", "Out of memory\n");\
+    return;\
+}
+
+#define ERROR_CRITICAL_NO_MEMORY3() {\
+    QMessageBox::critical(new QWidget(), "MidiEditor", "Out of memory\n");\
+}
 
 class MidiFile : public QObject, public ProtocolEntry {
 
@@ -46,7 +74,12 @@ public:
     MidiFile();
     // needed to protocol fileLength
     MidiFile(int maxTime, Protocol* p);
+
+    ~MidiFile();
+
     bool save(QString path);
+    bool lock_backup(bool locked);
+    bool backup(bool save_backup = true);
     QByteArray writeDeltaTime(int time);
     int maxTime();
     int endTick();

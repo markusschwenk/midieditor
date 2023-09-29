@@ -61,6 +61,7 @@ protected:
     static int _pasteChannel;
     static int _pasteTrack;
     static bool _magnet;
+
 };
 
 #endif

@@ -2468,15 +2468,21 @@ void MidiInControl::select_SoundEffectDown()
 
 
 void MidiInControl::set_prog(int channel, int value) {
+    if(channel >= 16)
+        return;
     Prog_MIDI[channel] = value;
 }
 
 void MidiInControl::set_bank(int channel, int value) {
+    if(channel >= 16)
+        return;
     Bank_MIDI[channel] = value;
 }
 
 void MidiInControl::set_output_prog_bank_channel(int channel) {
 
+    if(channel >= 16)
+        return;
     ProgChangeEvent* pevent;
     ControlChangeEvent* cevent;
     pevent = new ProgChangeEvent(channel, Prog_MIDI[channel], 0);
