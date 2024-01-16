@@ -17,14 +17,20 @@
  */
 
 #include "PlayerThread.h"
+#include "../midi/MidiTrack.h"
 #include "../MidiEvent/KeySignatureEvent.h"
-#include "../MidiEvent/NoteOnEvent.h"
-#include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/TimeSignatureEvent.h"
 #include "../MidiEvent/TextEvent.h"
 #include "../MidiEvent/SysExEvent.h"
 #include "../MidiEvent/ControlChangeEvent.h"
 #include "../MidiEvent/ProgChangeEvent.h"
+#include "../gui/GuiTools.h"
+
+#include "../tool/FingerPatternDialog.h"
+#ifdef __WINDOWS_MM__
+#include <windows.h>
+#endif
+
 #include "MidiFile.h"
 #include "MidiInput.h"
 #include "MidiOutput.h"
@@ -36,7 +42,6 @@
 #define INTERVAL_TIME 15
 #define TIMEOUTS_PER_SIGNAL 1
 
-//static MidiEvent *
 int text_ev[8];
 QString *midi_text[8];
 
@@ -64,31 +69,17 @@ void PlayerThread::setInterval(int i)
     interval = i;
 }
 
-void msDelay(int ms) {
-
-    qint64 one = QDateTime::currentMSecsSinceEpoch();
-    qint64 diff;
-    do {
-
-        QCoreApplication::processEvents();
-
-        diff = QDateTime::currentMSecsSinceEpoch() - one;
-
-    } while(diff < ms);
-
-}
-
-static bool update_prg[16]; // real time prg change event
-
 void PlayerThread::run()
 {
+    MultitrackMode = file->MultitrackMode;
+
     for(int n = 0; n < 8; n++) {
         text_ev[n] = -1;
         midi_text[n] = NULL;
     }
 
     // real time prg change event off
-    for(int n = 0; n < 16; n++)
+    for(int n = 0; n < 48; n++)
         update_prg[n] = false;
 
     realtimecount = QDateTime::currentMSecsSinceEpoch();
@@ -114,14 +105,17 @@ void PlayerThread::run()
     if(!mode)
         emit playerStarted();
 
-    // Reset all Controllers
-    for (int i = 0; i < 16; i++) {
-        QByteArray array;
-        array.append(0xB0 | i);
-        array.append(121);
-        array.append(char(0));
-        MidiOutput::sendCommand(array);
+    for(int track = 0; track < (MultitrackMode ? 3 : 1) ; track++) {
+        // Reset all Controllers
+        for (int i = 0; i < 16; i++) {
+            QByteArray array;
+            array.append(0xB0 | i);
+            array.append(121);
+            array.append(char(0));
+            MidiOutput::sendCommand(array, track);
+        }
     }
+
     MidiOutput::playedNotes.clear();
 
     // All Events before position should be sent, progChanges and ControlChanges
@@ -131,15 +125,16 @@ void PlayerThread::run()
             break;
         }
 
+        int track = MultitrackMode ? it.value()->track()->device_index() : 0;
+
         ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(it.value());
         if(ctrl && ctrl->control() == 0) {
-            update_prg[ctrl->channel()] = true;
+            update_prg[ctrl->channel() + track * 16] = true;
         }
 
-        MidiOutput::sendCommand(it.value());
+        MidiOutput::sendCommand(it.value(), track);
         it++;
     }
-
 
     setInterval(INTERVAL_TIME);
 
@@ -168,7 +163,7 @@ void PlayerThread::run()
         realtimecount = QDateTime::currentMSecsSinceEpoch();
         emit playerStarted();
         timer->start(INTERVAL_TIME);
-        //emit(measureChanged(measure, tickInMeasure));
+        emit(measureChanged(measure, tickInMeasure));
     }
 
     if (exec() == 0) {
@@ -193,14 +188,16 @@ void PlayerThread::timeout()
     if (stopped) {
         disconnect(timer, SIGNAL(timeout()), this, SLOT(timeout()));
 
-        // AllNotesOff // All SoundsOff
-        for (int i = 0; i < 16; i++) {
-            // value (third number) should be 0, but doesnt work
-            QByteArray array;
-            array.append(0xB0 | i);
-            array.append(char(123));
-            array.append(char(127));
-            MidiOutput::sendCommand(array);
+        for(int track = 0; track < (MultitrackMode ? 3 : 1) ; track++) {
+            // AllNotesOff // All SoundsOff
+            for (int i = 0; i < 16; i++) {
+                // value (third number) should be 0, but doesnt work
+                QByteArray array;
+                array.append(0xB0 | i);
+                array.append(char(123));
+                array.append(char(127));
+                MidiOutput::sendCommand(array, track);
+            }
         }
         if (MidiOutput::isAlternativePlayer) {
             foreach (int channel, MidiOutput::playedNotes.keys()) {
@@ -209,7 +206,7 @@ void PlayerThread::timeout()
                     array.append(0x80 | channel);
                     array.append(char(note));
                     array.append(char(0));
-                    MidiOutput::sendCommand(array);
+                    MidiOutput::sendCommand(array, 0);
                 }
             }
         }
@@ -225,7 +222,7 @@ void PlayerThread::timeout()
 
     } else {
 
-        int newPos = position + diff_t /*time->elapsed()*/ * MidiPlayer::speedScale();
+        int newPos = position + diff_t * MidiPlayer::speedScale();
         int tick = file->tick(newPos);
         QList<TimeSignatureEvent*>* list = 0;
         int ickInMeasure = 0;
@@ -325,8 +322,9 @@ void PlayerThread::timeout()
                     sysEv.append(it.value());
                 } else if (ctrl) {
                     if(ctrl && ctrl->control() == 0) {
+                        int track = MultitrackMode ? ctrl->track()->device_index() : 0;
                         // it needs a real time prg change event
-                        update_prg[ctrl->channel()] = true;
+                        update_prg[ctrl->channel() + track * 16] = true;
                     }
                     ctrlEv.append(it.value());
                 } else if (prg) {
@@ -342,25 +340,33 @@ void PlayerThread::timeout()
             // SysEx event
             foreach (MidiEvent* event, sysEv) {
 
-                MidiOutput::sendCommand(event);
+                MidiOutput::sendCommand(event, 0);
             }
 
             // CtrlEv event
             foreach (MidiEvent* event, ctrlEv) {
 
-                MidiOutput::sendCommand(event);
+                int track = MultitrackMode ? event->track()->device_index() : 0;
+
+                MidiOutput::sendCommand(event, track);
             }
 
             // PrgEv event
             foreach (MidiEvent* event, prgEv) {
 
-                MidiOutput::sendCommand(event);
+                int track = MultitrackMode ? event->track()->device_index() : 0;
+
+                MidiOutput::sendCommand(event, track);
             }
 
             foreach (MidiEvent* ev, offEv) {
-                MidiOutput::sendCommand(ev);
+                int track = MultitrackMode ? ev->track()->device_index() : 0;
+
+                MidiOutput::sendCommand(ev, track);
             }
+
             foreach (MidiEvent* ev, onEv) {
+                int track = 0;
                 if (ev->line() == MidiEvent::KEY_SIGNATURE_EVENT_LINE) {
                     KeySignatureEvent* keySig = dynamic_cast<KeySignatureEvent*>(ev);
                     if (keySig) {
@@ -377,19 +383,20 @@ void PlayerThread::timeout()
    Sending program change just before first note works */
 
                     int chan = ev->channel();
+                    track = MultitrackMode ? ev->track()->device_index() : 0;
 
-                    if(ev->line() < 128 && update_prg[chan]) {
-                        update_prg[chan] = false;
+                    if(ev->line() < 128 && update_prg[chan + 16 * track]) {
+                        update_prg[chan + 16 * track] = false;
 
                         QByteArray array;
                         array.clear();
                         array.append(0xC0 | chan); // program change
-                        array.append(char(Prog_MIDI[chan]));
-                        MidiOutput::sendCommand(array);
+                        array.append(char(MidiOutput::file->Prog_MIDI[chan + 4 * (track!=0) + 16 * track]));
+                        MidiOutput::sendCommand(array, track);
                     }
                 }
 
-                MidiOutput::sendCommand(ev);
+                MidiOutput::sendCommand(ev, track);
             }
 
 
@@ -410,6 +417,794 @@ void PlayerThread::timeout()
     }
     realtimecount = crealtimecount;
     connect(timer, SIGNAL(timeout()), this, SLOT(timeout()), Qt::DirectConnection);
+}
+
+/////////////////////////////////////////
+// PlayerThreadSequencer
+////////////////////////////////////////
+
+
+PlayerThreadSequencer::PlayerThreadSequencer()
+    : QThread()
+{
+    timer = 0;
+    time = 0;
+}
+
+void PlayerThreadSequencer::run()
+{
+    realtimecount = QDateTime::currentMSecsSinceEpoch();
+
+    if (!timer) {
+        timer = new QTimer();
+    }
+
+    connect(timer, SIGNAL(timeout()), this, SLOT(timeout()), Qt::DirectConnection);
+
+    realtimecount = QDateTime::currentMSecsSinceEpoch();
+    timer->start(INTERVAL_TIME);
+
+    stopped = false;
+
+    if (exec() == 0) {
+        timer->stop();
+    }
+}
+
+void PlayerThreadSequencer::timeout()
+{
+    static int counter = 0;
+
+    if (!time) {
+        time = new QElapsedTimer();
+        time->start();
+    }
+
+    disconnect(timer, SIGNAL(timeout()), this, SLOT(timeout()));
+    qint64 crealtimecount = QDateTime::currentMSecsSinceEpoch();
+    qint64 diff_t = crealtimecount - realtimecount;
+    if (stopped) {
+        disconnect(timer, SIGNAL(timeout()), this, SLOT(timeout()));
+
+
+        quit();
+
+    } else {
+
+        for(int n = 0; n < 16; n++) {
+
+            if(MidiPlayer::fileSequencer[n] && MidiPlayer::fileSequencer[n]->enable) {
+                if(!FingerPatternDialog::finger_on(n))
+                    MidiPlayer::fileSequencer[n]->loop(diff_t);
+            }
+
+        }
+
+        if(counter == 0 && MidiInControl::key_live) { // used for no sleep the computer
+
+#ifdef __WINDOWS_MM__
+            SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+#endif
+            MidiInControl::key_live = 0;
+        }
+
+        counter++;
+        counter&= 127;
+
+
+        time->restart();
+        realtimecount = crealtimecount;
+        connect(timer, SIGNAL(timeout()), this, SLOT(timeout()), Qt::DirectConnection);
+
+    }
+}
+
+QMutex PlayerSequencer::mutex_player;
+
+PlayerSequencer::PlayerSequencer(int chan) : QObject()
+{
+    enable = false;
+    _chan = chan;
+    is_drum_only = false;
+    use_drum = false;
+    autorhythm = false;
+    _force_flush_mode = 0;
+
+    for(int n = 0; n < 4; n++) {
+        volume[n] = 127;
+        file[n] = NULL;
+        events[n] = NULL;
+        _buttons[n] = 0;
+    }
+
+
+    note_count = 0;
+    note_random = -1;
+
+    for(int n = 0; n < 128; n++) {
+        map_key_status[n] = MAP_NOTE_OFF;
+        map_key[n] = 0; // ch 0
+        map_key2[0][n] = 0; // ch 9
+        map_key2[1][n] = 0; // ch 1
+        map_key2[2][n] = 0; // ch 2
+        map_key2[3][n] = 0; // ch 3
+
+    }
+
+    // run
+
+    // real time prg change event off
+    for(int n = 0; n < 16; n++)
+        update_prg[n] = false;
+
+    position = 0;
+    current_index = -1;
+
+}
+
+void PlayerSequencer::setScaleTime(int bpm, int index)
+{
+    if(index > 3)
+        return;
+
+    mutex_player.lock();
+    if(bpm < 1)
+        bpm = 1;
+    if(bpm > 635)
+        bpm = 635;
+
+    double fscale = ((double) bpm) / 120.0;
+
+    for(int n = 0; n < 4; n++) {
+        if(index >= 0 && index != n)
+            continue;
+        if(file[n])
+            file[n]->scale_time_sequencer = (float) (fscale);
+    }
+
+
+    mutex_player.unlock();
+}
+
+void PlayerSequencer::setVolume(int volume, int index)
+{
+    if(index > 3)
+        return;
+
+    mutex_player.lock();
+    if(volume < 4)
+        volume = 4;
+    if(volume > 127) volume = 127;
+
+
+    for(int n = 0; n < 4; n++) {
+        if(index >= 0 && index != n)
+            continue;
+        this->volume[n] = volume;
+    }
+
+    mutex_player.unlock();
+}
+
+void PlayerSequencer::setButtons(unsigned int buttons, int index)
+{
+    if(index > 3)
+        return;
+    if(index < 0)
+        return;
+
+    _buttons[index] = buttons;
+
+    if(MidiOutput::sequencer_enabled[_chan] == index) {
+        MidiOutput::sequencer_cmd[_chan] =
+            (MidiOutput::sequencer_cmd[_chan] & ~SEQ_FLAG_MASK) |
+            (buttons & SEQ_FLAG_MASK);
+    }
+}
+
+unsigned int PlayerSequencer::getButtons(int index)
+{
+    if(index > 3)
+        return 0;
+    if(index < 0)
+        return 0;
+
+    return _buttons[index];
+}
+
+void PlayerSequencer::set_flush(int note)
+{
+    mutex_player.lock();
+
+    QByteArray a;
+
+    for(int n = 0; n < 128; n++) {
+        if(map_key_status[n] == MAP_NOTE_ON && (map_key[n] == note || note < 0)) {
+            map_key_status[n] = MAP_NOTE_FLUSH; // mark to flush
+        }
+    }
+
+    mutex_player.unlock();
+
+}
+
+
+void PlayerSequencer::flush()
+{
+    QByteArray a;
+
+    for(int note = 0; note < 128; note++) {
+        if(map_key_status[note]) {
+            map_key_status[note] = MAP_NOTE_OFF;
+            map_key[note] = 0;
+            a.clear();
+            a.append(0x80 | 0);
+            a.append(note);
+            a.append((char) 0);
+            SendInput(a);
+        }
+
+        if(map_key2[0][note]) {
+            map_key2[0][note] = 0;
+            a.clear();
+            a.append(0x80 | 9);
+            a.append(note);
+            a.append((char) 0);
+            SendInput(a);
+        }
+
+        if(map_key2[1][note]) {
+            map_key2[1][note] = 0;
+            a.clear();
+            a.append(0x80 | 1);
+            a.append(note);
+            a.append((char) 0);
+            SendInput(a);
+        }
+
+        if(map_key2[2][note]) {
+            map_key2[2][note] = 0;
+            a.clear();
+            a.append(0x80 | 2);
+            a.append(note);
+            a.append((char) 0);
+            SendInput(a);
+        }
+
+        if(map_key2[3][note]) {
+            map_key2[3][note] = 0;
+            a.clear();
+            a.append(0x80 | 3);
+            a.append(note);
+            a.append((char) 0);
+            SendInput(a);
+        }
+    }
+
+}
+
+bool PlayerSequencer::isFile(int index)
+{
+    if(index < 0 || index > (3))
+        return false;
+
+    return file[index] != NULL;
+}
+
+void PlayerSequencer::setMode(int index, unsigned int buttons)
+{
+    if(index > (3))
+        return;
+
+    mutex_player.lock();
+
+    current_index = -1;
+    position = 0;
+
+    bool switch_on = (buttons & SEQ_FLAG_SWITCH_ON) ? true : false;
+
+    buttons &= ~SEQ_FLAG_SWITCH_ON;
+
+    MidiInput::note_roll[_chan].clear();
+
+    if(index < 0 || !file[index]) {
+        MidiOutput::sequencer_enabled[_chan] = -1;
+
+        MidiOutput::sequencer_cmd[_chan] = SEQ_FLAG_STOP;
+
+        if(index < 0) {
+            if(autorhythm)
+                _force_flush_mode = 2;
+            else
+                _force_flush_mode = 1;
+        }
+
+        autorhythm = false;
+
+        mutex_player.unlock();
+        return;
+    }
+
+
+    buttons &= ~(SEQ_FLAG_ON | SEQ_FLAG_ON2 | SEQ_FLAG_STOP);
+
+    _buttons[index] = buttons;
+
+    if(buttons & SEQ_FLAG_AUTORHYTHM) {
+        autorhythm = true;
+        MidiOutput::sequencer_cmd[_chan] = buttons | SEQ_FLAG_ON;
+    } else {
+        autorhythm = false;
+        MidiOutput::sequencer_cmd[_chan] = buttons;
+    }
+
+    if(switch_on)
+        MidiOutput::sequencer_enabled[_chan] = index;
+    else
+        MidiOutput::sequencer_enabled[_chan] = -1;
+
+    mutex_player.unlock();
+}
+
+void PlayerSequencer::unsetFile(int index)
+{
+
+    if(index > (3))
+        return;
+
+    mutex_player.lock();
+
+    int enabled = MidiOutput::sequencer_enabled[_chan];
+
+    for(int n = 0; n < 4; n++) {
+
+        if(n != index && index >= 0)
+            continue;
+
+        if(file[n])
+            delete file[n];
+
+        file[n] = NULL;
+
+    }
+
+    if(enabled == index && index >= 0)
+        flush();
+
+    mutex_player.unlock();
+}
+
+void PlayerSequencer::setFile(MidiFile* f, int index)
+{
+    if(index < 0 || index > (3))
+        return;
+
+    mutex_player.lock();
+
+    if(file[index])
+        delete file[index];
+
+    file[index] = f;
+
+    events[index] = file[index]->playerData();
+
+    position = 0;
+
+    enable = true;
+
+    mutex_player.unlock();
+}
+
+void PlayerSequencer::SendInput(QByteArray a)
+{
+    _device = DEVICE_SEQUENCER_ID + _chan;
+    std::vector<unsigned char> v;
+
+    for(int n = 0; n < a.count(); n++)
+        v.emplace_back((unsigned char) a[n]);
+
+    MidiInput::receiveMessage_mutex(MidiInput::currentTime(), &v, (void*) &_device);
+
+}
+
+
+void PlayerSequencer::loop(qint64 diff_t)
+{
+    bool force_stop_loop = false;
+    int newPos = position;
+    QMultiMap<int, MidiEvent*>::iterator it;
+
+    if(diff_t == -1) {
+
+        QCoreApplication::processEvents();
+
+    }
+
+    if(_force_flush_mode) { // force flush notes in delayed sequencer stop
+
+        bool save = autorhythm;
+
+        if(_force_flush_mode == 1)
+            autorhythm = false;
+        else
+            autorhythm = true;
+
+        flush();
+
+        autorhythm = save;
+
+        _force_flush_mode = 0;
+    }
+
+
+    if(!enable || (current_index >= 0 && (!file[current_index] || !events[current_index])))
+        return;
+
+    MidiInput::mutex_input.lock();
+    QByteArray note_roll = MidiInput::note_roll[_chan];
+    int enabled = MidiOutput::sequencer_enabled[_chan];
+    int cmd = MidiOutput::sequencer_cmd[_chan];
+
+    if(enabled >= 0 && autorhythm && (cmd & SEQ_FLAG_AUTORHYTHM)) {
+        cmd &= ~SEQ_FLAG_AUTORHYTHM;
+        cmd |= SEQ_FLAG_ON;
+        MidiOutput::sequencer_cmd[_chan] = cmd;
+        note_roll.clear();
+        //note_roll.append((char) 60);
+    }
+
+    MidiInput::mutex_input.unlock();
+
+    bool send_flush = false;
+
+    if(cmd & SEQ_FLAG_ON) {
+        note_count = 0;
+        note_random = -1;
+    }
+
+    if(!autorhythm && current_index >= 0 && !(cmd & SEQ_FLAG_INFINITE) && !note_roll.count()) {
+        position = -diff_t  * ((double) file[current_index]->scale_time_sequencer);
+        flush();
+    }
+
+    // test flush note (from note off)
+    for(int n = 0; n < 128; n++) {
+        QByteArray a;
+        if(map_key_status[n] == MAP_NOTE_FLUSH) {
+            map_key_status[n] = MAP_NOTE_OFF;
+            map_key[n] = 0;
+            a.append(0x80 | 0);
+            a.append(n);
+            a.append((char) 0);
+            SendInput(a);
+
+            if(map_key2[0][n]) {
+                map_key2[0][n] = 0;
+                a.clear();
+                a.append(0x80 | 9);
+                a.append(n);
+                a.append((char) 0);
+                SendInput(a);
+            }
+
+            if(map_key2[1][n]) {
+                map_key2[1][n] = 0;
+                a.clear();
+                a.append(0x80 | 1);
+                a.append(n);
+                a.append((char) 0);
+                SendInput(a);
+            }
+
+            if(map_key2[2][n]) {
+                map_key2[2][n] = 0;
+                a.clear();
+                a.append(0x80 | 2);
+                a.append(n);
+                a.append((char) 0);
+                SendInput(a);
+            }
+
+            if(map_key2[3][n]) {
+                map_key2[3][n] = 0;
+                a.clear();
+                a.append(0x80 | 3);
+                a.append(n);
+                a.append((char) 0);
+                SendInput(a);
+            }
+
+        }
+    }
+
+    if(diff_t == -1) goto next;
+
+    if(enabled >= 0 && enabled != current_index) {
+
+        if(enabled < 0 || enabled >= 4 || !file[enabled] || !events[enabled]) {
+            enabled = -1;
+            //MidiOutput::sequencer_enabled[_chan] = enabled;
+        } else {
+            current_index = enabled;
+            position = -diff_t  * ((double) file[current_index]->scale_time_sequencer);
+            send_flush = true;
+        }
+    }
+
+    if(current_index < 0)
+        return;
+
+    if(note_random >= 0)
+        note_count+= INTERVAL_TIME;
+
+    newPos = position + diff_t  * ((double) file[current_index]->scale_time_sequencer);
+
+    it = events[current_index]->lowerBound(position);
+
+    if(cmd && enabled >= 0 && (note_roll.count() || autorhythm))
+        // it = events->lowerBound(position);
+        while (it != events[current_index]->end() && it.key() < newPos) {
+
+                   // save events for the given tick
+            QList<MidiEvent *> onEv, offEv, ctrlEv, prgEv, sysEv;
+            int sendPosition = it.key();
+
+            do {
+                SysExEvent* sys = dynamic_cast<SysExEvent*>(it.value());
+                if (sys) {
+                    sysEv.append(it.value());
+                } else
+                    if(!is_drum_only && it.value()->channel() == 0) {
+                        TextEvent* textev = dynamic_cast<TextEvent*>(it.value());
+                        ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(it.value());
+                        ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(it.value());
+
+                               // ignore text event
+                        if(textev) ;
+
+                        else if (ctrl) {
+                            if(ctrl && ctrl->control() == 0) {
+                                // it needs a real time prg change event
+                                update_prg[ctrl->channel()] = true;
+                            }
+                            ctrlEv.append(it.value());
+                        } else if (prg) {
+                            prgEv.append(it.value());
+                        } else if (it.value()->isOnEvent()) {
+
+                            onEv.append(it.value());
+                        } else {
+
+                            offEv.append(it.value());
+                        }
+                } else if(((is_drum_only || use_drum || autorhythm) && it.value()->channel() == 9)
+                         || (autorhythm && it.value()->channel() >= 1 && it.value()->channel() <= 3)) {
+                            TextEvent* textev = dynamic_cast<TextEvent*>(it.value());
+                            ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(it.value());
+                            ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(it.value());
+
+                                   // ignore text event
+                            if(textev) ;
+
+                            else if (ctrl) {
+                                if(ctrl && ctrl->control() == 0) {
+                                    // it needs a real time prg change event
+                                    update_prg[ctrl->channel()] = true;
+                                }
+                                ctrlEv.append(it.value());
+                            } else if (prg) {
+                                prgEv.append(it.value());
+                            } else if (it.value()->isOnEvent()) {
+
+                                onEv.append(it.value());
+                            } else {
+
+                                offEv.append(it.value());
+                            }
+                        }
+
+                it++;
+            } while (it != events[current_index]->end() && it.key() == sendPosition);
+
+                   // SysEx event
+            if(0)
+                foreach (MidiEvent* event, sysEv) {
+
+                    MidiOutput::sendCommand(event, 0);
+                }
+
+                   // CtrlEv event
+
+            foreach (MidiEvent* event, ctrlEv) {
+
+                SendInput(event->save());
+                //MidiOutput::sendCommand(event, track);
+            }
+
+                   // PrgEv event
+
+            foreach (MidiEvent* event, prgEv) {
+
+                SendInput(event->save());
+            }
+
+            if(offEv.count()) {
+                if((cmd & 3) == SEQ_FLAG_ON) {
+                    position = 0;
+                    goto next;
+                }
+            }
+
+            if(!autorhythm && !note_roll.count()) {
+                send_flush = false;
+                flush();
+
+            } else foreach (MidiEvent* ev, offEv) {
+
+                QByteArray a = ev->save();
+                int note = a[1] & 127;
+                if(ev->channel() == 0) {
+                    for(int n = 0; (!autorhythm && n < note_roll.count()) || (autorhythm && n < 1); n++) {
+                        int note2 = autorhythm ? 60 : (note_roll.at(n) & 127);
+
+                        note2+= note - 60;
+                        if(note2 < 0)
+                            note2 = 0;
+                        else if(note2 > 127)
+                            note2 = 127;
+
+                        map_key_status[note2] = MAP_NOTE_OFF;
+                        map_key[note2] = 0;
+                        a[1] = note2;
+                        SendInput(a);
+
+                    }
+                } else { // drum
+
+                    if((a[0] & 0xf0) == 0x80)
+                        map_key2[ev->channel() == 9 ? 0 : (ev->channel() & 3)][note] = 0;
+
+                    SendInput(a);
+                }
+
+            }
+
+            if(send_flush) {
+                send_flush = false;
+                flush();
+            }
+
+            if(!autorhythm && !note_roll.count()) {
+                note_count = 0;
+                note_random = -1;
+            } else {
+
+                foreach (MidiEvent* ev, onEv) {
+
+                if (ev->line() == MidiEvent::KEY_SIGNATURE_EVENT_LINE) {
+
+                } else if (ev->line() == MidiEvent::TIME_SIGNATURE_EVENT_LINE) {
+
+                } else if(ev->line() < 128) {
+
+                    /* For some stupid reason fluidsynth has problems when changing banks and programs.
+                       Sending program change just before first note works */
+
+                    int chan = ev->channel();
+                    QByteArray a = ev->save();
+                    a[2] = (char) (((int) a[2] * volume[current_index]) / 127);
+
+                    if(update_prg[chan]) {
+                        update_prg[chan] = false;
+
+                        QByteArray array;
+                        array.clear();
+                        array.append(0xC0 | chan); // program change
+                        array.append(char(ev->file()->Prog_MIDI[chan]));
+                        SendInput(array);
+
+                    }
+
+                    if(chan == 0) {
+
+                        int note = a[1] & 127;
+
+                        bool found = false;
+                        int first_note =-1;
+
+                        for(int n = 0; (!autorhythm && n < note_roll.count()) || (autorhythm && n < 1); n++) {
+                            int note2 = autorhythm ? 60 : note_roll.at(n);
+                            if(note2 == note_random) {
+                                found = true;
+                            }
+                            note2&= 127;
+                            int the_note = note2;
+
+                            if(n == 0) first_note = note2;
+
+                            note2+= note - 60;
+                            if(note2 < 0)
+                                note2 = 0;
+                            else if(note2 > 127)
+                                note2 = 127;
+
+                            if(map_key_status[note2] != MAP_NOTE_ON) {
+                                map_key_status[note2] = MAP_NOTE_ON;
+                                map_key[note2] = the_note;
+                                a[1] = note2;
+                                //qWarning("note %i", note2);
+                                SendInput(a);
+                            } else {
+                                map_key[note2] = the_note;
+                            }
+                        }
+
+                        if(autorhythm) {
+                            note_random = -1;
+                            note_count = 0;
+                        }
+
+                        if( note_count >= 2000) {
+                            if(cmd & SEQ_FLAG_INFINITE)
+                                force_stop_loop = true;
+                            note_random = -1;
+                            note_count = 0;
+                        } else if(!found) {
+                            note_count = 0;
+                            note_random = first_note;
+                        }
+
+
+                    } else { // drum
+                        if((a[0] & 0xf0) == 0x90)
+                            map_key2[chan == 9 ? 0 : (chan & 3)][a[1] & 127] = 1;
+                        SendInput(a);
+                    }
+                }
+
+            }
+        }
+    }
+
+    if(force_stop_loop) cmd &= ~SEQ_FLAG_INFINITE;
+    // end if it was last event, but only if not recording
+    if (it == events[current_index]->end()) {
+
+        if(cmd & SEQ_FLAG_LOOP) newPos = 0;
+        cmd = (cmd & 0xfe);
+
+    }
+    position = newPos;
+
+       //MidiInput::setTime(position);
+
+
+next:
+    int flag = (cmd & 7);
+
+    if(flag == SEQ_FLAG_ON || flag == SEQ_FLAG_STOP || enabled < 0 ) {
+        if(flag == SEQ_FLAG_STOP || enabled < 0)
+            cmd = cmd & 0xf8;
+        else
+            cmd = (cmd & 0xfc) | SEQ_FLAG_ON2;
+
+        send_flush = false;
+        flush();
+
+        position = 0;
+
+    }
+
+    MidiInput::mutex_input.lock();
+    MidiOutput::sequencer_enabled[_chan] = enabled;
+    MidiOutput::sequencer_cmd[_chan] = cmd;
+    MidiInput::mutex_input.unlock();
+
+    if(send_flush) {
+
+        flush();
+    }
+
 }
 
 int PlayerThread::timeMs()

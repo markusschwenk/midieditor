@@ -56,7 +56,7 @@ extern QWidget *main_widget;
 
 extern QApplication *app;
 
-#define PRE_CHAN 32 // 16 chans * number of VST Plugins
+#define PRE_CHAN (48*2) // 48 chans * number of VST Plugins
 
 #define EXTERNAL_UPDATE_WINSETPRESET   0xABECE5
 #define EXTERNAL_UPDATE_PRESET_BKCOLOR 0xABCE50
@@ -112,7 +112,7 @@ private:
     QLabel *labelPreset;
     QWidget* _parent;
 
-    QTimer *time_updat;
+    QTimer *time_update;
     QSemaphore *semaf;
     bool _dis_change;
 
@@ -207,7 +207,6 @@ public:
     static void VST_show(int chan, bool show);
 
     static void VST_DisableButtons(int chan, bool disable);
-    static int VST_LoadParameterStream(QByteArray array);
 
     static int VST_SaveParameters(int chan);
 

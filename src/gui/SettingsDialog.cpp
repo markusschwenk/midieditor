@@ -103,6 +103,11 @@ SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer*
 #endif
 }
 
+void SettingsDialog::reject() {
+    submit();
+    hide();
+}
+
 void SettingsDialog::addSetting(SettingsWidget* settingWidget)
 {
 

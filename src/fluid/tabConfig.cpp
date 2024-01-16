@@ -23,6 +23,14 @@
 #ifdef USE_FLUIDSYNTH
 
 #include "FluidDialog.h"
+#include "../gui/MainWindow.h"
+
+#include "../MidiEvent/MidiEvent.h"
+#include "../MidiEvent/TextEvent.h"
+#include "../midi/MidiChannel.h"
+#include "../midi/MidiFile.h"
+#include "../protocol/Protocol.h"
+#include "../VST/VST.h"
 #include "../midi/MidiPlayer.h"
 
 #include <QMessageBox>
@@ -143,9 +151,15 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
     MIDISaveList->setGeometry(QRect(690-46-85, 10, 79, 61));
     MIDISaveList->setText("Save List\nSF2 Names");
 
+    QString style1 = "QGroupBox {border: 1px solid black; margin-top: 2ex;}\n"
+                     "QGroupBox::title {subcontrol-origin: margin; left: 12px; subcontrol-position: top left; padding: 0 2px;}";
+
     OutputAudio = new QGroupBox(tabConfig);
     OutputAudio->setObjectName(QString::fromUtf8("OutputAudio"));
     OutputAudio->setGeometry(QRect(30, 110, 741-46, 101));
+    OutputAudio->setStyleSheet(style1);
+
+
     OutputBox = new QComboBox(OutputAudio);
     OutputBox->setObjectName(QString::fromUtf8("OutputBox"));
     OutputBox->setGeometry(QRect(90, 20, 381, 22));
@@ -207,12 +221,16 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
     WavAudio = new QGroupBox(tabConfig);
     WavAudio->setObjectName(QString::fromUtf8("WavAudio"));
     WavAudio->setGeometry(QRect(30, 230, 741 - 46, 101));
+    WavAudio->setStyleSheet(style1);
+
     WavFreqBox = new QComboBox(WavAudio);
     WavFreqBox->setObjectName(QString::fromUtf8("WavFreqBox"));
     WavFreqBox->setGeometry(QRect(90, 20, 91, 22));
+
     WavFreqlabel = new QLabel(WavAudio);
     WavFreqlabel->setObjectName(QString::fromUtf8("WavFreqlabel"));
     WavFreqlabel->setGeometry(QRect(50, 20, 31, 16));
+
     checkFloat = new QCheckBox(WavAudio);
     checkFloat->setObjectName(QString::fromUtf8("checkFloat"));
     checkFloat->setGeometry(QRect(210, 20, 70, 17));
@@ -277,27 +295,35 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
     MP3Audio = new QGroupBox(tabConfig);
     MP3Audio->setObjectName(QString::fromUtf8("MP3Audio"));
     MP3Audio->setGeometry(QRect(30, 370, 741 - 46, 141));
+    MP3Audio->setStyleSheet(style1);
+
     MP3BitrateBox = new QComboBox(MP3Audio);
     MP3BitrateBox->setObjectName(QString::fromUtf8("MP3BitrateBox"));
     MP3BitrateBox->setGeometry(QRect(50, 20, 91, 22));
+
     MP3Bitratelabel = new QLabel(MP3Audio);
     MP3Bitratelabel->setObjectName(QString::fromUtf8("MP3Bitratelabel"));
     MP3Bitratelabel->setGeometry(QRect(10, 20, 41, 16));
+
     MP3ModeButton = new QRadioButton(MP3Audio);
     MP3ModeButton->setObjectName(QString::fromUtf8("MP3ModeButton"));
     MP3ModeButton->setGeometry(QRect(50, 60, 51, 17));
     MP3ModeButton->setChecked(!fluid_output->fluid_settings->value("mp3_mode").toBool()); //-
+
     MP3ModeButton_2 = new QRadioButton(MP3Audio);
     MP3ModeButton_2->setObjectName(QString::fromUtf8("MP3ModeButton_2"));
     MP3ModeButton_2->setGeometry(QRect(100, 60, 51, 17));
     MP3ModeButton_2->setChecked(fluid_output->fluid_settings->value("mp3_mode").toBool()); //-
+
     MP3label_2 = new QLabel(MP3Audio);
     MP3label_2->setObjectName(QString::fromUtf8("MP3label_2"));
     MP3label_2->setGeometry(QRect(10, 60, 31, 16));
+
     MP3VBRcheckBox = new QCheckBox(MP3Audio);
     MP3VBRcheckBox->setObjectName(QString::fromUtf8("MP3VBRcheckBox"));
     MP3VBRcheckBox->setGeometry(QRect(10, 90, 51, 17));
     MP3VBRcheckBox->setChecked(fluid_output->fluid_settings->value("mp3_vbr").toBool()); //-
+
     MP3HQcheckBox = new QCheckBox(MP3Audio);
     MP3HQcheckBox->setObjectName(QString::fromUtf8("MP3HQcheckBox"));
     MP3HQcheckBox->setGeometry(QRect(60, 90, 71, 17));
@@ -306,12 +332,15 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
     MP3label_title = new QLabel(MP3Audio);
     MP3label_title->setObjectName(QString::fromUtf8("MP3label_title"));
     MP3label_title->setGeometry(QRect(250, 10, 47, 13));
+
     MP3label_artist = new QLabel(MP3Audio);
     MP3label_artist->setObjectName(QString::fromUtf8("MP3label_artist"));
     MP3label_artist->setGeometry(QRect(250, 40, 47, 13));
+
     MP3label_album = new QLabel(MP3Audio);
     MP3label_album->setObjectName(QString::fromUtf8("MP3label_album"));
     MP3label_album->setGeometry(QRect(250, 70, 47, 13));
+
     MP3label_genre = new QLabel(MP3Audio);
     MP3label_genre->setObjectName(QString::fromUtf8("MP3label_genre"));
     MP3label_genre->setGeometry(QRect(250, 100, 47, 13));
@@ -321,27 +350,33 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
     MP3_lineEdit_title->setGeometry(QRect(290, 20, 311 - 40, 20));
     MP3_lineEdit_title->setMaxLength(64);
     MP3_lineEdit_title->setText(fluid_output->fluid_settings->value("mp3_title").toString()); //-
+
     MP3_lineEdit_artist = new QLineEdit(MP3Audio);
     MP3_lineEdit_artist->setObjectName(QString::fromUtf8("MP3_lineEdit_artist"));
     MP3_lineEdit_artist->setGeometry(QRect(290, 50, 311 - 40, 20));
     MP3_lineEdit_artist->setMaxLength(64);
     MP3_lineEdit_artist->setText(fluid_output->fluid_settings->value("mp3_artist").toString()); //-
+
     MP3_lineEdit_album = new QLineEdit(MP3Audio);
     MP3_lineEdit_album->setObjectName(QString::fromUtf8("MP3_lineEdit_album"));
     MP3_lineEdit_album->setGeometry(QRect(290, 80, 311 - 40, 20));
     MP3_lineEdit_album->setMaxLength(64);
     MP3_lineEdit_album->setText(fluid_output->fluid_settings->value("mp3_album").toString()); //-
+
     MP3_lineEdit_genre = new QLineEdit(MP3Audio);
     MP3_lineEdit_genre->setObjectName(QString::fromUtf8("MP3_lineEdit_genre"));
     MP3_lineEdit_genre->setGeometry(QRect(290, 110, 311 - 40, 20));
     MP3_lineEdit_genre->setMaxLength(64);
     MP3_lineEdit_genre->setText(fluid_output->fluid_settings->value("mp3_genre").toString()); //-
+
     MP3label_year = new QLabel(MP3Audio);
     MP3label_year->setObjectName(QString::fromUtf8("MP3label_year"));
     MP3label_year->setGeometry(QRect(620 - 40, 20, 31, 16));
+
     MP3label_track = new QLabel(MP3Audio);
     MP3label_track->setObjectName(QString::fromUtf8("MP3label_track"));
     MP3label_track->setGeometry(QRect(620 - 40, 50, 31, 16));
+
     MP3spinBox_year = new QSpinBox(MP3Audio);
     MP3spinBox_year->setObjectName(QString::fromUtf8("MP3spinBox_year"));
     MP3spinBox_year->setGeometry(QRect(660 - 40, 20, 61, 22));
@@ -354,15 +389,18 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
     MP3spinBox_track->setMinimum(0);
     MP3spinBox_track->setMaximum(255);
     MP3spinBox_track->setValue(fluid_output->fluid_settings->value("mp3_track").toInt()); //-
+
     MP3checkBox_id3 = new QCheckBox(MP3Audio);
     MP3checkBox_id3->setObjectName(QString::fromUtf8("MP3checkBox_id3"));
     MP3checkBox_id3->setGeometry(QRect(190, 10, 41, 17));
     MP3checkBox_id3->setChecked(fluid_output->fluid_settings->value("mp3_id3").toBool());
+
     MP3Button_save = new QPushButton(MP3Audio);
     MP3Button_save->setObjectName(QString::fromUtf8("MP3Button_save"));
     MP3Button_save->setGeometry(QRect(170, 80, 61, 51));
 
-    MP3Audio->setTitle(QCoreApplication::translate("FluidDialog", "MP3 Conversion/ FLAC Tags", nullptr));
+    MP3Audio->setTitle("MP3 Conversion/ FLAC Tags");
+
     MP3BitrateBox->setCurrentText(QString());
     MP3BitrateBox->addItem("128 kbps", 128);
     MP3BitrateBox->addItem("160 kbps", 160);
@@ -372,20 +410,21 @@ void FluidDialog::tab_Config(QDialog */*FluidDialog*/) {
     MP3BitrateBox->addItem("320 kbps", 320);
     MP3BitrateBox->setCurrentIndex(fluid_output->fluid_settings->value("mp3_bitrate").toInt()); //-
 
-    MP3Bitratelabel->setText(QCoreApplication::translate("FluidDialog", "Bitrate:", nullptr));
-    MP3ModeButton->setText(QCoreApplication::translate("FluidDialog", "Joint", nullptr));
-    MP3ModeButton_2->setText(QCoreApplication::translate("FluidDialog", "Simple", nullptr));
-    MP3label_2->setText(QCoreApplication::translate("FluidDialog", "Mode:", nullptr));
-    MP3VBRcheckBox->setText(QCoreApplication::translate("FluidDialog", "VBR", nullptr));
-    MP3HQcheckBox->setText(QCoreApplication::translate("FluidDialog", "Hi Quality", nullptr));
-    MP3label_title->setText(QCoreApplication::translate("FluidDialog", "Title:", nullptr));
-    MP3label_artist->setText(QCoreApplication::translate("FluidDialog", "Artist:", nullptr));
-    MP3label_album->setText(QCoreApplication::translate("FluidDialog", "Album:", nullptr));
-    MP3label_genre->setText(QCoreApplication::translate("FluidDialog", "Genre:", nullptr));
-    MP3label_year->setText(QCoreApplication::translate("FluidDialog", "Year:", nullptr));
-    MP3label_track->setText(QCoreApplication::translate("FluidDialog", "Track:", nullptr));
-    MP3checkBox_id3->setText(QCoreApplication::translate("FluidDialog", "ID3", nullptr));
-    MP3Button_save->setText(QCoreApplication::translate("FluidDialog", "Save ID3", nullptr));
+    MP3Bitratelabel->setText("Bitrate:");
+
+    MP3ModeButton->setText("Joint");
+    MP3ModeButton_2->setText("Simple");
+    MP3label_2->setText("Mode:");
+    MP3VBRcheckBox->setText("VBR");
+    MP3HQcheckBox->setText("Hi Quality");
+    MP3label_title->setText("Title:");
+    MP3label_artist->setText("Artist:");
+    MP3label_album->setText("Album:");
+    MP3label_genre->setText("Genre:");
+    MP3label_year->setText("Year:");
+    MP3label_track->setText("Track:");
+    MP3checkBox_id3->setText("ID3");
+    MP3Button_save->setText("Save ID3");
 
     QObject::connect(loadSF2Button, SIGNAL(clicked()), this, SLOT(load_SF2()));
     QObject::connect(sf2Box, SIGNAL(textActivated(QString)), this, SLOT(load_SF2(QString)));
@@ -566,8 +605,6 @@ void FluidDialog::setOutputFreq(int) {
 
             fluid_output->_sample_rate = format.sampleRate();
 
-            //fluid_output->change_synth(fluid_output->_sample_rate, 1);
-
         }
 
     }
@@ -698,7 +735,10 @@ void FluidDialog::load_SF2(QString path) {
         }
 
         sf2Dir = newPath;
-        sf2Box->addItem(sf2Dir);
+        sf2Box->insertItem(0, sf2Dir);
+        if(sf2Box->count() > 10) {
+            sf2Box->removeItem(10);
+        }
         for(int n = 0; n < sf2Box->count(); n++) {
             QString entry=QString("sf2_index")+QString().setNum(n);
             fluid_output->fluid_settings->setValue(entry, sf2Box->itemText(n).toUtf8());
@@ -939,7 +979,7 @@ void FluidDialog::MIDIConnectOnOff() {
 
 void FluidDialog::MIDISaveListfun() {
 
-    QString appdir = QDir::homePath();
+    QString appdir = QDir::homePath() + "/Midieditor";
     QString path = appdir+"/instrumentlist.lsf";
     MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
 

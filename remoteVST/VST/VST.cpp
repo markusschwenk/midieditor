@@ -48,7 +48,11 @@ extern QSemaphore *sVST_EXT;
 int fluid_output_sample_rate = 44100;
 int fluid_output_fluid_out_samples = 512;
 
-unsigned int synth_chanvolume[16] = {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127};
+unsigned int synth_chanvolume[48] = {
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127
+};
 
 QWidget *main_widget = NULL;
 
@@ -67,9 +71,7 @@ static QWidget *_parentS = NULL;
 
 static float **out_vst;
 
-static QString VST_directory;
-
-#define OUT_CH(x) (x & 15)
+#define OUT_CH(x) ((x & 15) + (x/32) * 16)
 
 VST_preset_data_type *VST_preset_data[PRE_CHAN + 1];
 
@@ -202,7 +204,7 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     if(channel == PRE_CHAN)
         Dialog->setWindowTitle("VST Pluging pre-loaded (32 bits)");
     else
-        Dialog->setWindowTitle("VST channel #" + QString().number(channel & 15) + " plugin " + QString().number(channel/16 + 1) + " (32 bits)");
+        Dialog->setWindowTitle("VST channel #" + QString().number((channel & 15) + (channel/32) * 16) + " plugin " + QString().number(((channel/16) & 1) + 1) + " (32 bits)");
 
     groupBox->setTitle(QString());
 
@@ -223,12 +225,12 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     connect(this, SIGNAL(setBackColor(int)), this, SLOT(BackColor(int)));
     QMetaObject::connectSlotsByName(Dialog);
 
-    time_updat= new QTimer(this);
-    time_updat->setSingleShot(false);
+    time_update= new QTimer(this);
+    time_update->setSingleShot(false);
 
-    connect(time_updat, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
-    time_updat->setSingleShot(false);
-    time_updat->start(50);
+    connect(time_update, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
+    time_update->setSingleShot(false);
+    time_update->start(50);
 
 }
 
@@ -525,8 +527,8 @@ void VSTDialog::timer_update() {
 
 VSTDialog::~VSTDialog() {
 
-    time_updat->stop();
-    delete time_updat;
+    time_update->stop();
+    delete time_update;
     if(semaf) delete semaf;
     hide();
 
@@ -790,7 +792,7 @@ int VST_proc::VST_exit() {
     }
 
     if(out_vst) {
-        for(int n = 0; n < 16 * 2; n++) {
+        for(int n = 0; n < PRE_CHAN; n++) {
             if(out_vst[n]) delete out_vst[n];
             out_vst[n] = NULL;
         }
@@ -825,7 +827,9 @@ void VST_proc::VST_MIDInotesOff(int chan) {
 
     DEBUG_OUT("VST_MIDInotesOff");
 
-    for(; chan < PRE_CHAN; chan+= 16) {
+    int chan32 = (((chan & 0x6F) + 32) >= PRE_CHAN) ? PRE_CHAN : (chan & 0x6F) + 32;
+
+    for(; chan < chan32; chan+= 16) {
 
         if(VST_ON(chan) && (VST_preset_data[chan]->type & 1)) {
 
@@ -869,7 +873,9 @@ void VST_proc::VST_MIDInotesOff(int chan) {
 bool VST_proc::VST_isMIDI(int chan) {
 
   //DEBUG_OUT("VST_isMIDI");
-    for(; chan < PRE_CHAN; chan+= 16) {
+    int chan32 = (((chan & 0x6F) + 32) >= PRE_CHAN) ? PRE_CHAN : (chan & 0x6F) + 32;
+
+    for(; chan < chan32; chan+= 16) {
         if(VST_ON(chan) && (VST_preset_data[chan]->type & 1)) return true;
     }
 
@@ -887,7 +893,9 @@ void VST_proc::VST_MIDIcmd(int chan, int deltaframe, QByteArray cmd) {
             vstEvents[n] = NULL;
     }
 
-    for(; chan < PRE_CHAN; chan+= 16) {
+    int chan32 = (((chan & 0x6F) + 32) >= PRE_CHAN) ? PRE_CHAN : (chan & 0x6F) + 32;
+
+    for(; chan < chan32; chan+= 16) {
 
         if(!VST_ON(chan) || !(VST_preset_data[chan]->type & 1)) continue;
 
@@ -1041,10 +1049,6 @@ int VST_proc::VST_unload(int chan) {
     _block_timer2 = 1;
 
     VST_preset_data[chan] = NULL;
-#ifdef CACA2
-    if(fluid_control && chan < PRE_CHAN)
-        fluid_control->wicon[chan]->setVisible(false);
-#endif
 
     if(VST_temp->vstEffect) {
 
@@ -1114,12 +1118,8 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
 
     if(first_time) {
 
-        if(VST_directory == "") {
-            VST_directory = QDir::homePath(); 
-        }
-
-        out_vst = new float*[16 * 2];
-        for(int n = 0; n < 16 * 2; n++) {
+        out_vst = new float*[PRE_CHAN];
+        for(int n = 0; n < PRE_CHAN; n++) {
             out_vst[n] = new float[FLUID_OUT_SAMPLES + 256];
         }
 
@@ -1492,8 +1492,8 @@ int VST_proc::VST_mix(float**in, int nchans, int samplerate, int nsamples) {
             if(VST_preset_data[chan]->disabled) continue;
 
             // only VST 1 can use midi chan volume
-            if(chan < 16 && VST_proc::VST_isMIDI(chan) && synth_chanvolume[chan] < 127) {
-                float vol = ((float) (synth_chanvolume[chan])) / 127.0f;
+            if((chan & 31) < 16 && VST_proc::VST_isMIDI(chan) && synth_chanvolume[chan] < 127) {
+                float vol = ((float) (synth_chanvolume[OUT_CH(chan)])) / 127.0f;
 
                 float *f1 = in[OUT_CH(chan) * 2];
                 float *o1 = out_vst[OUT_CH(chan) * 2];
@@ -1522,39 +1522,6 @@ void VST_proc::VST_DisableButtons(int chan, bool disable) {
     if(!VST_preset_data[chan] || !VST_preset_data[chan]->vstWidget) return;
     ((VSTDialog *) VST_preset_data[chan]->vstWidget)->groupBox->setEnabled(!disable);
 
-}
-
-int VST_proc::VST_LoadParameterStream(QByteArray array) {
-
-
-    char id[4]= {0x0, 0x66, 0x66, 'W'};
-    int chan = array[2];
-    int sel = 0;
-
-    if(array[3] == id[1] && array[4] == id[2] && array[5] == 'W') {
-       sel = array[6];
-    } else return 0;
-
-    if(!VST_ON(chan)) return -1;
-    if(!VST_preset_data[chan]->vstEffect) return -1;
-    if(!VST_preset_data[chan]->vstWidget) return -1;
-
-    if(sel > 7) {
-        VST_preset_data[chan]->disabled = true;
-        VST_preset_data[chan]->needUpdate = true;
-        VST_preset_data[chan]->send_preset = -1;
-
-        emit ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setPreset(0x7f);
-        return 0;
-    }
-
-    VST_preset_data[chan]->disabled = false;
-    VST_preset_data[chan]->needUpdate = true;
-
-    VST_preset_data[chan]->send_preset = sel;
-
-    emit ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setPreset(sel);
-    return 0;
 }
 
 int VST_proc::VST_LoadfromMIDIfile() {
@@ -1627,7 +1594,7 @@ void VST_IN::run() {
             int nsamples = dat[2];
 
             // chan volume datas
-            for(int n = 0; n < 16; n++)
+            for(int n = 0; n < 48; n++)
                 synth_chanvolume[n] = (dat[3 + n] & 127);
 
             int chan = 0;
@@ -1636,8 +1603,8 @@ void VST_IN::run() {
 
             if(chan < PRE_CHAN) {
 
-                float **in = new float*[32];
-                for(int n = 0; n < 32; n++)
+                float **in = new float*[96];
+                for(int n = 0; n < 96; n++)
                     in[n] = ((float *) sharedAudioBuffer->data()) + nsamples * n;
 
                // memset((float *) sharedVSText->data(), 0, nsamples * 8);
@@ -1762,7 +1729,8 @@ void MainWindow::run_cmd_events() {
         VST_preset_data[PRE_CHAN] = NULL;
 
         ((VSTDialog *) VST_preset_data[chan]->vstWidget)->channel = chan;
-        ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setWindowTitle("VST channel #" + QString().number(chan & 15) + " plugin " + QString().number(chan/16 + 1) + " (32 bits)");
+        ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setWindowTitle("VST channel #" + QString().number((chan & 15) + (chan/32) * 16) + " plugin " + QString().number(((chan/16) & 1) + 1) + " (32 bits)");
+
         VST_preset_data[chan]->on = true;
         ((VSTDialog *) VST_preset_data[chan]->vstWidget)->groupBox->setEnabled(true);
 
@@ -2027,32 +1995,7 @@ skip:
         VST_proc::VST_MIDIcmd(chan, ms, cmd);
     }
 
-#if 0
-    else if(cmd == 0x70) { // VST_MIX()
 
-        int sample_rate = dat[1];
-        int nsamples = dat[2];
-
-        int chan = 0;
-        for(; chan < PRE_CHAN; chan++)
-            if(VST_ON(chan)) break; // test chan active
-
-        if(chan < PRE_CHAN && sys_sema_out && sys_sema_in) {
-            float **in = new float*[32];
-            for(int n = 0; n < 32; n++)
-                in[n] = ((float *) sharedAudioBuffer->data()) + nsamples * n;
-
-
-            // memset((float *) sharedVSText->data(), 0, nsamples * 8);
-
-            dat[1] = VST_proc::VST_mix(in, 16, sample_rate, nsamples);
-
-
-            delete[] in;
-        }
-
-    }
-#endif
 
     sema->release();
 

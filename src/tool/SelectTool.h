@@ -51,6 +51,8 @@ public:
 
     bool showsSelection();
 
+    static bool selectMultiTrack;
+
 protected:
     int stool_type;
     int x_rect, y_rect;

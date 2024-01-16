@@ -29,6 +29,7 @@ OffEvent::OffEvent(int ch, int l, MidiTrack* track)
 
     int midi_time = -1;
     int pos = -1;
+    midi_modified = false;
 
     QList<OnEvent*> eventsToClose = onEvents->values(line());
     for (int i = 0; i < eventsToClose.length(); i++) {
@@ -78,6 +79,7 @@ OffEvent::OffEvent(OffEvent& other)
     : MidiEvent(other)
 {
     _onEvent = other._onEvent;
+    midi_modified = other.midi_modified;
 }
 
 void OffEvent::setOnEvent(OnEvent* event)
@@ -129,6 +131,7 @@ void OffEvent::reloadState(ProtocolEntry* entry)
     }
     MidiEvent::reloadState(entry);
     _onEvent = other->_onEvent;
+    midi_modified = other->midi_modified;
 }
 
 QByteArray OffEvent::save()

@@ -21,8 +21,10 @@
 
 #include "MidiEditorInstrument.h"
 
+#include "../midi/MidiInControl.h"
 #ifdef USE_FLUIDSYNTH
 #include "../fluid/FluidDialog.h"
+#include "../gui/MainWindow.h"
 #else
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
@@ -196,6 +198,8 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
     _MW= MW;
     _MAINW = MAINW;
 
+    _DrumQueue = new QQueue<QByteArray>;
+
     QD = this;
 
     drum_mode = is_drum;
@@ -210,15 +214,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
     I_NEED_TO_UPDATE = 0;
 
     is_playing = (MidiPlayer::isPlaying()) ? 1 : 0;
-/*
-    foreach (MidiEvent* event, *(file->eventsBetween(0, 50))) {
-        TempoChangeEvent* tempo = dynamic_cast<TempoChangeEvent*>(event);
-        if(tempo) {
-            msPerTick = tempo->msPerTick();
-            break;
-        }
-    }
-*/
+
     if (QD->objectName().isEmpty())
         QD->setObjectName(QString::fromUtf8("MyInstrument"));
 
@@ -276,14 +272,15 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
             _init_rhythm();
         }
 
-        settings = new QSettings(QString("MidiEditor_Instrument"), QString("NONE"));
+        //settings = new QSettings(QString("MidiEditor_Instrument"), QString("NONE"));
+        settings = new QSettings(QDir::homePath() + "/Midieditor/settings/MidiEditorInstrument.ini", QSettings::IniFormat);
 
         QByteArray sa, sb;
         sa.clear();
         sb.clear();
         for(int n = 0; n < 128; n++)
             sa.append(map_drum_rhythm_velocity[n] & 127);
-        sb= settings->value("InstVelocity", sa).toByteArray();
+        sb= settings->value("Instrument/InstVelocity", sa).toByteArray();
         for(int n = 0; n < 128; n++)
             map_drum_rhythm_velocity[n] = sb.at(n) & 127;
         for(int n = 0; n < 10; n++)
@@ -508,7 +505,6 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
             current_map_rhythm = 0;
             current_tick_rhythm = 0;
 
-
             max_map_rhythm = 8; // size of data table - 2
             indx_bpm_rhythm = 16;
             memset(map_rhythm, 0, sizeof(unsigned char) * 10 * 34);
@@ -582,7 +578,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
                                 "or to use the patterns freely, ignoring the internal speed.\n");
         fixSpeedBox->setChecked((fix_time_sample) ? true : false);
         fixSpeedBox->setText("Fix speed");
-        connect(fixSpeedBox, QOverload<bool>::of(&QCheckBox::clicked), [=](bool checked)
+        connect(fixSpeedBox, &QCheckBox::clicked, this, [=](bool checked)
         {
             if(checked)
                 fix_time_sample = 1;
@@ -601,7 +597,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
         forceGetTimeBox->setChecked((force_get_time_sample) ? true : false);
         forceGetTimeBox->setText("Force Get Speed");
 
-        connect(forceGetTimeBox, QOverload<bool>::of(&QCheckBox::clicked), [=](bool checked)
+        connect(forceGetTimeBox, &QCheckBox::clicked, this, [=](bool checked)
         {
             if(checked)
                 force_get_time_sample = 1;
@@ -689,7 +685,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
 
         pop_track_rhythm();
 
-        connect(rhythmlist, QOverload<QListWidgetItem*>::of(&QListWidget::itemDoubleClicked),[=](QListWidgetItem *i)
+        connect(rhythmlist, &QListWidget::itemDoubleClicked, this, [=](QListWidgetItem *i)
         {
             if(rhythmlist->count() <= 0) return;
 
@@ -736,7 +732,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
 
         });
 
-        connect(rhythmlist, QOverload<QListWidgetItem*>::of(&QListWidget::itemPressed),[=](QListWidgetItem *i)
+        connect(rhythmlist, &QListWidget::itemPressed, this, [=](QListWidgetItem *i)
         {
 
             if(rhythmlist->count() <= 0) return;
@@ -944,7 +940,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
 
         ///////////////////////
 
-        connect(rhythmSamplelist, QOverload<QListWidgetItem*>::of(&QListWidget::itemDoubleClicked),[=](QListWidgetItem *i)
+        connect(rhythmSamplelist, &QListWidget::itemDoubleClicked, this, [=](QListWidgetItem *i)
         {
             if(rhythmSamplelist->count() <= 0) return;
 
@@ -991,7 +987,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
 
         });
 
-        connect(rhythmSamplelist, QOverload<QListWidgetItem*>::of(&QListWidget::itemPressed),[=](QListWidgetItem *i)
+        connect(rhythmSamplelist, &QListWidget::itemPressed, this, [=](QListWidgetItem *i)
         {
 
             if(rhythmSamplelist->count() <= 0) return;
@@ -1313,10 +1309,10 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
 
         connect(libraryButton, QOverload<bool>::of(&QPushButton::clicked),[=](bool)
         {
-            QString appdir = settings->value("drum_path_library").toString();
+            QString appdir = settings->value("Instrument/drum_path_library").toString();
 
             if(appdir.isEmpty())
-                appdir = settings->value("drum_path").toString();
+                appdir = settings->value("Instrument/drum_path").toString();
             if(appdir.isEmpty())
                 appdir = QDir::homePath() + "/Midieditor";
 
@@ -1332,7 +1328,7 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
 
                  pop_track_rhythm(drum_resource, 1);
                  drum_resource->close();
-                 settings->setValue("drum_path_library", QFileInfo(newPath).absoluteDir().absolutePath());
+                 settings->setValue("Instrument/drum_path_library", QFileInfo(newPath).absoluteDir().absolutePath());
 
 
             }
@@ -1658,14 +1654,24 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
 
     }
 
-    time_updat = new QTimer();
-    time_updat->callOnTimeout(this,  [=]()
+    time_update = new QTimer();
+    time_update->callOnTimeout(this,  [=]()
     {
         static int count =0;
+
+
 
         if(!is_rhythm) {
             count++;
             if(count > 1000/TIMER_TICK) {
+                if(drum_mode)
+                    while (!_DrumQueue->isEmpty()) {
+                        QByteArray a = _DrumQueue->head();
+                        // send command
+                        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
+                        _DrumQueue->pop_front();
+                    }
+
                 count = 0;
                 QD->setFocus();
             }
@@ -1750,8 +1756,8 @@ MyInstrument::MyInstrument(QWidget *MAINW, MatrixWidget* MW, MidiFile* f,  int i
     sampleItems.clear();
     _piano_timer = -1;
 
-    time_updat->setSingleShot(false);
-    time_updat->start((is_rhythm) ? TIMER_RHYTHM : TIMER_TICK);
+    time_update->setSingleShot(false);
+    time_update->start((is_rhythm) ? TIMER_RHYTHM : TIMER_TICK);
 
 }
 
@@ -1762,7 +1768,7 @@ void MyInstrument::reject() {
         sa.clear();
         for(int n = 0; n < 128; n++)
             sa.append(map_drum_rhythm_velocity[n] & 127);
-        settings->setValue("InstVelocity", sa);
+        settings->setValue("Instrument/InstVelocity", sa);
         delete settings;
         settings = NULL;
     } else if(drum_mode) {
@@ -1777,19 +1783,18 @@ void MyInstrument::reject() {
        push_track_rhythm();
     }
 
-    time_updat->stop();
-    delete time_updat;
+    time_update->stop();
+    delete time_update;
 
     if(playing_piano>=0) {
-        playing_piano=-1;
 
         QByteArray a;
         a.clear();
         a.append(0x80 | MidiOutput::standardChannel()); // note off
         a.append(playing_piano);
         a.append((char ) 0);
-        MidiOutput::sendCommand(a);
-
+        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
+        playing_piano=-1;
     }
 
     for(int n = 0; n < 128; n++) {
@@ -2426,7 +2431,7 @@ void MyInstrument::new_track() {
 
 void MyInstrument::load_track() {
 
-    QString appdir = settings->value("drum_path").toString();
+    QString appdir = settings->value("Instrument/drum_path").toString();
     if(appdir.isEmpty())
         appdir = QDir::homePath() + "/Midieditor";
 
@@ -2455,7 +2460,7 @@ void MyInstrument::load_track() {
                     = map_rhythmData[n][1]
                     = map_drum_rhythm_velocity[map_rhythm[n][0]];
         drum->close();
-        settings->setValue("drum_path", QFileInfo(newPath).absoluteDir().absolutePath());
+        settings->setValue("Instrument/drum_path", QFileInfo(newPath).absoluteDir().absolutePath());
 
     }  
 
@@ -2475,7 +2480,7 @@ void MyInstrument::save_track() {
 
     QString appdir;
 
-    appdir = settings->value("drum_path_sample").toString();
+    appdir = settings->value("Instrument/drum_path_sample").toString();
     if(appdir.isEmpty())
         appdir = QDir::homePath() + "/Midieditor";
 
@@ -2494,7 +2499,7 @@ void MyInstrument::save_track() {
         savePath += ".drum";
     }
 
-    settings->setValue("drum_path", QFileInfo(savePath).absoluteDir().absolutePath());
+    settings->setValue("Instrument/drum_path", QFileInfo(savePath).absoluteDir().absolutePath());
 
     QFile *drum = new QFile(savePath);
     if(drum && drum->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -2509,9 +2514,9 @@ void MyInstrument::save_track() {
 
 void MyInstrument::load_sample() {
 
-    QString appdir = settings->value("drum_path_sample").toString();
+    QString appdir = settings->value("Instrument/drum_path_sample").toString();
     if(appdir.isEmpty())
-        appdir = settings->value("drum_path").toString();
+        appdir = settings->value("Instrument/drum_path").toString();
     if(appdir.isEmpty())
         appdir = QDir::homePath() + "/Midieditor";
 
@@ -2536,7 +2541,7 @@ void MyInstrument::load_sample() {
 
         pop_track_rhythm(drum, 128);
         drum->close();
-        settings->setValue("drum_path_sample", QFileInfo(newPath).absoluteDir().absolutePath());
+        settings->setValue("Instrument/drum_path_sample", QFileInfo(newPath).absoluteDir().absolutePath());
 
     }
 
@@ -2546,7 +2551,7 @@ void MyInstrument::save_sample() {
 
     QString appdir;
 
-    appdir = settings->value("drum_path_sample").toString();
+    appdir = settings->value("Instrument/drum_path_sample").toString();
     if(appdir.isEmpty())
         appdir = QDir::homePath() + "/Midieditor";
 
@@ -2574,7 +2579,7 @@ void MyInstrument::save_sample() {
         savePath += ".sdrm";
     }
 
-    settings->setValue("drum_path_sample", QFileInfo(savePath).absoluteDir().absolutePath());
+    settings->setValue("Instrument/drum_path_sample", QFileInfo(savePath).absoluteDir().absolutePath());
 
     QFile *drum = new QFile(savePath);
     if(drum && drum->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -2805,8 +2810,6 @@ void MyInstrument::paintEvent(QPaintEvent* /*event*/) {
         painter->drawText(xx+20, yy + 64-2, "QW"); // Acoustic Snare
         painter->drawText(xx+20, yy + 64-2+16, "AS");
         xx+= 68;
-
-
 
         if(piano_keys_time[35] >=0)
             painter->fillRect(xx, yy, 64, 64+16 , QColor(0xf0, 0x30 ,0x30, 0x60));
@@ -3174,21 +3177,21 @@ void MyInstrument::keyPressEvent(QKeyEvent* event) {
 
                 a.clear();
                 a.append(0xC9);
-                a.append(Prog_MIDI[9]); // program
-                MidiOutput::sendCommand(a);
+                a.append(file->Prog_MIDI[9]); // program
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
             } else {
 
                 a.clear();
                 a.append(0xB0 | MidiOutput::standardChannel()); // bank
                 a.append((char ) 0);
-                a.append(Bank_MIDI[MidiOutput::standardChannel()]);
-                MidiOutput::sendCommand(a);
+                a.append(file->Bank_MIDI[MidiOutput::standardChannel()]);
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
                 a.clear();
                 a.append(0xC0 | MidiOutput::standardChannel());
-                a.append(Prog_MIDI[MidiOutput::standardChannel()]); // program
-                MidiOutput::sendCommand(a);
+                a.append(file->Prog_MIDI[MidiOutput::standardChannel()]); // program
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
             }
 
             // play note
@@ -3197,7 +3200,11 @@ void MyInstrument::keyPressEvent(QKeyEvent* event) {
             a.append(0x90 | ((drum_mode) ? 9 : MidiOutput::standardChannel()));
             a.append(key2);
             a.append((char ) ((drum_mode) ? vel : volumeSlider->value()));
-            MidiOutput::sendCommand(a);
+
+            MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
+
+            a[0] = 0x80 | (a[0] & 0xf);
+            _DrumQueue->push_back(a);
 
             QD->update();
 
@@ -3281,7 +3288,8 @@ void MyInstrument::keyReleaseEvent(QKeyEvent* event) {
             a.append(0x80 | MidiOutput::standardChannel()); // note off
             a.append(key2);
             a.append((char ) 0);
-            MidiOutput::sendCommand(a);
+
+            MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
             if(_piano_insert_mode) {
 
@@ -3383,13 +3391,13 @@ void MyInstrument::mousePressEvent(QMouseEvent* event) {
 
                 a.clear();
                 a.append(0xC9);
-                a.append(Prog_MIDI[9]); // program
-                MidiOutput::sendCommand(a);
+                a.append(file->Prog_MIDI[9]); // program
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
                 a.clear();
                 a.append(0x99); // note on
                 a.append(map_rhythm[n][0]);
                 a.append(map_rhythm[n][1]);
-                MidiOutput::sendCommand(a);
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
                 QThread::msleep(100);
 
@@ -3397,7 +3405,7 @@ void MyInstrument::mousePressEvent(QMouseEvent* event) {
                 a.append(0x89);
                 a.append(map_rhythm[n][0]);
                 a.append(map_rhythm[n][1]);
-                MidiOutput::sendCommand(a);
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
             }
         }
@@ -3436,15 +3444,18 @@ void MyInstrument::mousePressEvent(QMouseEvent* event) {
     if (key>=0 && playing_piano < 0) {
         // play note from the mouse
 
-        if(playing_piano>=0) {
+        if(playing_piano >= 0) {
             piano_keys_time[playing_piano] = -1;
-            playing_piano=-1;
+            int key2 = playing_piano + (trans_pos);
+            if(key2 < 0 || key2 > 127) key2= 0;
 
             a.clear(); // note off
             a.append(0x80 | MidiOutput::standardChannel());
-            a.append(playing_piano);
+            a.append(key2);
             a.append((char ) 0);
-            MidiOutput::sendCommand(a);
+
+            MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
+            playing_piano = -1;
         }
 
         playing_piano= key;
@@ -3476,19 +3487,20 @@ void MyInstrument::mousePressEvent(QMouseEvent* event) {
         a.clear();
         a.append(0xB0 | MidiOutput::standardChannel()); // bank
         a.append((char ) 0);
-        a.append(Bank_MIDI[MidiOutput::standardChannel()]);
-        MidiOutput::sendCommand(a);
+        a.append(file->Bank_MIDI[MidiOutput::standardChannel()]);
+        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
         a.clear();
         a.append(0xC0 | MidiOutput::standardChannel()); // program
-        a.append(Prog_MIDI[MidiOutput::standardChannel()]);
-        MidiOutput::sendCommand(a);
+        a.append(file->Prog_MIDI[MidiOutput::standardChannel()]);
+        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
         a.clear();
         a.append(0x90 | MidiOutput::standardChannel()); //note on
         a.append(key2);
         a.append((char ) volumeSlider->value());
-        MidiOutput::sendCommand(a);
+
+        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
         QD->update();
 
@@ -3517,7 +3529,8 @@ void MyInstrument::mouseReleaseEvent(QMouseEvent* /*event*/) {
         a.append(0x80 | MidiOutput::standardChannel());
         a.append(key2);
         a.append((char ) 0);
-        MidiOutput::sendCommand(a);
+
+        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
         if(_piano_insert_mode) {
             RecNote(key2,
@@ -3528,7 +3541,7 @@ void MyInstrument::mouseReleaseEvent(QMouseEvent* /*event*/) {
 
         }
 
-        piano_keys_time[note]=-1;
+        piano_keys_time[note] = -1;
 
         playing_piano = -1;
         I_NEED_TO_UPDATE = 1;
@@ -4231,13 +4244,13 @@ void Play_Thread::_fun_timer() {
                     if(play) {
                         a.clear();
                         a.append(0xC9); // program
-                        a.append(Prog_MIDI[9]);
-                        MidiOutput::sendCommand(a);
+                        a.append(file->Prog_MIDI[9]);
+                        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
                         a.clear();
                         a.append(0x99); // note on
                         a.append(key);
                         a.append(vel);
-                        MidiOutput::sendCommand(a);
+                        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
                     } else {
 
@@ -4245,7 +4258,7 @@ void Play_Thread::_fun_timer() {
                         a.append(0x89); // note off
                         a.append(key);
                         a.append((char) 0);
-                        MidiOutput::sendCommand(a);
+                        MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
                     }
                 }// play
             } // n
@@ -4291,13 +4304,13 @@ void Play_Thread::_fun_timer() {
 
                 a.clear();
                 a.append(0xC9); // program
-                a.append(Prog_MIDI[9]);
-                MidiOutput::sendCommand(a);
+                a.append(file->Prog_MIDI[9]);
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
                 a.clear();
                 a.append(0x99); // note on
                 a.append(key);
                 a.append(vel);
-                MidiOutput::sendCommand(a);
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
 
 
             } else {
@@ -4305,7 +4318,7 @@ void Play_Thread::_fun_timer() {
                 a.append(0x89); // note off
                 a.append(key);
                 a.append((char) 0);
-                MidiOutput::sendCommand(a);
+                MidiOutput::sendCommand(a, file->track(NewNoteTool::editTrack())->device_index());
             }
         }// play
     } // n
@@ -4428,4 +4441,710 @@ void QMComboBox::mousePressEvent(QMouseEvent *event) {
 
 }
 
+//////////////////////////////////////////////////////
+// virtual keyboard
+/////////////////////////////////////////////////////
+
+MyVirtualKeyboard* MyVirtualDev = NULL;
+
+void MyVirtualKeyboard::overlap() {
+    if(MyVirtualDev && MyVirtualDev->QD) {
+       MyVirtualDev->QD->raise();
+       MyVirtualDev->QD->activateWindow();
+
+    }
+}
+
+MyVirtualKeyboard::MyVirtualKeyboard(QWidget *MAINW, MatrixWidget* MW, MidiFile* f) : QDialog(MAINW, Qt::WindowSystemMenuHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint){
+
+    _MW = MW;
+    _MAINW = MAINW;
+
+    settings = new QSettings(QDir::homePath() + "/Midieditor/settings/MidiEditorInstrument.ini", QSettings::IniFormat);
+
+
+    QD = this;
+
+    octave_pos = 48;
+    trans_pos = 0;
+    note_volume = 100;
+
+    file = f;
+
+    playing_piano = -1;
+    auto_playing_piano = -1;
+
+    I_NEED_TO_UPDATE = 0;
+
+    if (QD->objectName().isEmpty())
+        QD->setObjectName(QString::fromUtf8("MyInstrument"));
+
+    QD->setWindowTitle("MidiEditor Virtual Device");
+
+    QD->setFixedSize(924, 136 + 64);
+
+    QD->setFocusPolicy(Qt::WheelFocus);
+
+    MainWindow * Q = (MainWindow *) _MAINW;
+
+    QToolBar* playbackMB = new QToolBar(QD);
+    playbackMB->move(164 + 2, 64);
+    playbackMB->setIconSize(QSize(20, 20));
+    playbackMB->setStyleSheet(QString::fromUtf8(
+        "QToolBar {background-color: #d0d0d0;}\n"
+        "QToolButton {border: 0px; background-color: #c0c0f0;}\n"));
+
+    QPushButton* but[10];
+
+    for(int n = 0; n < 10; n++) {
+        but[n] = new QPushButton(this);
+        but[n]->setObjectName("but" + QString::number(n + 1));
+        but[n]->setGeometry(QRect(0, 0, 24, 24));
+        but[n]->setFixedSize(24, 24);
+        but[n]->setStyleSheet(QString::fromUtf8(
+            "QPushButton {color: black; background-color: #c0f0c0;}"));
+
+        but[n]->setText("F" + QString::number(n + 1));
+
+        connect(but[n], &QPushButton::pressed, this, [=]()
+        {
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x99));
+            v.emplace_back((unsigned char) 36 + n);
+            v.emplace_back((unsigned char) 127);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+
+        });
+
+        connect(but[n], &QPushButton::released, this, [=]()
+        {
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x89));
+            v.emplace_back((unsigned char) 36 + n);
+            v.emplace_back((unsigned char) 0);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+
+        });
+
+        playbackMB->addWidget(but[n]);
+        playbackMB->addSeparator();
+    }
+
+    // instrument
+    QAction* instrumentAction;
+
+    instrumentAction = new QAction(QIcon(":/run_environment/graphics/channelwidget/instrument.png"), "Select instrument", playbackMB);
+
+    playbackMB->addAction(instrumentAction);
+
+    connect(instrumentAction, QOverload<bool>::of(&QAction::triggered),[=]()
+    {
+        int idev = device - DEVICE_ID;
+        int dev = idev/2;
+
+        int ch_up = ((MidiInControl::channelUp(dev) < 0)
+                         ? MidiOutput::standardChannel()
+                         : (MidiInControl::channelUp(dev) & 15));
+
+        int ch_down = ((MidiInControl::channelDown(dev) < 0)
+                           ? ((MidiInControl::channelUp(dev) < 0)
+                                  ? MidiOutput::standardChannel()
+                                  : MidiInControl::channelUp(dev))
+                           : MidiInControl::channelDown(dev)) & 0xF;
+
+        emit Q->channelWidget->selectInstrumentClicked((idev & 1) ? ch_down : ch_up);
+    });
+
+    QComboBox *_chooseEditChannel = NULL;
+
+    _chooseEditChannel = new QComboBox(QD);
+
+    for (int i = 0; i < 16; i++) {
+        _chooseEditChannel->addItem("Channel " + QString::number(i));
+    }
+
+    _chooseEditChannel->setFocusPolicy(Qt::NoFocus);
+    _chooseEditChannel->setFixedWidth(150);
+    _chooseEditChannel->setFixedHeight(24);
+    _chooseEditChannel->setStyleSheet(QString::fromUtf8("background-color: white;"));
+
+    connect(_chooseEditChannel, QOverload<int>::of(&QComboBox::currentIndexChanged),[=](int v)
+    {
+        //Q->editChannel(v);
+        chan = v;
+        QD->setFocus();
+    });
+
+
+    _chooseEditChannel->setCurrentIndex(chan);
+
+    playbackMB->addSeparator();
+
+    playbackMB->addWidget(_chooseEditChannel);
+    playbackMB->addSeparator();
+
+    QAction* panicAction = new QAction("Midi panic", this);
+    panicAction->setIcon(QIcon(":/run_environment/graphics/tool/panic.png"));
+    panicAction->setShortcut(QKeySequence(Qt::Key_Escape));
+    connect(panicAction, SIGNAL(triggered()), Q, SLOT(panic()));
+    playbackMB->addAction(panicAction);
+    playbackMB->addSeparator();
+
+    QComboBox *_chooseDevice = NULL;
+
+    _chooseDevice = new QComboBox(QD);
+
+    for (int i = 0; i < MAX_INPUT_DEVICES; i++) {
+        _chooseDevice->addItem("Device " + QString::number(i) + ((i & 1) ? " Down" : " Up"));
+    }
+
+    _chooseDevice->setFocusPolicy(Qt::NoFocus);
+    _chooseDevice->setFixedWidth(110);
+    _chooseDevice->setFixedHeight(24);
+    _chooseDevice->setStyleSheet(QString::fromUtf8("background-color: white;"));
+
+    connect(_chooseDevice, QOverload<int>::of(&QComboBox::currentIndexChanged),[=](int v)
+    {
+        device = DEVICE_ID + v;
+        MidiInput::connectVirtual(device);
+        QD->setFocus();
+    });
+
+
+    _chooseEditChannel->setCurrentIndex(0);
+    MidiInput::connectVirtual(device);
+
+    playbackMB->addWidget(_chooseDevice);
+
+    setFocus();
+
+    if(1) {
+        QPushButton *g = new QPushButton(QD);
+        g->setObjectName(QString::fromUtf8("g false button2"));
+        g->setGeometry(QRect(800, 7, 120, 50));
+        g->setLayoutDirection(Qt::LeftToRight);
+        g->setFlat(false);
+        QIcon ico(":/run_environment/graphics/custom/Midicustom2.png");
+
+        g->setIcon(ico);
+        g->setIconSize(QSize(120, 50));
+
+        groupBox = new QGroupBox(QD);
+        groupBox->setObjectName(QString::fromUtf8("groupBox"));
+        groupBox->setGeometry(QRect(800, 2 + 64, 120, /*91+32*/132));
+        groupBox->setFlat(false);
+        groupBox->setStyleSheet(QString::fromUtf8("color: white"));
+
+        QFont font;
+            font.setPointSize(12);
+
+        octaveBox = new QSpinBox(groupBox);
+        octaveBox->setObjectName(QString::fromUtf8("octaveBox"));
+        octaveBox->setGeometry(QRect(10, 20, 42, 22));
+        octaveBox->setFont(font);
+        octaveBox->setKeyboardTracking(false);
+        octaveBox->setStyleSheet(QString::fromUtf8("color: black"));
+        octaveBox->setMinimum(-1);
+        octaveBox->setMaximum(5);
+        octaveBox->setValue(octave_pos/12-1);
+
+        octavelabel = new QLabel(groupBox);
+        octavelabel->setObjectName(QString::fromUtf8("octavelabel"));
+        octavelabel->setGeometry(QRect(7, 0, 51, 16));
+        octavelabel->setAlignment(Qt::AlignCenter);
+        octavelabel->setText("Octave");
+
+        transBox = new QSpinBox(groupBox);
+        transBox->setObjectName(QString::fromUtf8("transBox"));
+        transBox->setGeometry(QRect(70, 20, 42, 22));
+        transBox->setMinimum(-12);
+        transBox->setMaximum(12);
+        transBox->setValue(trans_pos);
+        transBox->setStyleSheet(QString::fromUtf8("color: black"));
+        transBox->setFont(font);
+        transBox->setKeyboardTracking(false);
+
+        translabel = new QLabel(groupBox);
+        translabel->setObjectName(QString::fromUtf8("translabel"));
+        translabel->setGeometry(QRect(67, 0, 51, 16));
+        translabel->setAlignment(Qt::AlignCenter);
+        translabel->setText("Transpose");
+
+        volumeSlider = new QSlider(groupBox);
+        volumeSlider->setObjectName(QString::fromUtf8("volumeSlider"));
+        volumeSlider->setGeometry(QRect(15, 92, 91, 22));
+        volumeSlider->setMaximum(127);
+        volumeSlider->setValue(note_volume);
+        volumeSlider->setOrientation(Qt::Horizontal);
+        volumeSlider->setTickPosition(QSlider::TicksBelow);
+        volumeSlider->setTickInterval(10);
+        vollabel = new QLabel(groupBox);
+        vollabel->setObjectName(QString::fromUtf8("vollabel"));
+        vollabel->setGeometry(QRect(41, 80, 47, 13));
+        vollabel->setAlignment(Qt::AlignCenter);
+        vollabel->setText("Velocity");
+        groupBox->setTitle(QString());
+
+    }
+
+    for(int n = 0; n < 128; n++) {
+        piano_keys_time[n] = -1;
+        piano_keys_key[n] = 0;
+    }
+
+    int key_pos = (octave_pos < 36) ? 36 : octave_pos;
+    for(int n = 0; n < 18; n++) {
+        if(n < 12) piano_keys_key[key_pos + n] = piano_keys_map[n];
+         piano_keys_key[key_pos + n + 12] = piano_keys2_map[n];
+    }
+
+    /************************************************************/
+    // CC Dial
+
+    QLabel *slabel[15];
+    QDialE *sdial[15];
+    static int values[15] = {0, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64};
+    static char ndial[15] = {11, 20, 21, 22, 23, 24, 25, 26, 27, 30, 73, 72, 75, 91, 93};
+
+
+    int px = 8;
+
+    for(int n = 0; n < 15; n++) {
+
+        ndial[n] = settings->value("VirtualKB/CC Dial " + QString::number(n), (int) ndial[n]).toInt();
+
+        slabel[n] = new QLabel(QD);
+        slabel[n]->setObjectName(QString::fromUtf8("slabel"));
+        slabel[n]->setGeometry(QRect(px, 0, 51, 14));
+        slabel[n]->setAlignment(Qt::AlignCenter);
+        QFont font = slabel[n]->font();
+        font.setPointSize(12);
+        slabel[n]->setText(QString::asprintf("%2.2i: %3.3i", ndial[n], values[n]));
+
+        sdial[n] = new QDialE(QD);
+        sdial[n]->setObjectName(QString::fromUtf8("mindial"));
+        sdial[n]->setGeometry(QRect(px, 12, 51, 54));
+        sdial[n]->setMinimum(0);
+        sdial[n]->setMaximum(127);
+        sdial[n]->setNotchTarget(16.000000000000000);
+        sdial[n]->setNotchesVisible(true);
+        sdial[n]->setValue(values[n]);
+        sdial[n]->setToolTip("Rotary Control\n\nPress the RIGHT mouse button to edit\n\n" +
+                          QString::number((int) ndial[n]) + ": " + MidiFile::controlChangeName((int) ndial[n]));
+        sdial[n]->setToolTipDuration(2000);
+
+        if(n == 0)
+            sdial[n]->setStyleSheet("background-color: #00ff9f; ");
+
+        connect(sdial[n], &QDialE::mouseRightButton, this, [=]()
+        {
+
+            chooseCC _chooseCC(this, ndial[n]);
+            _chooseCC.exec();
+            ndial[n] = _chooseCC.value;
+            settings->setValue("VirtualKB/CC Dial " + QString::number(n), (int) ndial[n]);
+
+            slabel[n]->setText(QString::asprintf("%2.2i: %3.3i", ndial[n], values[n]));
+
+            sdial[n]->setToolTip("Rotary Control\n\nPress the RIGHT mouse button to edit\n\n" +
+                                 QString::number(_chooseCC.value) + ": " + MidiFile::controlChangeName(_chooseCC.value));
+
+        });
+
+        connect(sdial[n], &QDialE::valueChanged, this, [=](int val)
+        {
+            values[n] = val;
+            slabel[n]->setText(QString::asprintf("%2.2i: %3.3i", ndial[n], val));
+
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0xb0 + chan));
+            v.emplace_back((unsigned char) ndial[n]);
+            v.emplace_back((unsigned char) val);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+
+            if(n == 0) {
+                static QTimer *time_update = NULL;
+
+                if(!time_update) {
+                    time_update= new QTimer(this);
+                    time_update->setSingleShot(true);
+
+                    connect(time_update, &QTimer::timeout, this, [=]()
+                    {
+                        sdial[n]->setValue(0);
+
+                    });
+                }
+
+                time_update->stop();
+                time_update->start(20);
+
+            }
+
+        });
+
+        px+= 52;
+    }
+
+
+    connect(octaveBox, QOverload<int>::of(&QSpinBox::valueChanged), [=](int num)
+    {
+        octave_pos = num * 12 + 12;
+
+        for(int n = 0; n < 128; n++) {
+            piano_keys_time[n] = -1;
+            piano_keys_key[n] = 0;
+        }
+
+        int key_pos = (octave_pos < 36) ? 36 : octave_pos;
+        for(int n = 0; n < 18; n++) {
+            if(n < 12) piano_keys_key[key_pos + n] = piano_keys_map[n];
+            piano_keys_key[key_pos + n + 12] = piano_keys2_map[n];
+        }
+
+        MidiPlayer::panic();
+        QD->update();
+        QD->setFocus();
+    });
+
+    connect(transBox, QOverload<int>::of(&QSpinBox::valueChanged), [=](int num)
+    {
+        trans_pos = num;
+
+        for(int n = 0; n < 128; n++) {
+            piano_keys_time[n] = -1;
+        }
+
+        MidiPlayer::panic();
+        QD->update();
+        QD->setFocus();
+    });
+
+    connect(volumeSlider, QOverload<int>::of(&QSlider::valueChanged), [=](int vol)
+    {
+        note_volume = vol;
+
+    });
+
+    time_update = new QTimer();
+    time_update->callOnTimeout(this,  [=]()
+    {
+        static int count =0;
+
+        count++;
+        if(count > 1000/TIMER_TICK) {
+
+            count = 0;
+
+            QD->setFocus();
+
+        }
+
+        if(I_NEED_TO_UPDATE) {
+            I_NEED_TO_UPDATE = 0;
+            QD->update();
+        }
+
+    });
+
+    time_update->setSingleShot(false);
+    time_update->start(TIMER_TICK);
+
+}
+
+void MyVirtualKeyboard::reject() {
+
+    //time_update->stop();
+    //delete time_update;
+
+    if(playing_piano>=0) {
+
+        std::vector<unsigned char> v;
+        v.emplace_back((unsigned char) (0x80 | chan)); // note off
+        v.emplace_back((unsigned char) playing_piano);
+        v.emplace_back((unsigned char) 0);
+        MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+    }
+
+    for(int n = 0; n < 128; n++) {
+        if(piano_keys_time[n]>=0) {
+            piano_keys_time[n]=-1;
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x80 | chan)); // note off
+            v.emplace_back((unsigned char) n);
+            v.emplace_back((unsigned char) 0);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+
+        }
+    }
+    MidiPlayer::panic();
+
+    hide();
+}
+
+void MyVirtualKeyboard::paintEvent(QPaintEvent* /*event*/) {
+    QPainter* painter = new QPainter(this);
+    QFont font = painter->font();
+    font.setPixelSize(12);
+    painter->setFont(font);
+    painter->setClipping(false);
+
+    int key_pos = (octave_pos >= 48) ? 48 : octave_pos+12;
+
+    int yi= 32 + 64;
+
+    painter->fillRect(0, 0, width(), height(), QColor(0x20,0x27,0x20,0xff));
+    painter->fillRect(0, 0, 643- 24 +(156+16+4), 64, QColor(0xc0,0xc0,0xc0,0xff));
+
+
+    QBrush brush(Qt::darkGray, Qt::Dense4Pattern);
+
+    painter->setBrush(brush);
+    painter->setPen(Qt::darkGray);
+    painter->drawRoundedRect(4, 4 + 64, 156, 24, 8, 8);
+
+    //painter->drawRoundedRect(21*22+ 163-6-0, 4, (156+16+4), 24, 8, 8);
+
+    int n;
+
+    //painter->setPen(Qt::darkGray);
+    painter->setPen(Qt::black);
+    painter->setBrush(Qt::white);
+
+    painter->drawRect(4, yi+1, 22 * (7*5+1), 100);
+
+
+    // white
+    painter->setPen(Qt::black);
+    painter->setBrush(Qt::NoBrush);
+
+    for(n = 0; n < 61; n++) {
+        int m= n % 12;
+        int x= (n/12) * (22 * 7) + dx[m];
+        if(!(m==1 || m==3 || m==6 || m==8 || m==10)) {
+
+            painter->drawRect(x+4, yi, 21, 102);
+            if(piano_keys_time[key_pos + n - 12] >=0)
+                painter->fillRect(x+5, yi+2, 21-1, 100, QColor(0x80,0x10,0x10, 0xb0));
+        }
+    }
+
+    // black
+    painter->setPen(QPen(QColor(0x404040), 2, Qt::SolidLine));
+    painter->setBrush(Qt::black);
+
+    for(n = 0; n < 61; n++) {
+        int m= n % 12;
+        int x= (n/12) * (22 * 7) + dx[m];
+        if(m==1 || m==3 || m==6 || m==8 || m==10) {
+
+            painter->drawRect(x+4, yi+2, 14, 60);
+            if(piano_keys_time[key_pos + n - 12] >=0)
+                painter->fillRect(x+5, yi+2+1, 14-2, 60-2, QColor(0xf0, 0x30 ,0x30, 0x60));
+        }
+    }
+
+    key_pos = 48;
+    // display keys
+    char cad[2];
+    cad[1]=0;
+    for(n = 0; n < 61; n++) {
+        int m= n % 12;
+        int x= (n/12) * (22 * 7) + dx[m];
+
+        cad[0] = piano_keys_key[-12 + key_pos + n];
+        if(m==1 || m==3 || m==6 || m==8 || m==10) {
+            painter->setPen(Qt::white);
+            painter->drawText(x+7, yi+40, cad);
+        } else {
+            painter->setPen(Qt::black);
+            painter->drawText(x+11, yi+80, cad);
+        }
+
+    }
+
+    delete painter;
+}
+
+void MyVirtualKeyboard::keyPressEvent(QKeyEvent* event) {
+
+    if (!event->isAutoRepeat()) {
+
+        int eventkey= event->key();
+
+        if(eventkey >= Qt::Key_F1 && eventkey <= Qt::Key_F10) {
+            int key= (eventkey - Qt::Key_F1) + 36;
+
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x99));
+            v.emplace_back((unsigned char) key);
+            v.emplace_back((unsigned char) 127);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+            return;
+        }
+
+        int key= -1;
+
+        for(int n = 0; n < 18; n++) {
+            if(eventkey == piano_keys_map[n]) {key = n + octave_pos; break;}
+            if(eventkey == piano_keys2_map[n]) {key = n + octave_pos + 12 ; break;}
+        }
+
+        int key2 = key + (trans_pos);
+
+        if(key2 < 0 || key2 > 127) key2= 0;
+
+        if(key>=0 && piano_keys_time[key]<0) {
+
+            piano_keys_time[key] = 1;
+            // play note
+
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x90 | chan));
+            v.emplace_back((unsigned char) key2);
+            v.emplace_back((unsigned char) volumeSlider->value());
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+            I_NEED_TO_UPDATE = 1;
+        }
+
+    }
+
+}
+
+void MyVirtualKeyboard::keyReleaseEvent(QKeyEvent* event) {
+
+
+    // playing from keyboard
+    if (!event->isAutoRepeat()) {
+
+        int eventkey= event->key();
+
+        if(eventkey >= Qt::Key_F1 && eventkey <= Qt::Key_F10) {
+            int key= (eventkey - Qt::Key_F1) + 36;
+
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x89));
+            v.emplace_back((unsigned char) key);
+            v.emplace_back((unsigned char) 0);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+            return;
+        }
+
+
+        int key= -1;
+
+        for(int n = 0; n < 18; n++) {
+            if(eventkey == piano_keys_map[n]) {key = n + octave_pos; break;}
+            if(eventkey == piano_keys2_map[n]) {key = n + octave_pos + 12; break;}
+        }
+
+        int key2 = key + (trans_pos);
+        if(key2 < 0 || key2 > 127) key2= 0;
+
+        if(key>=0) {
+
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x80 | chan)); // note off
+            v.emplace_back((unsigned char) key2);
+            v.emplace_back((unsigned char) 0);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+
+            piano_keys_time[key]=-1;
+            I_NEED_TO_UPDATE = 1;
+
+        }
+
+    }
+}
+
+void MyVirtualKeyboard::mousePressEvent(QMouseEvent* event) {
+    int key= -1;
+
+    xx= event->x();
+    yy= event->y();
+
+    int key_pos = (octave_pos >= 48) ? 48 : octave_pos + 12;
+
+    // black
+    for(int n = 0; n < 61; n++) {
+        int m= n % 12;
+        int x= 4 + (n/12) * (22 * 7) + dx[m];
+        if((m==1 || m==3 || m==6 || m==8 || m==10)) {
+            if(xx > x && yy > (34 + 64)
+                   && xx < (x+14) &&  yy < (60+34 + 64))
+           {key = n + key_pos - 12; break;}
+
+        }
+    }
+    // white
+    if(key < 0)
+    for(int n = 0; n < 61; n++) {
+        int m= n % 12;
+        int x= 4 + (n/12) * (22 * 7) + dx[m];
+        if(!(m==1 || m==3 || m==6 || m==8 || m==10)) {
+                if(xx > x && yy > (34 + 64)
+                   && xx < (x+23) &&  yy < (100+34+64))
+           {key = n + key_pos - 12; break;}
+
+        }
+    }
+
+    int key2 = key + trans_pos;
+    if(key2 < 0 || key2 > 127) key2= 0;
+
+    if (key>=0) {
+        // play note from the mouse
+     if(playing_piano>=0) {
+            piano_keys_time[playing_piano] = -1;
+            int key2 = playing_piano + (trans_pos);
+            if(key2 < 0 || key2 > 127) key2= 0;
+
+            std::vector<unsigned char> v;
+            v.emplace_back((unsigned char) (0x80 | chan));
+            v.emplace_back((unsigned char) key2);
+            v.emplace_back((unsigned char) 0);
+            MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+            playing_piano = -1;
+        }
+
+        playing_piano = key;
+
+        std::vector<unsigned char> v;
+        v.emplace_back((unsigned char) (0x90 | chan));
+        v.emplace_back((unsigned char) key2);
+        v.emplace_back((unsigned char) volumeSlider->value());
+        MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+
+        piano_keys_time[key]= 1;
+        QD->update();
+
+    }
+
+}
+
+void MyVirtualKeyboard::mouseReleaseEvent(QMouseEvent* /*event*/) {
+
+    // playing from the mouse
+    if(playing_piano >= 0) {
+        int note = playing_piano;
+
+        int key2 = note + trans_pos;
+        if(key2 < 0 || key2 > 127) key2= 0;
+
+        std::vector<unsigned char> v;
+        v.emplace_back((unsigned char) (0x80 | chan));
+        v.emplace_back((unsigned char) key2);
+        v.emplace_back((unsigned char) 0);
+        MidiInput::receiveMessage_mutex(0, &v, (void*) &device);
+
+        piano_keys_time[note]= -1;
+        playing_piano = -1;
+        I_NEED_TO_UPDATE = 1;
+    }
+
+}
+
+void MyVirtualKeyboard::mouseDoubleClickEvent(QMouseEvent* event) {
+    mousePressEvent(event);
+}
 

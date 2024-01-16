@@ -31,6 +31,8 @@
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiPlayer.h"
+#include "../midi/MidiTrack.h"
+#include "../tool/NewNoteTool.h"
 #include "../protocol/Protocol.h"
 #include "Selection.h"
 
@@ -82,7 +84,7 @@ void StandardTool::draw(QPainter* painter)
 bool StandardTool::press(bool leftClick)
 {
 
-        if (leftClick) {
+    if (leftClick) {
 
         // find event to handle
         MidiEvent* event = 0;
@@ -90,7 +92,16 @@ bool StandardTool::press(bool leftClick)
         int minDiffToMouse = 0;
         int action = NO_ACTION;
 
+        int ch = NewNoteTool::editChannel();
+
+        // first at current channel
         foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
+            if(ev->channel() != ch)
+                continue;
+
+            if(!(!ev->file()->MultitrackMode ||
+                 (ev->file()->MultitrackMode && ev->track()->number() == NewNoteTool::editTrack())))
+                continue;
 #ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(ev);
 
@@ -110,8 +121,8 @@ bool StandardTool::press(bool leftClick)
             int clicked = 0;
 
             if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + ev->width() + 2,
-                    ev->y() + ev->height())) {
-
+                            ev->y() + ev->height())) {
+                ch = -1;
                 if (Selection::instance()->selectedEvents().contains(ev)) {
                     onSelectedEvent = true;
                 }
@@ -122,7 +133,7 @@ bool StandardTool::press(bool leftClick)
 
                 // right side means SizeChangeTool
                 if (on && pointInRect(mouseX, mouseY, ev->x() + ev->width() - sw, ev->y(),
-                             ev->x() + ev->width() + 2, ev->y() + ev->height())) {
+                                      ev->x() + ev->width() + 2, ev->y() + ev->height())) {
                     if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
                         diffToMousePos = ev->x() + ev->width() - mouseX;
                         currentAction = SIZE_CHANGE_ACTION;
@@ -132,7 +143,7 @@ bool StandardTool::press(bool leftClick)
                 }
                 // left side means SizeChangeTool
                 else if (on && pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + sw,
-                        ev->y() + ev->height())) {
+                                           ev->y() + ev->height())) {
                     if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
                         diffToMousePos = ev->x() - mouseX;
                         currentAction = SIZE_CHANGE_ACTION;
@@ -186,6 +197,113 @@ bool StandardTool::press(bool leftClick)
                 }
             }
         }
+
+        // others channels
+        if(ch >= 0)
+            foreach (MidiEvent* ev, *(matrixWidget->activeEvents())) {
+                if(ev->channel() == ch)
+                    continue;
+
+                if(Tool::selectCurrentChanOnly && ev->channel() != ch)
+                    continue;
+                if(!(!ev->file()->MultitrackMode ||
+                     (ev->file()->MultitrackMode && ev->track()->number() == NewNoteTool::editTrack())))
+                    continue;
+#ifndef VISIBLE_VST_SYSEX
+                SysExEvent* sys = dynamic_cast<SysExEvent*>(ev);
+
+                if(sys) {
+                    QByteArray c = sys->data();
+                    if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
+                }
+
+#endif
+                OnEvent* on = dynamic_cast<OnEvent*>(ev);
+                int sw = ev->width() / 2 - 2;
+                if(sw < 6)
+                    sw = 2;
+                else
+                    sw = 4;
+
+                int clicked = 0;
+
+                if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + ev->width() + 2,
+                                ev->y() + ev->height())) {
+
+                    if (Selection::instance()->selectedEvents().contains(ev)) {
+                        onSelectedEvent = true;
+                    }
+
+                    int diffToMousePos = 0;
+                    int currentAction = NO_ACTION;
+
+
+                    // right side means SizeChangeTool
+                    if (on && pointInRect(mouseX, mouseY, ev->x() + ev->width() - sw, ev->y(),
+                                          ev->x() + ev->width() + 2, ev->y() + ev->height())) {
+                        if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                            diffToMousePos = ev->x() + ev->width() - mouseX;
+                            currentAction = SIZE_CHANGE_ACTION;
+                        } else {
+                            currentAction = NO_ACTION; // select tool
+                        }
+                    }
+                    // left side means SizeChangeTool
+                    else if (on && pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + sw,
+                                               ev->y() + ev->height())) {
+                        if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                            diffToMousePos = ev->x() - mouseX;
+                            currentAction = SIZE_CHANGE_ACTION;
+                        } else {
+                            currentAction = NO_ACTION; // select tool
+                        }
+                    }
+
+                    // in the event means EventMoveTool, except when CTRL is pressed
+                    else{
+                        int diffRight = ev->x() + ev->width() - mouseX;
+                        int diffLeft = diffToMousePos = ev->x() - mouseX;
+                        if (diffLeft < 0) {
+                            diffLeft *= -1;
+                        }
+                        if (diffRight < 0) {
+                            diffRight *= -1;
+                        }
+                        if (diffLeft < diffRight) {
+                            diffToMousePos = diffLeft;
+                        } else {
+                            diffToMousePos = diffRight;
+                        }
+
+                        if(!this->clicked) {
+                            if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                                currentAction = SELECT_ACTION;
+                                clicked = 1;
+                            } else {
+                                currentAction = NO_ACTION; // select tool
+                            }
+                        } else {
+                            clicked = 0;
+                            if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                                currentAction = MOVE_ACTION;
+                            } else {
+                                currentAction = NO_ACTION; // select tool
+                            }
+                        }
+                    }
+
+                    if (diffToMousePos < 0) {
+                        diffToMousePos *= -1;
+                    }
+
+                    if (!event || (minDiffToMouse > diffToMousePos && currentAction != NO_ACTION)) {
+                        minDiffToMouse = diffToMousePos;
+                        event = ev;
+                        this->clicked = clicked;
+                        action = currentAction;
+                    }
+                }
+            }
 
         if (event) {
 
@@ -243,13 +361,13 @@ bool StandardTool::press(bool leftClick)
                     protocol(toCopy, this);
                     file()->protocol()->endAction();
                 }
-					if(QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)){
-						moveTool->setDirections(true, false);
-					} else if(QApplication::keyboardModifiers().testFlag(Qt::AltModifier)){
-						moveTool->setDirections(false, true);
-					} else {
-						moveTool->setDirections(true, true);
-					}
+                if(QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)){
+                    moveTool->setDirections(true, false);
+                } else if(QApplication::keyboardModifiers().testFlag(Qt::AltModifier)){
+                    moveTool->setDirections(false, true);
+                } else {
+                    moveTool->setDirections(true, true);
+                }
                 Tool::setCurrentTool(moveTool);
                 moveTool->move(mouseX, mouseY);
                 moveTool->press(leftClick);
@@ -257,24 +375,24 @@ bool StandardTool::press(bool leftClick)
             }
 
             case SELECT_ACTION: {
-            if (!onSelectedEvent) {
+                if (!onSelectedEvent) {
 
-                file()->protocol()->startNewAction("Selection changed", image());
+                    file()->protocol()->startNewAction("Selection changed", image());
 
-                ProtocolEntry* toCopy = copy();
-                EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
-                int selected = Selection::instance()->selectedEvents().size();
-                file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
-                midi_modified = false;
-                protocol(toCopy, this);
-                file()->protocol()->endAction();
+                    ProtocolEntry* toCopy = copy();
+                    EventTool::selectEvent(event, !Selection::instance()->selectedEvents().contains(event));
+                    int selected = Selection::instance()->selectedEvents().size();
+                    file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
+                    midi_modified = false;
+                    protocol(toCopy, this);
+                    file()->protocol()->endAction();
+                }
+
+                return false;
             }
 
-            return false;
-        }
 
-
-            //
+                //
             }
         }
     } else {
@@ -305,16 +423,16 @@ bool StandardTool::move(int mouseX, int mouseY)
             sw = 4;
 
         if (on && (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(), ev->x() + sw,
-                ev->y() + ev->height())
-            || pointInRect(mouseX, mouseY, ev->x() + ev->width() - sw, ev->y(),
-                   ev->x() + ev->width() + 2, ev->y() + ev->height()))) {
+                               ev->y() + ev->height())
+                   || pointInRect(mouseX, mouseY, ev->x() + ev->width() - sw, ev->y(),
+                                  ev->x() + ev->width() + 2, ev->y() + ev->height()))) {
             if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
                 matrixWidget->setCursor(Qt::SplitHCursor);
             return false;
         }
 
         if (pointInRect(mouseX, mouseY, ev->x() - 2, ev->y(),
-                   ev->x() + ev->width() + 2, ev->y() + ev->height())) {
+                        ev->x() + ev->width() + 2, ev->y() + ev->height())) {
             if(!clicked)
                 matrixWidget->setCursor(Qt::PointingHandCursor/*Qt::CrossCursor*/);
             return false;

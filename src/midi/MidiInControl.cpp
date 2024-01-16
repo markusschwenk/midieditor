@@ -20,231 +20,307 @@
  */
 
 #include "MidiInControl.h"
+
 #include <QMessageBox>
 #include <QThread>
+#include <QDir>
+#include <QFileInfo>
+#include <QFileDialog>
+
 #include "../midi/MidiInput.h"
 #include "../midi/MidiOutput.h"
+#include "../midi/PlayerThread.h"
 #include "../midi/MidiPlayer.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiChannel.h"
+#include "../midi/MidiTrack.h"
 #include "../MidiEvent/ProgChangeEvent.h"
 #include "../MidiEvent/ControlChangeEvent.h"
 #include "../gui/InstrumentChooser.h"
 #include "../gui/SoundEffectChooser.h"
 #include "../tool/FingerPatternDialog.h"
+#include "../tool/NewNoteTool.h"
 
 #ifdef USE_FLUIDSYNTH
 #include "../VST/VST.h"
 #endif
 
-extern int Bank_MIDI[17];
-extern int Prog_MIDI[17];
+#ifndef CUSTOM_MIDIEDITOR_GUI
+// Estwald Color Changes
+QBrush background1(QImage(":/run_environment/graphics/custom/background.png"));
+#endif
 
-static QSettings *_settings = NULL;
+static bool show_effects = false;
+
+QWidget *MidiInControl::_main = NULL;
+OSDDialog *MidiInControl::osd_dialog = NULL;
+QString MidiInControl::OSD;
+
+QString MidiInControl::ActionGP = "Default";
+QString MidiInControl::SequencerGP = "Default";
+
+QSettings *MidiInControl::_settings = NULL;
+int MidiInControl::_current_note;
+int MidiInControl::_current_ctrl;
+int MidiInControl::_current_chan = -1;
+int MidiInControl::_current_device = -1;
+
+int MidiInControl::sustainUPval = -1;
+int MidiInControl::expressionUPval = -1;
+int MidiInControl::sustainDOWNval = -1;
+int MidiInControl::expressionDOWNval = -1;
+
 static MidiInControl *MidiIn_ctrl = NULL;
+static QWidget* _parent = NULL;
+
+static int skip_keys = 0;
+
+QList<InputActionData> MidiInControl::action_effects[MAX_INPUT_DEVICES];
+InputActionListWidget * MidiInControl::InputListAction = NULL;
+InputSequencerListWidget * MidiInControl::InputListSequencer = NULL;
+
 static int first = 1;
-static int effect1_on = 0;
-static int effect2_on = 0;
-static int effect3_on = 0;
-static int effect4_on = 0;
-static int led_up = 0;
-static int led_down = 0;
 
-static bool _split_enable = false;
-static int _note_cut = 0;
-static bool _note_duo = false;
-static bool _note_zero;
-static int _inchannelUp;
-static int _inchannelDown;
-static int _channelUp;
-static int _channelDown;
-static bool _fixVelUp;
-static bool _fixVelDown;
-static bool _autoChordUp = false;
-static bool _autoChordDown = false;
-static bool _notes_only = false;
-static bool _events_to_down;
-static int _transpose_note_up = 0;
-static int _transpose_note_down = 0;
+static int led_up[MAX_INPUT_PAIR] = {0};
+static int led_down[MAX_INPUT_PAIR] = {0};
 
-static bool _key_effect = false;
+int MidiInControl::cur_pairdev = 0;
 
-static int _note_effect1;
-static int _note_effect1_value;
-static int _note_effect1_type;
-static bool _note_effect1_usevel;
-static bool _note_effect1_fkeypressed;
-static int _note_VST1_plugin1_off;
-static int _note_VST1_plugin1_on;
-static int _note_VST1_plugin2_off;
-static int _note_VST1_plugin2_on;
-static int _note_effect2;
-static int _note_effect2_value;
-static int _note_effect2_type;
-static bool _note_effect2_usevel;
-static bool _note_effect2_fkeypressed;
-static int _note_VST2_plugin1_off;
-static int _note_VST2_plugin1_on;
-static int _note_VST2_plugin2_off;
-static int _note_VST2_plugin2_on;
-static int _note_effect3;
-static int _note_effect3_value;
-static int _note_effect3_type;
-static bool _note_effect3_usevel;
-static bool _note_effect3_fkeypressed;
-static int _note_VST3_plugin1_off;
-static int _note_VST3_plugin1_on;
-static int _note_VST3_plugin2_off;
-static int _note_VST3_plugin2_on;
-static int _note_effect4;
-static int _note_effect4_value;
-static int _note_effect4_type;
-static bool _note_effect4_usevel;
-static bool _note_effect4_fkeypressed;
-static int _note_VST4_plugin1_off;
-static int _note_VST4_plugin1_on;
-static int _note_VST4_plugin2_off;
-static int _note_VST4_plugin2_on;
+static bool _split_enable[MAX_INPUT_PAIR] = {true};
+static int _note_cut[MAX_INPUT_PAIR] = {0};
+static bool _note_duo[MAX_INPUT_PAIR] = {false};
+static bool _note_zero[MAX_INPUT_PAIR];
+static int _inchannelUp[MAX_INPUT_PAIR];
+static int _inchannelDown[MAX_INPUT_PAIR];
+static int _channelUp[MAX_INPUT_PAIR];
+static int _channelDown[MAX_INPUT_PAIR];
+static bool _fixVelUp[MAX_INPUT_PAIR];
+static bool _fixVelDown[MAX_INPUT_PAIR];
+static bool _autoChordUp[MAX_INPUT_PAIR] = {false};
+static bool _autoChordDown[MAX_INPUT_PAIR] = {false};
+static bool _notes_only[MAX_INPUT_PAIR] = {false};
 
-static bool _skip_prgbanks;
-static bool _skip_bankonly;
+bool MidiInControl::invSustainUP[MAX_INPUT_PAIR] = {false};
+bool MidiInControl::invExpressionUP[MAX_INPUT_PAIR] = {false};
+bool MidiInControl::invSustainDOWN[MAX_INPUT_PAIR] = {false};
+bool MidiInControl::invExpressionDOWN[MAX_INPUT_PAIR] = {false};
+
+static int _transpose_note_up[MAX_INPUT_PAIR] = {0};
+static int _transpose_note_down[MAX_INPUT_PAIR] = {0};
+
+static bool _skip_prgbanks[MAX_INPUT_PAIR];
+static bool _skip_bankonly[MAX_INPUT_PAIR];
 static bool _record_waits;
 
-static int _current_note;
-
-static int chordTypeUp = 2;
-static int chordTypeDown = 2;
-static int chordScaleVelocity3Up = 14;
-static int chordScaleVelocity5Up = 15;
-static int chordScaleVelocity7Up = 16;
-static int chordScaleVelocity3Down = 14;
-static int chordScaleVelocity5Down = 15;
-static int chordScaleVelocity7Down = 16;
+static int chordTypeUp[MAX_INPUT_PAIR] = {2};
+static int chordTypeDown[MAX_INPUT_PAIR] = {2};
+static int chordScaleVelocity3Up[MAX_INPUT_PAIR] = {14};
+static int chordScaleVelocity5Up[MAX_INPUT_PAIR] = {15};
+static int chordScaleVelocity7Up[MAX_INPUT_PAIR] = {16};
+static int chordScaleVelocity3Down[MAX_INPUT_PAIR] = {14};
+static int chordScaleVelocity5Down[MAX_INPUT_PAIR] = {15};
+static int chordScaleVelocity7Down[MAX_INPUT_PAIR] = {16};
 
 int MidiInControl::key_live = 0;
 int MidiInControl::key_flag = 0;
 
-bool MidiInControl::VelocityUP_enable = true;
-bool MidiInControl::VelocityDOWN_enable = true;
-int MidiInControl::VelocityUP_scale = 0;
-int MidiInControl::VelocityDOWN_scale = 0;
-int MidiInControl::VelocityUP_cut = 100;
-int MidiInControl::VelocityDOWN_cut = 100;
+bool MidiInControl::VelocityUP_enable[MAX_INPUT_PAIR] = {true};
+bool MidiInControl::VelocityDOWN_enable[MAX_INPUT_PAIR] = {true};
+int MidiInControl::VelocityUP_scale[MAX_INPUT_PAIR] = {0};
+int MidiInControl::VelocityDOWN_scale[MAX_INPUT_PAIR] = {0};
+int MidiInControl::VelocityUP_cut[MAX_INPUT_PAIR] = {100};
+int MidiInControl::VelocityDOWN_cut[MAX_INPUT_PAIR] = {100};
 
-int MidiInControl::expression_mode = 4;
-int MidiInControl::aftertouch_mode = 1;
+/////////////////////////////////////////////////////////
 
 static MidiFile *file_live = NULL;
 
-static const char notes[12][3]= {"C ", "C#", "D ", "D#", "E ", "F ", "F#", "G", "G#", "A ", "A#", "B"};
+const char MidiInControl::notes[12][3]= {"C ", "C#", "D ", "D#", "E ", "F ", "F#", "G", "G#", "A ", "A#", "B"};
 
-void MidiInControl::init_MidiInControl(QSettings *settings) {
+void MidiInControl::update_win() {
+
+    MIDI_INPUT_SEL->clear();
+
+    for(int n = 0; n < MAX_INPUT_PAIR; n++) {
+        if(1) {
+            MIDI_INPUT_SEL->addItem("Devices " + QString::number(n * 2) + "/" + QString::number(n * 2 + 1), n);
+        }
+    }
+
+    for(int n = 0; n < MIDI_INPUT_SEL->count(); n++) {
+        if(MIDI_INPUT_SEL->itemData(n).toInt() == cur_pairdev) {
+            MIDI_INPUT_SEL->setCurrentIndex(n);
+            break;
+        }
+    }
+
+    labelIN->setText("MIDI Device " + QString::number(cur_pairdev * 2) + " (UP):");
+    labelIN2->setText("MIDI Device " + QString::number(cur_pairdev * 2 + 1) + " (DOWN):");
+
+    MIDI_INPUT->clear();
+    foreach (QString name, MidiInput::inputPorts(MidiInControl::cur_pairdev * 2)) {
+        if(name != MidiInput::inputPort(MidiInControl::cur_pairdev * 2)) continue;
+        MIDI_INPUT->addItem(name);
+        break;
+    }
+
+    MIDI_INPUT2->clear();
+    foreach (QString name, MidiInput::inputPorts(MidiInControl::cur_pairdev * 2 + 1)) {
+        if(name != MidiInput::inputPort(MidiInControl::cur_pairdev * 2 + 1)) continue;
+        MIDI_INPUT2->addItem(name);
+        break;
+    }
+
+
+    groupBoxVelocityUP->setChecked(VelocityUP_enable[cur_pairdev]);
+    dialScaleVelocityUP->setValue(VelocityUP_scale[cur_pairdev]);
+    labelViewScaleVelocityUP->setNum(((double) VelocityUP_scale[cur_pairdev])/10.0f);
+    dialVelocityUP->setValue(VelocityUP_cut[cur_pairdev]);
+    labelViewVelocityUP->setNum(VelocityUP_cut[cur_pairdev]);
+
+    groupBoxVelocityDOWN->setChecked(VelocityDOWN_enable[cur_pairdev]);
+    dialScaleVelocityDOWN->setValue(VelocityDOWN_scale[cur_pairdev]);
+    labelViewScaleVelocityDOWN->setNum(((double) VelocityDOWN_scale[cur_pairdev])/10.0f);
+    dialVelocityDOWN->setValue(VelocityDOWN_cut[cur_pairdev]);
+    labelViewVelocityDOWN->setNum(VelocityDOWN_cut[cur_pairdev]);
+
+    SplitBox->setChecked(_split_enable[cur_pairdev]);
+    NoteBoxCut->clear();
+    NoteBoxCut->addItem("Get It", -1);
+
+    if(_note_cut[cur_pairdev] >= 0) {
+        NoteBoxCut->addItem(QString::asprintf("%s %i", notes[_note_cut[cur_pairdev] % 12], _note_cut[cur_pairdev] / 12 - 1), _note_cut[cur_pairdev]);
+        NoteBoxCut->setCurrentIndex(1);
+    }
+
+    NoteBoxCut->addItem("DUO", -2);
+
+    if(_note_duo[cur_pairdev]) {
+        NoteBoxCut->setCurrentIndex(NoteBoxCut->count() - 1);
+    }
+
+    NoteBoxCut->addItem("C -1", 0);
+
+    if(_note_zero[cur_pairdev]) {
+        NoteBoxCut->setCurrentIndex(NoteBoxCut->count() - 1);
+    }
+
+    if(MidiInput::keyboard2_connected[cur_pairdev * 2 + 1])
+        NoteBoxCut->setDisabled(true);
+    else
+        NoteBoxCut->setDisabled(false);
+
+    channelBoxUp->setCurrentIndex(_channelUp[cur_pairdev] + 1);
+    channelBoxDown->setCurrentIndex(_channelDown[cur_pairdev] + 1);
+    tspinBoxUp->setValue(_transpose_note_up[cur_pairdev]);
+    tspinBoxDown->setValue(_transpose_note_down[cur_pairdev]);
+    vcheckBoxUp->setChecked(_fixVelUp[cur_pairdev]);
+    vcheckBoxDown->setChecked(_fixVelDown[cur_pairdev]);
+
+    echeckBox->setChecked(_notes_only[cur_pairdev]);
+    achordcheckBoxUp->setChecked(_autoChordUp[cur_pairdev]);
+    achordcheckBoxDown->setChecked(_autoChordDown[cur_pairdev]);
+
+    inchannelBoxUp->setCurrentIndex(_inchannelUp[cur_pairdev] + 1);
+    inchannelBoxDown->setCurrentIndex(_inchannelDown[cur_pairdev] + 1);
+
+    checkBoxPrgBank->setChecked(_skip_prgbanks[cur_pairdev]);
+    bankskipcheckBox->setChecked(_skip_bankonly[cur_pairdev]);
+
+    if(MidiInControl::InputListAction) {
+        MidiInControl::InputListAction->updateList();
+    }
+
+    if(MidiInControl::InputListSequencer) {
+        MidiInControl::InputListSequencer->updateList();
+    }
+
+    sustainUP->setVal(-1, MidiInControl::invSustainUP[cur_pairdev]);
+    expressionUP->setVal(-1, MidiInControl::invExpressionUP[cur_pairdev]);
+    sustainDOWN->setVal(-1, MidiInControl::invSustainDOWN[cur_pairdev]);
+    expressionDOWN->setVal(-1, MidiInControl::invExpressionDOWN[cur_pairdev]);
+
+    seqSel->setCurrentIndex(MidiInput::loadSeq_mode);
+
+    this->update();
+
+}
+
+void MidiInControl::init_MidiInControl(QWidget *main, QSettings *settings) {
 
     _settings = settings;
+    _main = main;
 
-    _split_enable = _settings->value("MIDIin_split_enable", false).toBool();
-    _note_cut = _settings->value("MIDIin_note_cut", -1).toInt();
-    _note_duo = _settings->value("MIDIin_note_duo", false).toBool();
-    _note_zero = _settings->value("MIDIin_note_zero", false).toBool();
-    _inchannelUp = _settings->value("MIDIin_inchannelUp", -1).toInt();
-    _inchannelDown = _settings->value("MIDIin_inchannelDown", -1).toInt();
-    _channelUp = _settings->value("MIDIin_channelUp", -1).toInt();
-    _channelDown = _settings->value("MIDIin_channelDown", -1).toInt();
-    _fixVelUp = _settings->value("MIDIin_fixVelUp", false).toBool();
-    _fixVelDown = _settings->value("MIDIin_fixVelDown", false).toBool();
-    _autoChordUp = _settings->value("MIDIin_autoChordUp", false).toBool();
-    _autoChordDown = _settings->value("MIDIin_autoChordDown", false).toBool();
-    _notes_only = _settings->value("MIDIin_notes_only", true).toBool();
-    _events_to_down = _settings->value("MIDIin_events_to_down", false).toBool();
-    _transpose_note_up = _settings->value("MIDIin_transpose_note_up", 0).toInt();
-    _transpose_note_down = _settings->value("MIDIin_transpose_note_down", 0).toInt();
+    if(!osd_dialog)
+        osd_dialog = new OSDDialog((QDialog *) _main, OSD);
 
-    _key_effect = _settings->value("MIDIin_key_effect", false).toBool();
-    _note_effect1 = _settings->value("MIDIin_note_effect1", -1).toInt();
-    _note_effect1_value = _settings->value("MIDIin_note_effect1_value", 0).toInt();
-    _note_effect1_type = _settings->value("MIDIin_note_effect1_type", false).toInt();
-    _note_effect1_usevel = _settings->value("MIDIin_note_effect1_usevel", true).toBool();
-    _note_effect1_fkeypressed = _settings->value("MIDIin_note_effect1_fkeypressed", false).toBool();
+    MidiInput::loadSeq_mode = _settings->value("MIDIin/LoadSeq_mode", 2).toInt();
 
-    _note_VST1_plugin1_off = _settings->value("MIDIin_note_VST1_plugin1_off", -1).toInt();
-    _note_VST1_plugin1_on = _settings->value("MIDIin_note_VST1_plugin1_on", 0).toInt();
-    _note_VST1_plugin2_off = _settings->value("MIDIin_note_VST1_plugin2_off", -1).toInt();
-    _note_VST1_plugin2_on = _settings->value("MIDIin_note_VST1_plugin2_on", 0).toInt();
+    ActionGP = _settings->value("MIDIin/ActionGroup", "Default").toString();
 
-    _note_effect2 = _settings->value("MIDIin_note_effect2", -1).toInt();
-    _note_effect2_value = _settings->value("MIDIin_note_effect2_value", 0).toInt();
-    _note_effect2_type = _settings->value("MIDIin_note_effect2_type", false).toInt();
-    _note_effect2_usevel = _settings->value("MIDIin_note_effect2_usevel", true).toBool();
-    _note_effect2_fkeypressed = _settings->value("MIDIin_note_effect2_fkeypressed", false).toBool();
-    _note_effect3 = _settings->value("MIDIin_note_effect3", -1).toInt();
+    MidiInControl::loadActionSettings();
 
-    _note_VST2_plugin1_off = _settings->value("MIDIin_note_VST2_plugin1_off", -1).toInt();
-    _note_VST2_plugin1_on = _settings->value("MIDIin_note_VST2_plugin1_on", 0).toInt();
-    _note_VST2_plugin2_off = _settings->value("MIDIin_note_VST2_plugin2_off", -1).toInt();
-    _note_VST2_plugin2_on = _settings->value("MIDIin_note_VST2_plugin2_on", 0).toInt();
+    for(int pairdev = 0; pairdev < MAX_INPUT_PAIR; pairdev++) {
+        led_up[pairdev] = 0;
+        led_down[pairdev] = 0;
+        _split_enable[pairdev] = _settings->value("MIDIin/MIDIin_split_enable" + (pairdev ? QString::number(pairdev) : QString()), true).toBool();
+        _note_cut[pairdev] = _settings->value("MIDIin/MIDIin_note_cut" + (pairdev ? QString::number(pairdev) : QString()), -1).toInt();
+        _note_duo[pairdev] = _settings->value("MIDIin/MIDIin_note_duo" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        _note_zero[pairdev] = _settings->value("MIDIin/MIDIin_note_zero" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        _inchannelUp[pairdev] = _settings->value("MIDIin/MIDIin_inchannelUp" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
+        _inchannelDown[pairdev] = _settings->value("MIDIin/MIDIin_inchannelDown" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
+        _channelUp[pairdev] = _settings->value("MIDIin/MIDIin_channelUp" + (pairdev ? QString::number(pairdev) : QString()), !pairdev ? -1 : pairdev * 2).toInt();
+        _channelDown[pairdev] = _settings->value("MIDIin/MIDIin_channelDown" + (pairdev ? QString::number(pairdev) : QString()), !pairdev ? -1 : pairdev * 2 + 1).toInt();
+        _fixVelUp[pairdev] = _settings->value("MIDIin/MIDIin_fixVelUp" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        _fixVelDown[pairdev] = _settings->value("MIDIin/MIDIin_fixVelDown" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        _autoChordUp[pairdev] = _settings->value("MIDIin/MIDIin_autoChordUp" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        _autoChordDown[pairdev] = _settings->value("MIDIin/MIDIin_autoChordDown" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        _notes_only[pairdev] = _settings->value("MIDIin/MIDIin_notes_only" + (pairdev ? QString::number(pairdev) : QString()), true).toBool();
+        //_events_to_down = _settings->value("MIDIin/MIDIin_events_to_down", false).toBool();
+        _transpose_note_up[pairdev] = _settings->value("MIDIin/MIDIin_transpose_note_up" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
+        _transpose_note_down[pairdev] = _settings->value("MIDIin/MIDIin_transpose_note_down" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
 
-    _note_effect3_value = _settings->value("MIDIin_note_effect3_value", 0).toInt();
-    _note_effect3_type = _settings->value("MIDIin_note_effect3_type", false).toInt();
-    _note_effect3_usevel = _settings->value("MIDIin_note_effect3_usevel", true).toBool();
-    _note_effect3_fkeypressed = _settings->value("MIDIin_note_effect3_fkeypressed", false).toBool();
+        _skip_prgbanks[pairdev] = _settings->value("MIDIin/MIDIin_skip_prgbanks" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        _skip_bankonly[pairdev] = _settings->value("MIDIin/MIDIin_skip_bankonly" + (pairdev ? QString::number(pairdev) : QString()), true).toBool();
 
-    _note_VST3_plugin1_off = _settings->value("MIDIin_note_VST3_plugin1_off", -1).toInt();
-    _note_VST3_plugin1_on = _settings->value("MIDIin_note_VST3_plugin1_on", 0).toInt();
-    _note_VST3_plugin2_off = _settings->value("MIDIin_note_VST3_plugin2_off", -1).toInt();
-    _note_VST3_plugin2_on = _settings->value("MIDIin_note_VST3_plugin2_on", 0).toInt();
+        chordTypeUp[pairdev] = _settings->value("MIDIin/chordTypeUp" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
+        chordScaleVelocity3Up[pairdev] = _settings->value("MIDIin/chordScaleVelocity3Up" + (pairdev ? QString::number(pairdev) : QString()), 14).toInt();
+        chordScaleVelocity5Up[pairdev] = _settings->value("MIDIin/chordScaleVelocity5Up" + (pairdev ? QString::number(pairdev) : QString()), 15).toInt();
+        chordScaleVelocity7Up[pairdev] = _settings->value("MIDIin/chordScaleVelocity7Up" + (pairdev ? QString::number(pairdev) : QString()), 16).toInt();
+        chordTypeDown[pairdev] = _settings->value("MIDIin/chordTypeDown" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
+        chordScaleVelocity3Down[pairdev] = _settings->value("MIDIin/chordScaleVelocity3Down" + (pairdev ? QString::number(pairdev) : QString()), 14).toInt();
+        chordScaleVelocity5Down[pairdev] = _settings->value("MIDIin/chordScaleVelocity5Down" + (pairdev ? QString::number(pairdev) : QString()), 15).toInt();
+        chordScaleVelocity7Down[pairdev] = _settings->value("MIDIin/chordScaleVelocity7Down" + (pairdev ? QString::number(pairdev) : QString()), 16).toInt();
 
-    _note_effect4 = _settings->value("MIDIin_note_effect4", -1).toInt();
-    _note_effect4_value = _settings->value("MIDIin_note_effect4_value", 0).toInt();
-    _note_effect4_type = _settings->value("MIDIin_note_effect4_type", false).toInt();
-    _note_effect4_usevel = _settings->value("MIDIin_note_effect4_usevel", true).toBool();
-    _note_effect4_fkeypressed = _settings->value("MIDIin_note_effect4_fkeypressed", false).toBool();
+        MidiInControl::VelocityUP_enable[pairdev] = _settings->value("MIDIin/MIDIin_VelocityUP_enable" + (pairdev ? QString::number(pairdev) : QString()), true).toBool();
+        MidiInControl::VelocityUP_scale[pairdev] = _settings->value("MIDIin/MIDIin_VelocityUP_scale" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
+        MidiInControl::VelocityUP_cut[pairdev] = _settings->value("MIDIin/MIDIin_VelocityUP_cut" + (pairdev ? QString::number(pairdev) : QString()), 100).toInt();
+        MidiInControl::VelocityDOWN_enable[pairdev] = _settings->value("MIDIin/MIDIin_VelocityDOWN_enable" + (pairdev ? QString::number(pairdev) : QString()), true).toBool();
+        MidiInControl::VelocityDOWN_scale[pairdev] = _settings->value("MIDIin/MIDIin_VelocityDOWN_scale" + (pairdev ? QString::number(pairdev) : QString()), 0).toInt();
+        MidiInControl::VelocityDOWN_cut[pairdev] = _settings->value("MIDIin/MIDIin_VelocityDOWN_cut" + (pairdev ? QString::number(pairdev) : QString()), 100).toInt();
 
-    _note_VST4_plugin1_off = _settings->value("MIDIin_note_VST4_plugin1_off", -1).toInt();
-    _note_VST4_plugin1_on = _settings->value("MIDIin_note_VST4_plugin1_on", 0).toInt();
-    _note_VST4_plugin2_off = _settings->value("MIDIin_note_VST4_plugin2_off", -1).toInt();
-    _note_VST4_plugin2_on = _settings->value("MIDIin_note_VST4_plugin2_on", 0).toInt();
+        MidiInControl::invSustainUP[pairdev] = _settings->value("MIDIin/MIDIin_invSustainUP" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        MidiInControl::invExpressionUP[pairdev] = _settings->value("MIDIin/MIDIin_invExpressionUP" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        MidiInControl::invSustainDOWN[pairdev] = _settings->value("MIDIin/MIDIin_invSustainDOWN" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
+        MidiInControl::invExpressionDOWN[pairdev] = _settings->value("MIDIin/MIDIin_invExpressionDOWN" + (pairdev ? QString::number(pairdev) : QString()), false).toBool();
 
-    _skip_prgbanks = _settings->value("MIDIin_skip_prgbanks", true).toBool();
-    _skip_bankonly = _settings->value("MIDIin_skip_bankonly", true).toBool();
-    _record_waits = _settings->value("MIDIin_record_waits", true).toBool();
 
-    chordTypeUp = _settings->value("chordTypeUp", 0).toInt();
-    chordScaleVelocity3Up = _settings->value("chordScaleVelocity3Up", 14).toInt();
-    chordScaleVelocity5Up = _settings->value("chordScaleVelocity5Up", 15).toInt();
-    chordScaleVelocity7Up = _settings->value("chordScaleVelocity7Up", 16).toInt();
-    chordTypeDown = _settings->value("chordTypeDown", 0).toInt();
-    chordScaleVelocity3Down = _settings->value("chordScaleVelocity3Down", 14).toInt();
-    chordScaleVelocity5Down = _settings->value("chordScaleVelocity5Down", 15).toInt();
-    chordScaleVelocity7Down = _settings->value("chordScaleVelocity7Down", 16).toInt();
+        if(_note_duo[pairdev]) _note_zero[pairdev] = false;
 
-    MidiInControl::VelocityUP_enable = _settings->value("MIDIin_VelocityUP_enable", true).toBool();
-    MidiInControl::VelocityUP_scale = _settings->value("MIDIin_VelocityUP_scale", 0).toInt();
-    MidiInControl::VelocityUP_cut = _settings->value("MIDIin_VelocityUP_cut", 100).toInt();
-    MidiInControl::VelocityDOWN_enable = _settings->value("MIDIin_VelocityDOWN_enable", true).toBool();
-    MidiInControl::VelocityDOWN_scale = _settings->value("MIDIin_VelocityDOWN_scale", 0).toInt();
-    MidiInControl::VelocityDOWN_cut = _settings->value("MIDIin_VelocityDOWN_cut", 100).toInt();
+        if(MidiInput::loadSeq_mode == 3) {
 
-    MidiInControl::expression_mode = _settings->value("MIDIin_expression_mode", 4).toInt();
-    MidiInControl::aftertouch_mode = _settings->value("MIDIin_aftertouch_mode", 1).toInt();
+            MidiInControl::sequencer_load(pairdev);
+        }
+    }
 
-    if(_note_duo) _note_zero = false;
+    _record_waits = _settings->value("MIDIin/MIDIin_record_waits", true).toBool();
 
-    effect1_on = 0;
-    effect2_on = 0;
-    effect3_on = 0;
-    effect4_on = 0;
+    connect(MidiInControl::_main, SIGNAL(remPlayStop()), MidiInControl::_main, SLOT(playStop()), Qt::QueuedConnection);
+    connect(MidiInControl::_main, SIGNAL(remRecordStop(int)), MidiInControl::_main, SLOT(recordStop(int)), Qt::QueuedConnection);
+    connect(MidiInControl::_main, SIGNAL(remStop()), MidiInControl::_main, SLOT(stop()), Qt::QueuedConnection);
+    connect(MidiInControl::_main, SIGNAL(remForward()), MidiInControl::_main, SLOT(forward()), Qt::QueuedConnection);
+    connect(MidiInControl::_main, SIGNAL(remBack()), MidiInControl::_main, SLOT(back()), Qt::QueuedConnection);
 
-    led_up = 0;
-    led_down = 0;
-
-    if(_note_effect1_type == 6 && _note_effect1_fkeypressed && _autoChordUp) effect1_on = true;
-    if(_note_effect1_type == 7 && _note_effect1_fkeypressed && _autoChordDown) effect1_on  = true;
-    if(_note_effect2_type == 6 && _note_effect2_fkeypressed && _autoChordUp) effect2_on = true;
-    if(_note_effect2_type == 7 && _note_effect2_fkeypressed && _autoChordDown) effect2_on  = true;
-    if(_note_effect3_type == 6 && _note_effect3_fkeypressed && _autoChordUp) effect3_on = true;
-    if(_note_effect3_type == 7 && _note_effect3_fkeypressed && _autoChordDown) effect3_on  = true;
-    if(_note_effect4_type == 6 && _note_effect4_fkeypressed && _autoChordUp) effect4_on = true;
-    if(_note_effect4_type == 7 && _note_effect4_fkeypressed && _autoChordDown) effect4_on  = true;
 }
 
 void MidiInControl::paintEvent(QPaintEvent *) {
@@ -261,230 +337,18 @@ void MidiInControl::paintEvent(QPaintEvent *) {
 
 void MidiInControl::VST_reset() {
 
-    #ifdef USE_FLUIDSYNTH
-
-    if(_note_effect1_type == 8 || _note_effect1_type == 9) {
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        effect1_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect1_type == 9));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect1_type == 9)
-            s.append((char) (((!effect1_on) ? _note_VST1_plugin2_off : _note_VST1_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect1_on) ? _note_VST1_plugin1_off : _note_VST1_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-
-    } else if(_note_effect1_type == 10 || _note_effect1_type == 11) {
-        int channel = ((MidiInControl::channelDown() < 0)
-                       ? ((MidiInControl::channelUp() < 0)
-                          ? MidiOutput::standardChannel()
-                          : (MidiInControl::channelUp() & 15))
-                       : (MidiInControl::channelDown() & 15));
-
-
-        effect1_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect1_type == 11));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect1_type == 11)
-            s.append((char) (((!effect1_on) ? _note_VST1_plugin2_off : _note_VST1_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect1_on) ? _note_VST1_plugin1_off : _note_VST1_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-    }
-
-    if(_note_effect2_type == 8 || _note_effect2_type == 9) {
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        effect2_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect2_type == 9));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect2_type == 9)
-            s.append((char) (((!effect2_on) ? _note_VST2_plugin2_off : _note_VST2_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect2_on) ? _note_VST2_plugin1_off : _note_VST2_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-
-    } else if(_note_effect2_type == 10 || _note_effect2_type == 11) {
-        int channel = ((MidiInControl::channelDown() < 0)
-                       ? ((MidiInControl::channelUp() < 0)
-                          ? MidiOutput::standardChannel()
-                          : (MidiInControl::channelUp() & 15))
-                       : (MidiInControl::channelDown() & 15));
-
-        effect2_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect2_type == 11));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect2_type == 11)
-            s.append((char) (((!effect2_on) ? _note_VST2_plugin2_off : _note_VST2_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect2_on) ? _note_VST2_plugin1_off : _note_VST2_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-    }
-
-    if(_note_effect3_type == 8 || _note_effect3_type == 9) {
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        effect3_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect3_type == 9));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect3_type == 9)
-            s.append((char) (((!effect3_on) ? _note_VST3_plugin2_off : _note_VST3_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect3_on) ? _note_VST3_plugin1_off : _note_VST3_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-
-    } else if(_note_effect3_type == 10 || _note_effect3_type == 11) {
-        int channel = ((MidiInControl::channelDown() < 0)
-                       ? ((MidiInControl::channelUp() < 0)
-                          ? MidiOutput::standardChannel()
-                          : (MidiInControl::channelUp() & 15))
-                       : (MidiInControl::channelDown() & 15));
-
-        effect3_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect3_type == 11));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect3_type == 11)
-            s.append((char) (((!effect3_on) ? _note_VST3_plugin2_off : _note_VST3_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect3_on) ? _note_VST3_plugin1_off : _note_VST3_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-    }
-
-    if(_note_effect4_type == 8 || _note_effect4_type == 9) {
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        effect4_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect4_type == 9));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect4_type == 9)
-            s.append((char) (((!effect4_on) ? _note_VST4_plugin2_off : _note_VST4_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect4_on) ? _note_VST4_plugin1_off : _note_VST4_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-
-    } else if(_note_effect4_type == 10 || _note_effect4_type == 11) {
-        int channel = ((MidiInControl::channelDown() < 0)
-                       ? ((MidiInControl::channelUp() < 0)
-                          ? MidiOutput::standardChannel()
-                          : (MidiInControl::channelUp() & 15))
-                       : (MidiInControl::channelDown() & 15));
-
-        effect4_on = false;
-
-        QByteArray s;
-        s.append((char) 0xf0);
-        s.append((char) 0x6);
-        s.append((char) channel + 16 * (_note_effect4_type == 11));
-        s.append((char) 0x66);
-        s.append((char) 0x66);
-        s.append((char) 'W');
-
-        if(_note_effect4_type == 11)
-            s.append((char) (((!effect4_on) ? _note_VST4_plugin2_off : _note_VST4_plugin2_on)) & 0x7f);
-        else
-            s.append((char) (((!effect4_on) ? _note_VST4_plugin1_off : _note_VST4_plugin1_on)) & 0x7f);
-        s.append((char) 0xf7);
-
-        VST_proc::VST_LoadParameterStream(s);
-    }
-
-    #endif
+    // unused
 }
 
-static QWidget* _parent = NULL;
 
 MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemMenuHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint) {
 
     MIDIin = this;
     _parent = parent;
 
-    effect1_on = 0;
-    effect2_on = 0;
-    effect3_on = 0;
-    effect4_on = 0;
-    led_up = 0;
-    led_down = 0;
-
-    if(_note_effect1_type == 6 && _note_effect1_fkeypressed && _autoChordUp) effect1_on = true;
-    if(_note_effect1_type == 7 && _note_effect1_fkeypressed && _autoChordDown) effect1_on  = true;
-    if(_note_effect2_type == 6 && _note_effect2_fkeypressed && _autoChordUp) effect2_on = true;
-    if(_note_effect2_type == 7 && _note_effect2_fkeypressed && _autoChordDown) effect2_on  = true;
-    if(_note_effect3_type == 6 && _note_effect3_fkeypressed && _autoChordUp) effect3_on = true;
-    if(_note_effect3_type == 7 && _note_effect3_fkeypressed && _autoChordDown) effect3_on  = true;
-    if(_note_effect4_type == 6 && _note_effect4_fkeypressed && _autoChordUp) effect4_on = true;
-    if(_note_effect4_type == 7 && _note_effect4_fkeypressed && _autoChordDown) effect4_on  = true;
+    led_up[cur_pairdev] = 0;
+    led_down[cur_pairdev] = 0;
+    tabMIDIin1 = NULL;
 
     _thru = MidiInput::thru();
     MidiInput::setThruEnabled(true);
@@ -498,8 +362,33 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     if (MIDIin->objectName().isEmpty())
         MIDIin->setObjectName(QString::fromUtf8("MIDIin"));
 
-    MIDIin->setFixedSize(592, 540 + 40 + 106);
+    MIDIin->setFixedSize(970 - 180, 540 + 40 + 106);
+
     MIDIin->setWindowTitle("MIDI In Control");
+
+    CustomQTabWidget *tabWidget = new CustomQTabWidget(MIDIin);
+    tabWidget->setObjectName(QString::fromUtf8("Midi_tabWidget"));
+    tabWidget->setGeometry(QRect(-2, 0, /*592*/1040, 540 + 40 + 106));
+
+    tabWidget->setFocusPolicy(Qt::NoFocus);
+    tabWidget->setAutoFillBackground(true);
+    tabWidget->setStyleSheet(QString::fromUtf8(
+    "QTabBar::tab:top:selected { background: #c0faca; color: black;}\n"
+     ));
+
+    tabMIDIin1 = new QWidget();
+    tabMIDIin1->setObjectName(QString::fromUtf8("tabMIDIin1"));
+    tabWidget->addTab(tabMIDIin1, "UP/DOWN (Devices 0-1)");
+
+    QWidget *tabMIDIin2 = new QWidget();
+    tabMIDIin2->setObjectName(QString::fromUtf8("tabMIDIin2"));
+    tab_Actions(tabMIDIin2);
+    tabWidget->addTab(tabMIDIin2, "Input Actions");
+
+    QWidget *tabMIDIin3 = new QWidget();
+    tabMIDIin3->setObjectName(QString::fromUtf8("tabMIDIin3"));
+    tab_Sequencer(tabMIDIin3);
+    tabWidget->addTab(tabMIDIin3, "Sequencer");
 
     QFont font;
     QFont font1;
@@ -507,102 +396,219 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     font.setPointSize(16);
     font2.setPointSize(12);
 
-    QLabel *labelIN = new QLabel(MIDIin);
-    labelIN->setObjectName(QString::fromUtf8("labelIN"));
-    labelIN->setGeometry(QRect(30, 4, 531, 16));
-    labelIN->setStyleSheet(QString::fromUtf8("color: white;\n"));
-    labelIN->setAlignment(Qt::AlignCenter);
-    labelIN->setText("MIDI Input");
+    int py = 4 + 4;
 
-    MIDI_INPUT = new QComboBox(MIDIin);
+    QGroupBox * gz = new QGroupBox(tabMIDIin1);
+    gz->setObjectName(QString::fromUtf8("gz_group"));
+    gz->setGeometry(QRect(30 - 2, py - 4, 120 + 531 - 80 + 6, 40));
+    gz->setStyleSheet(QString::fromUtf8("background: #800040bf; \n"));
+
+    QLabel *labelINsel = new QLabel(tabMIDIin1);
+    labelINsel->setObjectName(QString::fromUtf8("labelINsel"));
+    labelINsel->setGeometry(QRect(30 + 6, py + 2, 120, 16));
+    labelINsel->setStyleSheet(QString::fromUtf8("color: white;\n"));
+    //labelIN->setAlignment(Qt::AlignCenter);
+    labelINsel->setText("MIDI Device Select:");
+
+    MIDI_INPUT_SEL = new QComboBox(tabMIDIin1);
+    MIDI_INPUT_SEL->setObjectName(QString::fromUtf8("MIDI_INPUT_SEL"));
+    MIDI_INPUT_SEL->setGeometry(QRect(30 + 120, py, 531 - 80, /*31*/ 31));
+    TOOLTIP(MIDI_INPUT_SEL, "Select MIDI Input Pair Device");
+    MIDI_INPUT_SEL->setFont(font2);
+    MIDI_INPUT_SEL->setStyleSheet(QString::fromUtf8("color: black;\n"));
+
+    MIDI_INPUT_SEL->clear();
+
+    bool is_con[MAX_INPUT_DEVICES/2];
+
+    for(int n = 0; n < MAX_INPUT_DEVICES/2; n++)
+        is_con[n] = false;
+
+    for(int n = 0; n < MAX_INPUT_DEVICES; n++) {
+        if(MidiInput::isConnected(n)) {
+            is_con[n/2] = true;
+        }
+    }
+
+    for(int n = 0; n < MAX_INPUT_PAIR; n++) {
+        if(is_con[n] || 1) {
+            MIDI_INPUT_SEL->addItem("Devices " + QString::number(n * 2) + "/" + QString::number(n * 2 + 1), n);
+        }
+    }
+
+    bool found = false;
+
+    for(int n = 0; n < MIDI_INPUT_SEL->count(); n++) {
+        if(MIDI_INPUT_SEL->itemData(n).toInt() == cur_pairdev) {
+            MIDI_INPUT_SEL->setCurrentIndex(n);
+            found = true;
+            break;
+        }
+    }
+
+    connect(MIDI_INPUT_SEL, QOverload<int>::of(&QComboBox::activated), [=](int v)
+    {
+        if(v >= 0)
+            cur_pairdev = MIDI_INPUT_SEL->itemData(v).toInt();
+
+        labelIN->setText("MIDI Device " + QString::number(cur_pairdev * 2) + " (UP):");
+        labelIN2->setText("MIDI Device " + QString::number(cur_pairdev * 2 + 1) + " (DOWN):");
+
+        tabWidget->setTabText(0, "UP/DOWN (Devices " + QString::number(cur_pairdev * 2) + "-"
+                                     + QString::number(cur_pairdev * 2 + 1) + ")");
+        tabWidget->setTabText(1, "Input Actions (Devices " + QString::number(cur_pairdev * 2) + "-"
+                                     + QString::number(cur_pairdev * 2 + 1) + ")");
+        tabWidget->setTabText(2, "Sequencer (Devices " + QString::number(cur_pairdev * 2) + "-"
+                                     + QString::number(cur_pairdev * 2 + 1) + ")");
+
+        update_win();
+        update();
+
+               //MidiInput::setInputPort(MIDI_INPUT->itemText(v), 0);
+
+    });
+
+    if(!found && MIDI_INPUT_SEL->count()) {
+        //MIDI_INPUT_SEL->setCurrentIndex(-1);
+        MIDI_INPUT_SEL->setCurrentIndex(0);
+        cur_pairdev = MIDI_INPUT_SEL->itemData(0).toInt();
+        update();
+
+    }
+
+    tabWidget->setTabText(0, "UP/DOWN (Devices " + QString::number(cur_pairdev * 2) + "-"
+                                 + QString::number(cur_pairdev * 2 + 1) + ")");
+    tabWidget->setTabText(1, "Input Actions (Devices " + QString::number(cur_pairdev * 2) + "-"
+                                 + QString::number(cur_pairdev * 2 + 1) + ")");
+    tabWidget->setTabText(2, "Sequencer (Devices " + QString::number(cur_pairdev * 2) + "-"
+                                 + QString::number(cur_pairdev * 2 + 1) + ")");
+
+    py+= 40;
+
+    labelIN = new QLabel(tabMIDIin1);
+    labelIN->setObjectName(QString::fromUtf8("labelIN"));
+    labelIN->setGeometry(QRect(30, py + 2, 120, 16));
+    labelIN->setStyleSheet(QString::fromUtf8("color: white;\n"));
+    labelIN->setText("MIDI Device " + QString::number(cur_pairdev * 2) + " (UP):");
+
+    MIDI_INPUT = new QComboBox(tabMIDIin1);
     MIDI_INPUT->setObjectName(QString::fromUtf8("MIDI_INPUT"));
-    MIDI_INPUT->setGeometry(QRect(30, 20, 531, 31));
-    MIDI_INPUT->setToolTip("Select MIDI Input");
+    MIDI_INPUT->setGeometry(QRect(30 + 120, py, 531 - 80, /*31*/ 21));
+    TOOLTIP(MIDI_INPUT, "Selected MIDI Input for UP (reconnect)");
     MIDI_INPUT->setFont(font2);
+    MIDI_INPUT->setStyleSheet(QString::fromUtf8("color: black;\n"));
+
+    MIDI_INPUT->clear();
+    foreach (QString name, MidiInput::inputPorts(MidiInControl::cur_pairdev * 2)) {
+        if(name != MidiInput::inputPort(MidiInControl::cur_pairdev * 2)) continue;
+        MIDI_INPUT->addItem(name);
+        break;
+    }
 
     connect(MIDI_INPUT, QOverload<int>::of(&QComboBox::activated), [=](int v)
     {
 
-        MidiInput::setInputPort(MIDI_INPUT->itemText(v));
+        MidiInput::setInputPort(MIDI_INPUT->itemText(v), cur_pairdev * 2);
 
     });
 
-    QFrame *MIDIin2 = new QFrame(MIDIin); // for heritage style sheet
-    MIDIin2->setGeometry(QRect(0, 40, width(), height()));
+    py+= 30;
+
+    labelIN2 = new QLabel(tabMIDIin1);
+    labelIN2->setObjectName(QString::fromUtf8("labelIN2"));
+    labelIN2->setGeometry(QRect(30, py + 2, 120, 16));
+    labelIN2->setStyleSheet(QString::fromUtf8("color: white;\n"));
+    labelIN2->setText("MIDI Device " + QString::number(cur_pairdev * 2 + 1) + " (DOWN):");
+
+    MIDI_INPUT2 = new QComboBox(tabMIDIin1);
+    MIDI_INPUT2->setObjectName(QString::fromUtf8("MIDI_INPUT2"));
+    MIDI_INPUT2->setGeometry(QRect(30 + 120, py, 531 - 80, /*31*/ 21));
+    TOOLTIP(MIDI_INPUT2, "Selected MIDI Input for DOWN (reconnect)");
+    MIDI_INPUT2->setFont(font2);
+    MIDI_INPUT2->setStyleSheet(QString::fromUtf8("color: black;\n"));
+
+    MIDI_INPUT2->clear();
+    foreach (QString name, MidiInput::inputPorts(MidiInControl::cur_pairdev * 2 + 1)) {
+        if(name != MidiInput::inputPort(MidiInControl::cur_pairdev * 2 + 1)) continue;
+        MIDI_INPUT2->addItem(name);
+        break;
+    }
+
+    connect(MIDI_INPUT2, QOverload<int>::of(&QComboBox::activated), [=](int v)
+    {
+
+        MidiInput::setInputPort(MIDI_INPUT2->itemText(v), cur_pairdev * 2 + 1);
+
+    });
+
+    py+= 30 - 20;
+
+
+    QFrame *MIDIin2 = new QFrame(tabMIDIin1); // for heritage style sheet
+    MIDIin2->setGeometry(QRect(0, py, width(), height()));
     MIDIin2->setObjectName(QString::fromUtf8("MIDIin2"));
     MIDIin2->setStyleSheet(QString::fromUtf8("color: white;"));
 
+    QString style1 = QString::fromUtf8(
+                         "QGroupBox QComboBox {color: white; background-color: #9090b3;} \n"
+                         "QGroupBox QComboBox:disabled {color: darkGray; background-color: #8080a3;} \n"
+                         "QGroupBox QComboBox QAbstractItemView {color: white; background-color: #9090b3; selection-background-color: #24c2c3;} \n"
+                         "QGroupBox QSpinBox {color: white; background-color: #9090b3;} \n"
+                         "QGroupBox QSpinBox:disabled {color: darkGray; background-color: #9090b3;} \n"
+                         "QGroupBox QPushButton {color: black; background-color: #c7c9df;} \n"
+                         "QGroupBox QToolTip {color: black;} \n");
+
     groupBoxNote = new QGroupBox(MIDIin2);
     groupBoxNote->setObjectName(QString::fromUtf8("groupBoxNote"));
-    groupBoxNote->setGeometry(QRect(30, 16, 531, 111));
+    groupBoxNote->setGeometry(QRect(30, 16, 790 - 60, 111));
     groupBoxNote->setTitle("Key/Note Event");
-    groupBoxNote->setStyleSheet(QString::fromUtf8(
-    "QGroupBox QComboBox {color: white; background-color: #9090b3;} \n"
-    "QGroupBox QComboBox:disabled {color: darkGray; background-color: #8080a3;} \n"
-    "QGroupBox QComboBox QAbstractItemView {color: white; background-color: #9090b3; selection-background-color: #24c2c3;} \n"
-    "QGroupBox QSpinBox {color: white; background-color: #9090b3;} \n"
-    "QGroupBox QSpinBox:disabled {color: darkGray; background-color: #9090b3;} \n"
-    "QGroupBox QPushButton {color: black; background-color: #c7c9df;} \n"
-    "QGroupBox QToolTip {color: black;} \n"
-    ));
+    groupBoxNote->setStyleSheet(style1);
 
-    groupBoxNote->setToolTip("Expression pedal mode,\n"
-                "aftertouch key & channel pressure mode,\n"
-                "and Velocity cut/scale for channels UP/DOWN");
+    TOOLTIP(groupBoxNote, "Velocity cut/scale for channels UP/DOWN");
 
+    rstButton = new QPushButton(groupBoxNote);
+    rstButton->setObjectName(QString::fromUtf8("rstButton"));
+    rstButton->setFont(font2);
+    rstButton->setStyleSheet(QString::fromUtf8(
+        "QPushButton {color: black; background-color: #c7c9df;} \n"
+        "QPushButton::disabled { color: gray;}"
+        "QToolTip {color: black;} \n"));
+    rstButton->setGeometry(QRect(10, 20, 81, 31));
+    rstButton->setText("Reset");
+    TOOLTIP(rstButton, "Deletes the Split parameters\n"
+                          "and use settings by default");
 
-    comboBoxExpression = new QComboBox(groupBoxNote);
-    comboBoxExpression->setObjectName(QString::fromUtf8("comboBoxExpression"));
-    comboBoxExpression->setGeometry(QRect(10, 20, 171, 22));
-    comboBoxExpression->addItem("Disable Expression Pedal");
-    comboBoxExpression->addItem("Expression Pedal as Sustain");
-    comboBoxExpression->addItem("Expression Pedal over Ch. Volume");
-    comboBoxExpression->addItem("Expression Pedal over Gain Volume");
-    comboBoxExpression->addItem("Expression Pedal over Modulation");
-    comboBoxExpression->addItem("Expression Pedal over Pitch Bend");
-    comboBoxExpression->addItem("Expression Pedal over N.Effect 1");
-    comboBoxExpression->addItem("Expression Pedal over N.Effect 2");
-    comboBoxExpression->addItem("Expression Pedal over N.Effect 3");
-    comboBoxExpression->addItem("Expression Pedal over N.Effect 4");
-    comboBoxExpression->setToolTip("Expression pedal mode of working");
-
-    comboBoxExpression->setCurrentIndex(MidiInControl::expression_mode);
-
-    comboBoxAfterTouch = new QComboBox(groupBoxNote);
-    comboBoxAfterTouch->setObjectName(QString::fromUtf8("comboBoxAfterTouch"));
-    comboBoxAfterTouch->setGeometry(QRect(10, 50, 171, 22));
-    comboBoxAfterTouch->addItem("Disable AfterTouch messages");
-    comboBoxAfterTouch->addItem("AfterTouch over Modulation");
-    comboBoxAfterTouch->addItem("AfterTouch over Pitch Bend");
-    comboBoxAfterTouch->setToolTip("AfterTouch mode of working");
-
-    comboBoxAfterTouch->setCurrentIndex(MidiInControl::aftertouch_mode);
-
-    connect(comboBoxExpression, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int num)
-    {
-        MidiInControl::expression_mode = num;
-        _settings->setValue("MIDIin_expression_mode", num);
-    });
-
-    connect(comboBoxAfterTouch, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int num)
-    {
-        MidiInControl::aftertouch_mode = num;
-        _settings->setValue("MIDIin_aftertouch_mode", num);
-    });
-
+    PanicButton = new QPushButton(groupBoxNote);
+    PanicButton->setObjectName(QString::fromUtf8("PanicButton"));
+    PanicButton->setGeometry(QRect(100, 20, 81, 31));
+    PanicButton->setStyleSheet(QString::fromUtf8(
+        "QPushButton {color: white; background-color: #c7c9df;} \n"
+        "QToolTip {color: black;} \n"));
+    PanicButton->setIcon(QIcon(":/run_environment/graphics/tool/panic.png"));
+    PanicButton->setIconSize(QSize(24, 24));
+    PanicButton->setText(QString());
+    TOOLTIP(PanicButton, "MIDI Panic extended");
 
     pushButtonFinger = new QPushButton(groupBoxNote);
     pushButtonFinger->setObjectName(QString::fromUtf8("pushButtonFinger"));
     pushButtonFinger->setGeometry(QRect(10, 80, 81, 23));
     pushButtonFinger->setText("FINGER");
-    pushButtonFinger->setToolTip("To Finger Pattern Utility Tool");
+    TOOLTIP(pushButtonFinger, "To Finger Pattern Utility Tool");
 
-    connect( pushButtonFinger, QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+    connect(pushButtonFinger, QOverload<bool>::of(&QPushButton::clicked), [=](bool)
     {
-        FingerPatternDialog* d = new FingerPatternDialog(this, _settings);
 
-        d->exec();
-        delete d;
+        if(FingerPatternWin)
+            delete FingerPatternWin;
+
+        FingerPatternWin =  new FingerPatternDialog(_main, _settings, MidiInControl::cur_pairdev);
+
+        FingerPatternWin->setModal(false);
+        FingerPatternWin->show();
+        FingerPatternWin->raise();
+        FingerPatternWin->activateWindow();
+        MyVirtualKeyboard::overlap();
+        QCoreApplication::processEvents();
 
     });
 
@@ -611,7 +617,7 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     pushButtonMessage->setObjectName(QString::fromUtf8("pushButtonMessage"));
     pushButtonMessage->setGeometry(QRect(100, 80, 81, 23));
     pushButtonMessage->setText("DON'T TOUCH");
-    pushButtonMessage->setToolTip("DON'T TOUCH OR DIE!");
+    TOOLTIP(pushButtonMessage, "DON'T TOUCH OR DIE!");
 
     connect(pushButtonMessage, QOverload<bool>::of(&QPushButton::clicked), [=](bool)
     {
@@ -622,26 +628,47 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
         QMessageBox::information(this, "ooh no!", "ok, you wanted it ... :p");
     });
 
+
+    checkBoxPrgBank = new QCheckBox(groupBoxNote);
+    checkBoxPrgBank->setObjectName(QString::fromUtf8("checkBoxPrgBank"));
+    checkBoxPrgBank->setGeometry(QRect(120 + 95, 20, 121, 17));
+    checkBoxPrgBank->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
+    checkBoxPrgBank->setChecked(_skip_prgbanks[cur_pairdev]);
+    checkBoxPrgBank->setText("Skip Prg/Bank Events");
+    TOOLTIP(checkBoxPrgBank, "Skip Prg/Bank Events from the MIDI keyboard\n"
+                                "and instead use the 'Split Keyboard' instruments\n"
+                                "or from 'New Events' channel");
+
+    bankskipcheckBox = new QCheckBox(groupBoxNote);
+    bankskipcheckBox->setObjectName(QString::fromUtf8("bankskipcheckBox"));
+    bankskipcheckBox->setGeometry(QRect(120 + 95, 20 + 20, 101, 17));
+    bankskipcheckBox->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
+    bankskipcheckBox->setChecked(_skip_bankonly[cur_pairdev]);
+    bankskipcheckBox->setText("Skip Bank Only");
+    TOOLTIP(bankskipcheckBox, "ignore the bank change event coming from the\n"
+                                 "MIDI keyboard and use bank 0 instead\n"
+                                 "Useful if your MIDI keyboard is compatible with\n"
+                                 "the General Midi list");
+
     groupBoxVelocityUP = new QGroupBox(groupBoxNote);
     groupBoxVelocityUP->setObjectName(QString::fromUtf8("groupBoxVelocityUP"));
-    groupBoxVelocityUP->setGeometry(QRect(190, 12, 161, 91));
+    groupBoxVelocityUP->setGeometry(QRect(388 /*190*/, 12, 161, 91));
     groupBoxVelocityUP->setAlignment(Qt::AlignCenter);
     groupBoxVelocityUP->setCheckable(true);
-    groupBoxVelocityUP->setChecked(VelocityUP_enable);
+    groupBoxVelocityUP->setChecked(VelocityUP_enable[cur_pairdev]);
     groupBoxVelocityUP->setTitle("Velocity UP Scale/Cut");
     groupBoxVelocityUP->setStyleSheet("margin-top: 0px; background-color:  #60b386;\n");
-    groupBoxVelocityUP->setToolTip("Velocity cut/scale for channels UP");
+    TOOLTIP(groupBoxVelocityUP, "Velocity cut/scale for channels UP");
 
-
-    dialScaleVelocityUP = new QDial(groupBoxVelocityUP);
+    dialScaleVelocityUP = new QDialE(groupBoxVelocityUP);
     dialScaleVelocityUP->setObjectName(QString::fromUtf8("dialScaleVelocityUP"));
     dialScaleVelocityUP->setGeometry(QRect(10, 13, 61, 61));
     dialScaleVelocityUP->setMinimum(0);
     dialScaleVelocityUP->setMaximum(100);
     dialScaleVelocityUP->setNotchTarget(10.000000000000000);
     dialScaleVelocityUP->setNotchesVisible(true);
-    dialScaleVelocityUP->setValue(VelocityUP_scale);
-    dialScaleVelocityUP->setToolTip("Scale Notes UP. Composite number works like this:\n"
+    dialScaleVelocityUP->setValue(VelocityUP_scale[cur_pairdev]);
+    TOOLTIP(dialScaleVelocityUP, "Scale Notes UP. Composite number works like this:\n"
                                     "x.0 to x.9 : increase Velocity from 100% to 190%\n"
                                     "1.x to 10.x: Multiply 127/10 using this factor and fix it\n"
                                     "as the minimun Velocity\n\n"
@@ -651,24 +678,23 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
                                     "    3.4 -> +40%,  43 as minimun = 56\n"
                                     "    9.1 -> +10%, 115 as minimun = 115\n");
 
-
     labelViewScaleVelocityUP = new QLabel(groupBoxVelocityUP);
     labelViewScaleVelocityUP->setObjectName(QString::fromUtf8("labelViewScaleVelocityUP"));
     labelViewScaleVelocityUP->setGeometry(QRect(25, 70, 31, 16));
     labelViewScaleVelocityUP->setFont(font1);
     labelViewScaleVelocityUP->setAlignment(Qt::AlignCenter);
-    labelViewScaleVelocityUP->setNum(((double) VelocityUP_scale)/10.0f);
+    labelViewScaleVelocityUP->setNum(((double) VelocityUP_scale[cur_pairdev])/10.0f);
     labelViewScaleVelocityUP->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
 
-    dialVelocityUP = new QDial(groupBoxVelocityUP);
+    dialVelocityUP = new QDialE(groupBoxVelocityUP);
     dialVelocityUP->setObjectName(QString::fromUtf8("dialVelocityUP"));
     dialVelocityUP->setGeometry(QRect(90, 13, 61, 61));
     dialVelocityUP->setMinimum(10);
     dialVelocityUP->setMaximum(127);
-    dialVelocityUP->setValue(VelocityUP_cut);
+    dialVelocityUP->setValue(VelocityUP_cut[cur_pairdev]);
     dialVelocityUP->setNotchTarget(8.000000000000000);
     dialVelocityUP->setNotchesVisible(true);
-    dialVelocityUP->setToolTip("Velocity Cut for UP\n"
+    TOOLTIP(dialVelocityUP, "Velocity Cut for UP\n"
                                "(maximun velocity for the notes)");
 
     labelViewVelocityUP = new QLabel(groupBoxVelocityUP);
@@ -678,28 +704,29 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     font3.setPointSize(10);
     labelViewVelocityUP->setFont(font3);
     labelViewVelocityUP->setAlignment(Qt::AlignCenter);
-    labelViewVelocityUP->setNum(VelocityUP_cut);
+    labelViewVelocityUP->setNum(VelocityUP_cut[cur_pairdev]);
     labelViewVelocityUP->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
 
     groupBoxVelocityDOWN = new QGroupBox(groupBoxNote);
     groupBoxVelocityDOWN->setObjectName(QString::fromUtf8("groupBoxVelocityDOWN"));
-    groupBoxVelocityDOWN->setGeometry(QRect(360, 13, 161, 91));
+    groupBoxVelocityDOWN->setGeometry(QRect(559/*360*/, 13, 161, 91));
+
     groupBoxVelocityDOWN->setAlignment(Qt::AlignCenter);
     groupBoxVelocityDOWN->setCheckable(true);
-    groupBoxVelocityDOWN->setChecked(VelocityDOWN_enable);
+    groupBoxVelocityDOWN->setChecked(VelocityDOWN_enable[cur_pairdev]);
     groupBoxVelocityDOWN->setTitle("Velocity DOWN Scale/Cut");
     groupBoxVelocityDOWN->setStyleSheet("margin-top: 0px; background-color:  #60b386;");
-    groupBoxVelocityDOWN->setToolTip("Velocity cut/scale for channels DOWN");
+    TOOLTIP(groupBoxVelocityDOWN, "Velocity cut/scale for channels DOWN");
 
-    dialScaleVelocityDOWN = new QDial(groupBoxVelocityDOWN);
+    dialScaleVelocityDOWN = new QDialE(groupBoxVelocityDOWN);
     dialScaleVelocityDOWN->setObjectName(QString::fromUtf8("dialScaleVelocityDOWN"));
     dialScaleVelocityDOWN->setGeometry(QRect(10, 13, 61, 61));
     dialScaleVelocityDOWN->setMinimum(0);
     dialScaleVelocityDOWN->setMaximum(100);
     dialScaleVelocityDOWN->setNotchTarget(10.000000000000000);
     dialScaleVelocityDOWN->setNotchesVisible(true);
-    dialScaleVelocityDOWN->setValue(VelocityDOWN_scale);
-    dialScaleVelocityDOWN->setToolTip("Scale Notes DOWN. Composite number works like this:\n"
+    dialScaleVelocityDOWN->setValue(VelocityDOWN_scale[cur_pairdev]);
+    TOOLTIP(dialScaleVelocityDOWN, "Scale Notes DOWN. Composite number works like this:\n"
                                     "x.0 to x.9 : increase Velocity from 100% to 190%\n"
                                     "1.x to 10.x: Multiply 127/10 using this factor and fix it\n"
                                     "as the minimun Velocity\n\n"
@@ -714,18 +741,18 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     labelViewScaleVelocityDOWN->setGeometry(QRect(25, 70, 31, 16));
     labelViewScaleVelocityDOWN->setFont(font1);
     labelViewScaleVelocityDOWN->setAlignment(Qt::AlignCenter);
-    labelViewScaleVelocityDOWN->setNum(((double) VelocityDOWN_scale)/10.0f);
+    labelViewScaleVelocityDOWN->setNum(((double) VelocityDOWN_scale[cur_pairdev])/10.0f);
     labelViewScaleVelocityDOWN->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
 
-    dialVelocityDOWN = new QDial(groupBoxVelocityDOWN);
+    dialVelocityDOWN = new QDialE(groupBoxVelocityDOWN);
     dialVelocityDOWN->setObjectName(QString::fromUtf8("dialVelocityDOWN"));
     dialVelocityDOWN->setGeometry(QRect(90, 13, 61, 61));
     dialVelocityDOWN->setMinimum(10);
     dialVelocityDOWN->setMaximum(127);
-    dialVelocityDOWN->setValue(VelocityDOWN_cut);
+    dialVelocityDOWN->setValue(VelocityDOWN_cut[cur_pairdev]);
     dialVelocityDOWN->setNotchTarget(8.000000000000000);
     dialVelocityDOWN->setNotchesVisible(true);
-    dialVelocityDOWN->setToolTip("Velocity Cut for DOWN\n"
+    TOOLTIP(dialVelocityDOWN, "Velocity Cut for DOWN\n"
                                "(maximun velocity for the notes)");
 
     labelViewVelocityDOWN = new QLabel(groupBoxVelocityDOWN);
@@ -733,87 +760,85 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     labelViewVelocityDOWN->setGeometry(QRect(105, 70, 31, 16));
     labelViewVelocityDOWN->setFont(font3);
     labelViewVelocityDOWN->setAlignment(Qt::AlignCenter);
-    labelViewVelocityDOWN->setNum(VelocityDOWN_cut);
+    labelViewVelocityDOWN->setNum(VelocityDOWN_cut[cur_pairdev]);
     labelViewVelocityDOWN->setStyleSheet(QString::fromUtf8("color: white; background-color: #00C070;\n"));
 
 
     connect(groupBoxVelocityUP, QOverload<bool>::of(&QGroupBox::toggled), [=](bool f)
     {
-        MidiInControl::VelocityUP_enable =  f;
-        _settings->setValue("MIDIin_VelocityUP_enable", f);
+        MidiInControl::VelocityUP_enable[cur_pairdev] =  f;
+        _settings->setValue("MIDIin/MIDIin_VelocityUP_enable" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), f);
     });
 
     connect(groupBoxVelocityDOWN, QOverload<bool>::of(&QGroupBox::toggled), [=](bool f)
     {
-        MidiInControl::VelocityDOWN_enable =  f;
-        _settings->setValue("MIDIin_VelocityDOWN_enable", f);
+        MidiInControl::VelocityDOWN_enable[cur_pairdev] =  f;
+        _settings->setValue("MIDIin/MIDIin_VelocityDOWN_enable" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), f);
     });
 
-    connect(dialScaleVelocityUP, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    connect(dialScaleVelocityUP, QOverload<int>::of(&QDialE::valueChanged), [=](int v)
     {
-        MidiInControl::VelocityUP_scale =  v;
-        _settings->setValue("MIDIin_VelocityUP_scale", v);
-        labelViewScaleVelocityUP->setNum(((double) MidiInControl::VelocityUP_scale)/10.0f);
+        MidiInControl::VelocityUP_scale[cur_pairdev] =  v;
+        _settings->setValue("MIDIin/MIDIin_VelocityUP_scale" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+        labelViewScaleVelocityUP->setNum(((double) MidiInControl::VelocityUP_scale[cur_pairdev])/10.0f);
     });
 
-    connect(dialScaleVelocityDOWN, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    connect(dialScaleVelocityDOWN, QOverload<int>::of(&QDialE::valueChanged), [=](int v)
     {
-        MidiInControl::VelocityDOWN_scale =  v;
-        _settings->setValue("MIDIin_VelocityDOWN_scale", v);
-        labelViewScaleVelocityDOWN->setNum(((double) MidiInControl::VelocityDOWN_scale)/10.0f);
+        MidiInControl::VelocityDOWN_scale[cur_pairdev] =  v;
+        _settings->setValue("MIDIin/MIDIin_VelocityDOWN_scale" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+        labelViewScaleVelocityDOWN->setNum(((double) MidiInControl::VelocityDOWN_scale[cur_pairdev])/10.0f);
     });
 
-    connect(dialVelocityUP, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    connect(dialVelocityUP, QOverload<int>::of(&QDialE::valueChanged), [=](int v)
     {
-        MidiInControl::VelocityUP_cut =  v;
-        _settings->setValue("MIDIin_VelocityUP_cut", v);
-        labelViewVelocityUP->setNum(VelocityUP_cut);
+        MidiInControl::VelocityUP_cut[cur_pairdev] =  v;
+        _settings->setValue("MIDIin/MIDIin_VelocityUP_cut" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+        labelViewVelocityUP->setNum(VelocityUP_cut[cur_pairdev]);
     });
 
-    connect(dialVelocityDOWN, QOverload<int>::of(&QDial::valueChanged), [=](int v)
+    connect(dialVelocityDOWN, QOverload<int>::of(&QDialE::valueChanged), [=](int v)
     {
-        MidiInControl::VelocityDOWN_cut =  v;
-        _settings->setValue("MIDIin_VelocityDOWN_cut", v);
-        labelViewVelocityDOWN->setNum(MidiInControl::VelocityDOWN_cut);
+        MidiInControl::VelocityDOWN_cut[cur_pairdev] =  v;
+        _settings->setValue("MIDIin/MIDIin_VelocityDOWN_cut" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+        labelViewVelocityDOWN->setNum(MidiInControl::VelocityDOWN_cut[cur_pairdev]);
     });
 
     int yyy = 114;
 
-    buttonBox = new QDialogButtonBox(MIDIin2);
+    buttonBox = new QDialogButtonBox(MIDIin);
     buttonBox->setObjectName(QString::fromUtf8("buttonBox"));
     buttonBox->setStyleSheet(QString::fromUtf8("color: white; background: #8695a3; \n"));
-    buttonBox->setGeometry(QRect(340, 500 + yyy, 221, 32));
+
+    buttonBox->setGeometry(QRect(/*340*/970 - 198 - 221, 634 + 8, 221, 32));
     buttonBox->setOrientation(Qt::Horizontal);
-    buttonBox->setStandardButtons(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);
+    buttonBox->setStandardButtons(QDialogButtonBox::Ok);
 
     SplitBox = new QGroupBox(MIDIin2);
     SplitBox->setObjectName(QString::fromUtf8("SplitBox"));
 
-    SplitBox->setStyleSheet(QString::fromUtf8(
-"QGroupBox QComboBox {color: white; background-color: #9090b3;} \n"
-"QGroupBox QComboBox:disabled {color: darkGray; background-color: #8080a3;} \n"
-"QGroupBox QComboBox QAbstractItemView {color: white; background-color: #9090b3; selection-background-color: #24c2c3;} \n"
-"QGroupBox QSpinBox {color: white; background-color: #9090b3;} \n"
-"QGroupBox QSpinBox:disabled {color: darkGray; background-color: #9090b3;} \n"
-"QGroupBox QPushButton {color: white; background-color: #c7c9df;} \n"
-"QGroupBox QToolTip {color: black;} \n"
-));
+    SplitBox->setStyleSheet(style1);
 
-
-    SplitBox->setGeometry(QRect(30, 20 + yyy, 531, 151));
+    SplitBox->setGeometry(QRect(30, 20 + yyy, 790 - 60, 151));
     SplitBox->setCheckable(true);
-    SplitBox->setChecked(_split_enable);
+    SplitBox->setChecked(_split_enable[cur_pairdev]);
     SplitBox->setTitle("Split Keyboard");
-    SplitBox->setToolTip("Split the keyboard into two parts\n"
+    TOOLTIP(SplitBox, "Split the keyboard into two parts\n"
                          "or combine up to two voices.\n"
                          "Modify notes and others events to do it\n"
                          "Disable it if you want record from the\n"
                          "MIDI keyboard only");
 
+    labelCut = new QLabel(SplitBox);
+    labelCut->setObjectName(QString::fromUtf8("labelCut"));
+    labelCut->setGeometry(QRect(20, 20, 91, 20));
+    labelCut->setAlignment(Qt::AlignCenter);
+    labelCut->setText("Note Cut");
+
     NoteBoxCut = new QComboBox(SplitBox);
     NoteBoxCut->setObjectName(QString::fromUtf8("NoteBoxCut"));
     NoteBoxCut->setGeometry(QRect(20, 40, 91, 31));
-    NoteBoxCut->setToolTip("Record the Split note from \n"
+    TOOLTIP(NoteBoxCut, "Record the Split note from \n"
                            "the MIDI keyboard clicking\n"
                            "'Get It' and pressing one.\n"
                              "Or combine two voices to duo.\n"
@@ -822,1269 +847,413 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     NoteBoxCut->setFont(font);
     NoteBoxCut->addItem("Get It", -1);
 
-    if(_note_cut >= 0) {
-        NoteBoxCut->addItem(QString::asprintf("%s %i", notes[_note_cut % 12], _note_cut / 12 - 1), _note_cut);
+    if(_note_cut[cur_pairdev] >= 0) {
+        NoteBoxCut->addItem(QString::asprintf("%s %i", notes[_note_cut[cur_pairdev] % 12], _note_cut[cur_pairdev] / 12 - 1), _note_cut[cur_pairdev]);
         NoteBoxCut->setCurrentIndex(1);
     }
 
     NoteBoxCut->addItem("DUO", -2);
 
-    if(_note_duo) {
+    if(_note_duo[cur_pairdev]) {
         NoteBoxCut->setCurrentIndex(NoteBoxCut->count() - 1);
     }
 
     NoteBoxCut->addItem("C -1", 0);
-    if(_note_zero) {
-        NoteBoxCut->setCurrentIndex(NoteBoxCut->count() - 1);
+
+    if(_note_zero[cur_pairdev]) {
+        NoteBoxCut->setCurrentIndex(NoteBoxCut->count() - 1); 
     }
 
-    channelBoxUp = new QComboBox(SplitBox);
-    channelBoxUp->setObjectName(QString::fromUtf8("channelBoxUp"));
-    channelBoxUp->setGeometry(QRect(140, 40, 81, 31));
-    channelBoxUp->setToolTip("Select the MIDI Channel for 'UP'\n"
-                             "'--' uses New Events channel");
-    channelBoxUp->setFont(font);
-    channelBoxUp->addItem("--", -1);
-
-    for(int n = 0; n < 16; n++) {
-        channelBoxUp->addItem(QString::asprintf("ch %i", n), n);
-    }
-    channelBoxUp->setCurrentIndex(_channelUp + 1);
-
-    channelBoxDown = new QComboBox(SplitBox);
-    channelBoxDown->setObjectName(QString::fromUtf8("channelBoxDown"));
-    channelBoxDown->setGeometry(QRect(140, 100, 81, 31));
-    channelBoxDown->setToolTip("Select the MIDI Channel for 'Down'\n"
-                                 "'DIS' disable it using the same\n"
-                                 "channel of 'Up'");
-    channelBoxDown->setFont(font);
-    channelBoxDown->addItem("DIS", -1);
-    for(int n = 0; n < 16; n++) {
-        channelBoxDown->addItem(QString::asprintf("ch %i", n), n);
-    }
-    channelBoxDown->setCurrentIndex(_channelDown + 1);
-
-    labelUp = new QLabel(SplitBox);
-    labelUp->setObjectName(QString::fromUtf8("labelUp"));
-    labelUp->setGeometry(QRect(140, 20, 81, 20));
-    labelUp->setAlignment(Qt::AlignCenter);
-    labelUp->setText("Channel Up");
-
-    labelDown = new QLabel(SplitBox);
-    labelDown->setObjectName(QString::fromUtf8("labelDown"));
-    labelDown->setGeometry(QRect(140, 80, 81, 20));
-    labelDown->setAlignment(Qt::AlignCenter);
-    labelDown->setText("Channel Down");
-
-    labelCut = new QLabel(SplitBox);
-    labelCut->setObjectName(QString::fromUtf8("labelCut"));
-    labelCut->setGeometry(QRect(20, 20, 91, 20));
-    labelCut->setAlignment(Qt::AlignCenter);
-    labelCut->setText("Note Cut");
-
-    tlabelUp = new QLabel(SplitBox);
-    tlabelUp->setObjectName(QString::fromUtf8("tlabelUp"));
-    tlabelUp->setGeometry(QRect(250, 20, 71, 20));
-    tlabelUp->setAlignment(Qt::AlignCenter);
-    tlabelUp->setText("Transpose");
-
-    tlabelDown = new QLabel(SplitBox);
-    tlabelDown->setObjectName(QString::fromUtf8("tlabelDown"));
-    tlabelDown->setGeometry(QRect(250, 80, 71, 20));
-    tlabelDown->setAlignment(Qt::AlignCenter);
-    tlabelDown->setText("Transpose");
-
-    tspinBoxUp = new QSpinBox(SplitBox);
-    tspinBoxUp->setObjectName(QString::fromUtf8("tspinBoxUp"));
-    tspinBoxUp->setGeometry(QRect(251, 40, 71, 31));
-    tspinBoxUp->setFont(font);
-    tspinBoxUp->setMinimum(-24);
-    tspinBoxUp->setMaximum(24);
-    tspinBoxUp->setValue(_transpose_note_up);
-    tspinBoxUp->setToolTip("Transposes the position of the notes\n"
-                           "from -24 to 24 (24 = 2 octaves).\n"
-                            "Notes that exceed the MIDI range are clipped");
-
-    tspinBoxDown = new QSpinBox(SplitBox);
-    tspinBoxDown->setObjectName(QString::fromUtf8("tspinBoxDown"));
-    tspinBoxDown->setGeometry(QRect(250, 100, 71, 31));
-    tspinBoxDown->setFont(font);
-    tspinBoxDown->setMinimum(-24);
-    tspinBoxDown->setMaximum(24);
-    tspinBoxDown->setValue(_transpose_note_down);
-    tspinBoxDown->setToolTip("Transposes the position of the notes\n"
-                               "from -24 to 24 (24 = 2 octaves).\n"
-                                "Notes that exceed the MIDI range are clipped");
-
-    vcheckBoxUp = new QCheckBox(SplitBox);
-    vcheckBoxUp->setObjectName(QString::fromUtf8("vcheckBoxUp"));
-    vcheckBoxUp->setGeometry(QRect(330, 28, 81, 33));
-    vcheckBoxUp->setText("Fix Velocity");
-    vcheckBoxUp->setChecked(_fixVelUp);
-    vcheckBoxUp->setToolTip("Fix velocity notes to 100 (0-127)");
-
-    vcheckBoxDown = new QCheckBox(SplitBox);
-    vcheckBoxDown->setObjectName(QString::fromUtf8("vcheckBoxDown"));
-    vcheckBoxDown->setGeometry(QRect(330, 88, 81, 33));
-    vcheckBoxDown->setText("Fix Velocity");
-    vcheckBoxDown->setChecked(_fixVelDown);
-    vcheckBoxDown->setToolTip("Fix velocity notes to 100 (0-127)");
+    if(MidiInput::keyboard2_connected[cur_pairdev * 2 + 1])
+        NoteBoxCut->setDisabled(true);
+    else
+        NoteBoxCut->setDisabled(false);
 
     echeckBox = new QCheckBox(SplitBox);
     echeckBox->setObjectName(QString::fromUtf8("echeckBox"));
     echeckBox->setGeometry(QRect(20, 80, 81, 31));
     echeckBox->setText("Notes Only");
-    echeckBox->setChecked(_notes_only);
-    echeckBox->setToolTip("Skip control events from the keyboard\n"
-                           "except the Sustain Pedal event");
+    echeckBox->setChecked(_notes_only[cur_pairdev]);
+    TOOLTIP(echeckBox, "Skip control events from the keyboard\n"
+                          "except the Sustain Pedal event");
 
-    echeckBoxDown = new QCheckBox(SplitBox);
-    echeckBoxDown->setObjectName(QString::fromUtf8("echeckBoxDown"));
-    echeckBoxDown->setGeometry(QRect(20, 110, 111, 31));
-    echeckBoxDown->setText("Events to ch Down");
-    echeckBoxDown->setChecked(_events_to_down);
-    echeckBoxDown->setToolTip("Send the control events to the Down channel\n"
-                               "In Duo mode they are sent to Up and Down channels");
+    /**********************/
 
-    InstButtonUp = new QPushButton(SplitBox);
-    InstButtonUp->setObjectName(QString::fromUtf8("InstButtonUp"));
-    InstButtonUp->setGeometry(QRect(410, 40, 31, 31));
-    InstButtonUp->setIcon(QIcon(":/run_environment/graphics/channelwidget/instrument.png"));
-    InstButtonUp->setIconSize(QSize(24, 24));
-    InstButtonUp->setToolTip("Select Live Instrument");
-    InstButtonUp->setText(QString());
-
-    InstButtonDown = new QPushButton(SplitBox);
-    InstButtonDown->setObjectName(QString::fromUtf8("InstButtonDown"));
-    InstButtonDown->setGeometry(QRect(410, 100, 31, 31));
-    InstButtonDown->setIcon(QIcon(":/run_environment/graphics/channelwidget/instrument.png"));
-    InstButtonDown->setIconSize(QSize(24, 24));
-    InstButtonDown->setToolTip("Select Live Instrument");
-    InstButtonDown->setText(QString());
-
-    effectButtonUp = new QPushButton(SplitBox);
-    effectButtonUp->setObjectName(QString::fromUtf8("effectButtonUp"));
-    effectButtonUp->setGeometry(QRect(450, 40, 31, 31));
-    effectButtonUp->setIcon(QIcon(":/run_environment/graphics/channelwidget/sound_effect.png"));
-    effectButtonUp->setIconSize(QSize(24, 24));
-    effectButtonUp->setText(QString());
-    effectButtonUp->setToolTip("Select Sound Effects events to play in Live\n"
-                               "These events will not be recorded");
-    effectButtonDown = new QPushButton(SplitBox);
-    effectButtonDown->setObjectName(QString::fromUtf8("effectButtonDown"));
-    effectButtonDown->setGeometry(QRect(450, 100, 31, 31));
-    effectButtonDown->setIcon(QIcon(":/run_environment/graphics/channelwidget/sound_effect.png"));
-    effectButtonDown->setIconSize(QSize(24, 24));
-    effectButtonDown->setText(QString());
-    effectButtonDown->setToolTip("Select Sound Effects events to play in Live\n"
-                               "These events will not be recorded");
-    achordcheckBoxUp = new QCheckBox(SplitBox);
-    achordcheckBoxUp->setObjectName(QString::fromUtf8("achordcheckBoxUp"));
-    achordcheckBoxUp->setGeometry(QRect(330, 50, 77, 31));
-    achordcheckBoxUp->setText("Auto Chord");
-    achordcheckBoxUp->setChecked(_autoChordUp);
-    achordcheckBoxUp->setToolTip("Select Auto Chord Mode for Up channel");
-    achordcheckBoxDown = new QCheckBox(SplitBox);
-    achordcheckBoxDown->setObjectName(QString::fromUtf8("achordcheckBoxDown"));
-    achordcheckBoxDown->setGeometry(QRect(330, 110, 77, 31));
-    achordcheckBoxDown->setText("Auto Chord");
-    achordcheckBoxDown->setChecked(_autoChordDown);
-    achordcheckBoxDown->setToolTip("Select Auto Chord Mode for Down channel");
-
-    LEDBoxUp = new QCheckBox(SplitBox);
-    LEDBoxUp->setObjectName(QString::fromUtf8("LEDBoxUp"));
-    LEDBoxUp->setGeometry(QRect(120, 30, 16, 31));
-    LEDBoxUp->setCheckable(false);
-    LEDBoxUp->setText(QString());
-    LEDBoxUp->setToolTip("Indicates events on channel Up");
-    LEDBoxDown = new QCheckBox(SplitBox);
-    LEDBoxDown->setObjectName(QString::fromUtf8("LEDBoxDown"));
-    LEDBoxDown->setGeometry(QRect(120, 90, 16, 31));
-    LEDBoxDown->setCheckable(false);
-    LEDBoxDown->setText(QString());
-    LEDBoxDown->setToolTip("Indicates events on channel Down");
-
-    chordButtonUp = new QPushButton(SplitBox);
-    chordButtonUp->setObjectName(QString::fromUtf8("chordButtonUp"));
-    chordButtonUp->setGeometry(QRect(490, 40, 31, 31));
-    chordButtonUp->setIcon(QIcon(":/run_environment/graphics/tool/meter.png"));
-    chordButtonUp->setIconSize(QSize(24, 24));
-    chordButtonUp->setText(QString());
-    chordButtonUp->setToolTip("Select the chord for auto chord mode"); 
-    connect(chordButtonUp, SIGNAL(clicked()), this, SLOT(setChordDialogUp()));
-
-    chordButtonDown = new QPushButton(SplitBox);
-    chordButtonDown->setObjectName(QString::fromUtf8("chordButtonDown"));
-    chordButtonDown->setGeometry(QRect(490, 100, 31, 31));
-    chordButtonDown->setIcon(QIcon(":/run_environment/graphics/tool/meter.png"));
-    chordButtonDown->setIconSize(QSize(24, 24));
-    chordButtonDown->setText(QString());
-    chordButtonDown->setToolTip("Select the chord for auto chord mode");
-    connect(chordButtonDown, SIGNAL(clicked()), this, SLOT(setChordDialogDown()));
-
-    inlabelUp = new QLabel(MIDIin2);
+    inlabelUp = new QLabel(SplitBox);
     inlabelUp->setObjectName(QString::fromUtf8("inlabelUp"));
-    inlabelUp->setGeometry(QRect(170, 170 + yyy, 81, 20));
+    inlabelUp->setGeometry(QRect(120, 20, 81, 20));
     inlabelUp->setAlignment(Qt::AlignCenter);
     inlabelUp->setText("Channel Up IN");
-    inlabelDown = new QLabel(MIDIin2);
-    inlabelDown->setObjectName(QString::fromUtf8("inlabelDown"));
-    inlabelDown->setGeometry(QRect(280, 170 + yyy, 91, 20));
-    inlabelDown->setAlignment(Qt::AlignCenter);
-    inlabelDown->setText("Channel Down IN");
 
-    inchannelBoxUp = new QComboBox(MIDIin2);
+    inchannelBoxUp = new QComboBox(SplitBox);
     inchannelBoxUp->setObjectName(QString::fromUtf8("inchannelBoxUp"));
     inchannelBoxUp->setStyleSheet(QString::fromUtf8(
-            "QComboBox {color: white; background-color: #8695a3;} \n"
-            "QComboBox QAbstractItemView {color: white; background-color: #8695a3; selection-background-color: #24c2c3;} \n"
-            "QComboBox:disabled {color: darkGray; background-color: #8695a3;} \n"
-            "QToolTip {color: black;} \n"));
-    inchannelBoxUp->setToolTip("Input Channel from MIDI Keyboard");
-    inchannelBoxUp->setGeometry(QRect(170, 190 + yyy, 81, 31));
+        "QComboBox {color: white; background-color: #8695a3;} \n"
+        "QComboBox QAbstractItemView {color: white; background-color: #8695a3; selection-background-color: #24c2c3;} \n"
+        "QComboBox:disabled {color: darkGray; background-color: #8695a3;} \n"
+        "QToolTip {color: black;} \n"));
+    TOOLTIP(inchannelBoxUp, "Input Channel from MIDI Keyboard");
+    inchannelBoxUp->setGeometry(QRect(120, 40, 81, 31));
     inchannelBoxUp->setFont(font);
     inchannelBoxUp->addItem("ALL", -1);
     for(int n = 0; n < 16; n++) {
         inchannelBoxUp->addItem(QString::asprintf("ch %i", n), n);
     }
-    inchannelBoxUp->setCurrentIndex(_inchannelUp + 1);
+    inchannelBoxUp->setCurrentIndex(_inchannelUp[cur_pairdev] + 1);
 
-    inchannelBoxDown = new QComboBox(MIDIin2);
+    inlabelDown = new QLabel(SplitBox);
+    inlabelDown->setObjectName(QString::fromUtf8("inlabelDown"));
+    inlabelDown->setGeometry(QRect(120, 80, 91, 20));
+    inlabelDown->setAlignment(Qt::AlignCenter);
+    inlabelDown->setText("Channel Down IN");
+
+    inchannelBoxDown = new QComboBox(SplitBox);
     inchannelBoxDown->setObjectName(QString::fromUtf8("inchannelBoxDown"));
     inchannelBoxDown->setStyleSheet(QString::fromUtf8(
         "QComboBox {color: white; background-color: #8695a3} \n"
         "QComboBox QAbstractItemView {color: white; background-color: #8695a3; selection-background-color: #24c2c3;} \n"
         "QComboBox:disabled {color: darkGray; background-color: #8695a3;} \n"
         "QToolTip {color: black;} \n"));
-    inchannelBoxDown->setToolTip("Input Channel from MIDI Keyboard");
-    inchannelBoxDown->setGeometry(QRect(280, 190 + yyy, 81, 31));
+    TOOLTIP(inchannelBoxDown, "Input Channel from MIDI Keyboard");
+    inchannelBoxDown->setGeometry(QRect(120, 100, 81, 31));
     inchannelBoxDown->setFont(font);
     inchannelBoxDown->addItem("ALL", -1);
     for(int n = 0; n < 16; n++) {
         inchannelBoxDown->addItem(QString::asprintf("ch %i", n), n);
     }
-    inchannelBoxDown->setCurrentIndex(_inchannelDown + 1);
 
+    inchannelBoxDown->setCurrentIndex(_inchannelDown[cur_pairdev] + 1);
 
-    rstButton = new QPushButton(MIDIin2);
-    rstButton->setObjectName(QString::fromUtf8("rstButton"));
-    rstButton->setFont(font2);
-    rstButton->setStyleSheet(QString::fromUtf8(
-            "QPushButton {color: black; background-color: #c7c9df;} \n"
-            "QPushButton::disabled { color: gray;}"
-            "QToolTip {color: black;} \n"));
-    rstButton->setGeometry(QRect(440, 190 + yyy, 51, 31));
-    rstButton->setToolTip("Reset Parameters");
-    rstButton->setText("Reset");
-    rstButton->setToolTip("Deletes the Split parameters\n"
-                           "and use settings by default");
+    int dx1 = 95;
 
-    PanicButton = new QPushButton(MIDIin2);
-    PanicButton->setObjectName(QString::fromUtf8("PanicButton"));
-    PanicButton->setGeometry(QRect(510, 190 + yyy, 51, 31));
-    PanicButton->setStyleSheet(QString::fromUtf8(
-        "QPushButton {color: white; background-color: #c7c9df;} \n"
-        "QToolTip {color: black;} \n"));
-    PanicButton->setIcon(QIcon(":/run_environment/graphics/tool/panic.png"));
-    PanicButton->setIconSize(QSize(24, 24));
-    PanicButton->setToolTip("Panic Button\nReset MIDI Output");
-    PanicButton->setText(QString());
-    PanicButton->setToolTip("MIDI Panic extended");
+    /**********************/
+    LEDBoxUp = new QLedBoxE(SplitBox);
+    LEDBoxUp->setObjectName(QString::fromUtf8("LEDBoxUp"));
+    LEDBoxUp->setGeometry(QRect(120 + dx1 + 8, 30 + 8, 16, 31));
 
-// effects
+    TOOLTIP(LEDBoxUp, "Indicates events on channel Up");
 
-    groupBoxEffect = new QGroupBox(MIDIin2);
-    groupBoxEffect->setObjectName(QString::fromUtf8("groupBoxEffect"));
-    groupBoxEffect->setStyleSheet(QString::fromUtf8(
-    "QGroupBox QComboBox {color: white; background-color: #60b386;} \n"
-    "QGroupBox QComboBox:disabled {color: darkGray; background-color: #50a376;} \n"
-    "QGroupBox QComboBox QAbstractItemView {color: white; background-color: #60b386; selection-background-color: #24c2c3;} \n"
-    "QGroupBox QSpinBox {color: white; background-color: #60b386;} \n"
-    "QGroupBox QPushButton {color: white; background-color: #c7c9df;} \n"
-    "QGroupBox QToolTip {color: black;} \n"
-    ));
-    groupBoxEffect->setGeometry(QRect(30, 220 + yyy, 531, 261));
-    groupBoxEffect->setCheckable(true);
-    groupBoxEffect->setChecked(_key_effect);
-    groupBoxEffect->setTitle("Key Effects");
-    groupBoxEffect->setToolTip("Key effect is used to connect MIDI keyboard keys\n"
-                                "to generate effects like sustain, pitch bend and\n"
-                                "other applications.\n"
-                                "Note Effect1 has the priority and can be activated\n"
-                                "simultaneously by an expression pedal (sustain)");
+    LEDBoxDown = new QLedBoxE(SplitBox);
+    LEDBoxDown->setObjectName(QString::fromUtf8("LEDBoxDown"));
+    LEDBoxDown->setGeometry(QRect(120 + dx1 + 8, 90 + 8, 16, 31));
 
+    TOOLTIP(LEDBoxDown, "Indicates events on channel Down");
 
-    int xx = 20, yy = 20;
-    NoteBoxEffect1 = new QComboBox(groupBoxEffect);
-    NoteBoxEffect1->setObjectName(QString::fromUtf8("NoteBoxEffect1"));
-    NoteBoxEffect1->setGeometry(QRect(xx, yy + 20, 91, 31));
-    NoteBoxEffect1->setFont(font);
-    NoteBoxEffect1->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one.\n"
-                               "Sustain pedal works here");
+    dx1 = 260;
 
-    NoteBoxEffect1->addItem("Get It", -1);
-    if(_note_effect1 >= 0) {
-        NoteBoxEffect1->addItem(QString::asprintf("%s %i", notes[_note_effect1 % 12], _note_effect1 / 12 - 1), _note_effect1);
-        NoteBoxEffect1->setCurrentIndex(1);
+    labelUp = new QLabel(SplitBox);
+    labelUp->setObjectName(QString::fromUtf8("labelUp"));
+    labelUp->setGeometry(QRect(dx1, 20, 81, 20));
+    labelUp->setAlignment(Qt::AlignCenter);
+    labelUp->setText("Channel Up");
+
+    channelBoxUp = new QComboBox(SplitBox);
+    channelBoxUp->setObjectName(QString::fromUtf8("channelBoxUp"));
+    channelBoxUp->setGeometry(QRect(dx1, 40, 81, 31));
+    TOOLTIP(channelBoxUp, "Select the MIDI Channel for 'UP'\n"
+                             "'--' uses New Events channel");
+    channelBoxUp->setFont(font);
+    channelBoxUp->addItem("--", -1);
+
+    for(int n = 0; n < 9; n++) {
+        channelBoxUp->addItem(QString::asprintf("ch %i", n), n);
+    }
+    channelBoxUp->setCurrentIndex(_channelUp[cur_pairdev] + 1);
+
+    labelDown = new QLabel(SplitBox);
+    labelDown->setObjectName(QString::fromUtf8("labelDown"));
+    labelDown->setGeometry(QRect(dx1, 80, 81, 20));
+    labelDown->setAlignment(Qt::AlignCenter);
+    labelDown->setText("Channel Down");
+
+    channelBoxDown = new QComboBox(SplitBox);
+    channelBoxDown->setObjectName(QString::fromUtf8("channelBoxDown"));
+    channelBoxDown->setGeometry(QRect(dx1, 100, 81, 31));
+    TOOLTIP(channelBoxDown, "Select the MIDI Channel for 'Down'\n"
+                                 "'DIS' disable it using the same\n"
+                                 "channel of 'Up'");
+    channelBoxDown->setFont(font);
+    channelBoxDown->addItem("DIS", -1);
+
+    for(int n = 0; n < 9; n++) {
+        channelBoxDown->addItem(QString::asprintf("ch %i", n), n);
     }
 
-    labelPitch1 = new QLabel(groupBoxEffect);
-    labelPitch1->setObjectName(QString::fromUtf8("labelPitch1"));
-    labelPitch1->setGeometry(QRect(xx + 10, yy + 62, 101, 16));
-    labelPitch1->setText("Pitch Bend");
-
-    typeBoxEffect1 = new QComboBox(groupBoxEffect);
-    typeBoxEffect1->setObjectName(QString::fromUtf8("typeBoxEffect1"));
-    typeBoxEffect1->setGeometry(QRect(xx + 100, yy + 20, 131, 31));
-    typeBoxEffect1->setToolTip("Select the effect to apply here");
-
-    font1.setPointSize(10);
-    typeBoxEffect1->setFont(font1);
-    typeBoxEffect1->addItem("Pitch Bend", 2);
-    typeBoxEffect1->addItem("Modulation Wheel", 1);
-    typeBoxEffect1->addItem("Sustain", 0);
-    typeBoxEffect1->addItem("Sostenuto", 0);
-    typeBoxEffect1->addItem("Reverb Level", 1);
-    typeBoxEffect1->addItem("Chorus Level", 1);
-    typeBoxEffect1->addItem("AutoChord Up", 0);
-    typeBoxEffect1->addItem("AutoChord Down", 0);
-    typeBoxEffect1->addItem("VST UP Plug 1", 0);
-    typeBoxEffect1->addItem("VST UP Plug 2", 0);
-    typeBoxEffect1->addItem("VST DOWN Plug 1", 0);
-    typeBoxEffect1->addItem("VST DOWN Plug 2", 0);
-    typeBoxEffect1->setCurrentIndex(-1);
-    connect(typeBoxEffect1, SIGNAL(currentIndexChanged(QString)), labelPitch1, SLOT(setText(QString)));
-
-    useVelocityBoxEffect1 = new QCheckBox(groupBoxEffect);
-    useVelocityBoxEffect1->setObjectName(QString::fromUtf8("useVelocityBoxEffect1"));
-    useVelocityBoxEffect1->setGeometry(QRect(xx + 100, yy, 91, 20));
-    useVelocityBoxEffect1->setText("Use Velocity");
-    useVelocityBoxEffect1->setChecked(_note_effect1_usevel);
-    useVelocityBoxEffect1->setToolTip("Use the velocity from the note as value\n"
-                                       "For pressure sensitive MIDI keyboards");
-    connect(useVelocityBoxEffect1, SIGNAL(clicked(bool)), this, SLOT(set_note_effect1_usevel(bool)));
-
-    pressedBoxEffect1 = new QCheckBox(groupBoxEffect);
-    pressedBoxEffect1->setObjectName(QString::fromUtf8("pressedBoxEffect1"));
-    pressedBoxEffect1->setGeometry(QRect(xx + 120, yy + 51, 91, 31));
-    pressedBoxEffect1->setText("key pressed");
-    pressedBoxEffect1->setChecked(_note_effect1_fkeypressed);
-    pressedBoxEffect1->setToolTip("two working modes here: without checking,\n"
-                                  "the effect starts pressing the key and ends\n"
-                                  "when it is released.\n"
-                                  "When it is checked, pressing the key activates\n"
-                                  "the effect and another pressing stops it");
-
-    LEDBoxEffect1 = new QCheckBox(groupBoxEffect);
-    LEDBoxEffect1->setObjectName(QString::fromUtf8("LEDBoxEffect1"));
-    LEDBoxEffect1->setGeometry(QRect(xx + 100, yy + 51, 16, 31));
-    LEDBoxEffect1->setCheckable(false);
-    LEDBoxEffect1->setText(QString());
-    LEDBoxEffect1->setToolTip("Operation indicator");
-
-    labelEffect1 = new QLabel(groupBoxEffect);
-    labelEffect1->setObjectName(QString::fromUtf8("labelEffect1"));
-    labelEffect1->setGeometry(QRect(xx, yy, 91, 20));
-    labelEffect1->setAlignment(Qt::AlignCenter);
-    labelEffect1->setText("Note Effect1");
-    labelEffect1->setStyleSheet(QString::fromUtf8("background-color: #40a080"));
-    labelEffect1->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one.\n"
-                               "Sustain pedal works here");
-
-    VlabelPitch1 = new QLabel(groupBoxEffect);
-    VlabelPitch1->setObjectName(QString::fromUtf8("VlabelPitch1"));
-    VlabelPitch1->setGeometry(QRect(xx + 180, yy + 80, 21, 16));
-    VlabelPitch1->setStyleSheet(QString::fromUtf8("color: black; background-color: white;"));
-    VlabelPitch1->setAlignment(Qt::AlignCenter);
-    VlabelPitch1->setText(QString());
-
-    horizontalSliderPitch1 = new QSlider(groupBoxEffect);
-    horizontalSliderPitch1->setObjectName(QString::fromUtf8("horizontalSliderPitch1"));
-    horizontalSliderPitch1->setGeometry(QRect(xx, yy + 80, 171, 22));
-    horizontalSliderPitch1->setMinimum(-99);
-    horizontalSliderPitch1->setOrientation(Qt::Horizontal);
-    horizontalSliderPitch1->setTickPosition(QSlider::TicksAbove);
-    horizontalSliderPitch1->setTickInterval(99);
-    horizontalSliderPitch1->setValue(-1);
-    connect(horizontalSliderPitch1, SIGNAL(valueChanged(int)), VlabelPitch1, SLOT(setNum(int)));
-    horizontalSliderPitch1->setValue(_note_effect1_value);
-    horizontalSliderPitch1->setToolTip("Effect value to setting. When key\n"
-                                       "velocity is used, this is the scale value\n"
-                                        "to fix the range");
-
-
-    int curr = _note_effect1_type;
-
-    VSTBoxPresetOff1 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOff1->setObjectName(QString::fromUtf8("VSTBoxPresetOff1"));
-    VSTBoxPresetOff1->setGeometry(QRect(xx, yy + 80, 91, 25));
-    VSTBoxPresetOff1->setToolTip("When VST key is OFF");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOff1->setFont(font1);
-    VSTBoxPresetOff1->addItem("Off", -1);
-    VSTBoxPresetOff1->addItem("Preset 0", 0);
-    VSTBoxPresetOff1->addItem("Preset 1", 1);
-    VSTBoxPresetOff1->addItem("Preset 2", 2);
-    VSTBoxPresetOff1->addItem("Preset 3", 3);
-    VSTBoxPresetOff1->addItem("Preset 4", 4);
-    VSTBoxPresetOff1->addItem("Preset 5", 5);
-    VSTBoxPresetOff1->addItem("Preset 6", 6);
-    VSTBoxPresetOff1->addItem("Preset 7", 7);
-    VSTBoxPresetOff1->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST1_plugin2_off : _note_VST1_plugin1_off) + 1);
-
-    VSTBoxPresetOn1 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOn1->setObjectName(QString::fromUtf8("VSTBoxPresetOn1"));
-    VSTBoxPresetOn1->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
-    VSTBoxPresetOn1->setToolTip("When VST key is ON");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOn1->setFont(font1);
-    VSTBoxPresetOn1->addItem("Preset 0", 0);
-    VSTBoxPresetOn1->addItem("Preset 1", 1);
-    VSTBoxPresetOn1->addItem("Preset 2", 2);
-    VSTBoxPresetOn1->addItem("Preset 3", 3);
-    VSTBoxPresetOn1->addItem("Preset 4", 4);
-    VSTBoxPresetOn1->addItem("Preset 5", 5);
-    VSTBoxPresetOn1->addItem("Preset 6", 6);
-    VSTBoxPresetOn1->addItem("Preset 7", 7);
-    VSTBoxPresetOn1->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST1_plugin2_on : _note_VST1_plugin1_on);
-
-    if(curr >= 8 && curr <= 11) {
-
-        horizontalSliderPitch1->setVisible(false);
-        VlabelPitch1->setVisible(false);
-
-    } else {
-
-        VSTBoxPresetOff1->setVisible(false);
-        VSTBoxPresetOn1->setVisible(false);
-    }
-
-    connect(VSTBoxPresetOff1, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOff1->itemData(v).toInt();
-
-        int curr = typeBoxEffect1->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST1_plugin1_off = val;
-            _settings->setValue("MIDIin_note_VST1_plugin1_off", _note_VST1_plugin1_off);
-        }
-
-        if(curr == 9 || curr == 11) {
-            _note_VST1_plugin2_off = val;
-            _settings->setValue("MIDIin_note_VST1_plugin2_off", _note_VST1_plugin2_off);
-        }
-
-    });
-
-    connect(VSTBoxPresetOn1, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOn1->itemData(v).toInt();
-
-        int curr = typeBoxEffect1->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST1_plugin1_on = val;
-            _settings->setValue("MIDIin_note_VST1_plugin1_on", _note_VST1_plugin1_on);
-        }
-
-        if(curr == 9  || curr == 11) {
-            _note_VST1_plugin2_on = val;
-            _settings->setValue("MIDIin_note_VST1_plugin2_on", _note_VST1_plugin2_on);
-        }
-
-    });
-
-    connect(typeBoxEffect1, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int type = typeBoxEffect1->itemData(v).toInt();
-
-        if(v >= 8 && v <= 11) {
-
-            horizontalSliderPitch1->setVisible(false);
-            VlabelPitch1->setVisible(false);
-            VSTBoxPresetOff1->setVisible(true);
-            VSTBoxPresetOn1->setVisible(true);
-
-        } else {
-
-            VSTBoxPresetOff1->setVisible(false);
-            VSTBoxPresetOn1->setVisible(false);
-            horizontalSliderPitch1->setVisible(true);
-            VlabelPitch1->setVisible(true);
-        }
-
-        if(type == 2) {
-            horizontalSliderPitch1->setDisabled(false);
-            horizontalSliderPitch1->setMinimum(-99);
-            horizontalSliderPitch1->setMaximum(99);
-            horizontalSliderPitch1->setTickInterval(99);
-            if(!first) _note_effect1_value = 0;
-        } else if(type == 1) {
-            horizontalSliderPitch1->setDisabled(false);
-            horizontalSliderPitch1->setMinimum(0);
-            horizontalSliderPitch1->setMaximum(127);
-            horizontalSliderPitch1->setTickInterval(64);
-            if(!first) _note_effect1_value = 64;
-        } else if(type == 0) {
-            horizontalSliderPitch1->setDisabled(true);
-        }
-
-        set_note_effect1_type(v);
-        horizontalSliderPitch1->setValue(_note_effect1_value);
-        _settings->setValue("MIDIin_note_effect1_value", _note_effect1_value);
-
-    });
-
-    typeBoxEffect1->setCurrentIndex(_note_effect1_type);
-
-    connect(horizontalSliderPitch1, QOverload<int>::of(&QSlider::valueChanged), [=](int i)
-    {
-        _note_effect1_value = i;
-        horizontalSliderPitch1->setValue(_note_effect1_value);
-        _settings->setValue("MIDIin_note_effect1_value", _note_effect1_value);
-    });
-
-    connect(pressedBoxEffect1, SIGNAL(clicked(bool)), this, SLOT(set_note_effect1_fkeypressed(bool)));
-
-    xx = 290;
-    NoteBoxEffect2 = new QComboBox(groupBoxEffect);
-    NoteBoxEffect2->setObjectName(QString::fromUtf8("NoteBoxEffect2"));
-    NoteBoxEffect2->setGeometry(QRect(xx, yy + 20, 91, 31));
-    NoteBoxEffect2->setFont(font);
-    NoteBoxEffect2->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one");
-    NoteBoxEffect2->addItem("Get It", -1);
-    if(_note_effect2 >= 0) {
-        NoteBoxEffect2->addItem(QString::asprintf("%s %i", notes[_note_effect2 % 12], _note_effect2 / 12 - 1), _note_effect2);
-        NoteBoxEffect2->setCurrentIndex(1);
-    }
-
-    labelPitch2 = new QLabel(groupBoxEffect);
-    labelPitch2->setObjectName(QString::fromUtf8("labelPitch2"));
-    labelPitch2->setGeometry(QRect(xx + 10, yy + 62, 101, 16));
-    labelPitch2->setText("Pitch Bend");
-
-    typeBoxEffect2 = new QComboBox(groupBoxEffect);
-    typeBoxEffect2->setObjectName(QString::fromUtf8("typeBoxEffect2"));
-    typeBoxEffect2->setGeometry(QRect(xx + 100, yy + 20, 131, 31));
-    typeBoxEffect2->setToolTip("Select the effect to apply here");
-    typeBoxEffect2->setFont(font1);
-    typeBoxEffect2->addItem("Pitch Bend", 2);
-    typeBoxEffect2->addItem("Modulation Wheel", 1);
-    typeBoxEffect2->addItem("Sustain", 0);
-    typeBoxEffect2->addItem("Sostenuto", 0);
-    typeBoxEffect2->addItem("Reverb Level", 1);
-    typeBoxEffect2->addItem("Chorus Level", 1);
-    typeBoxEffect2->addItem("AutoChord Up", 0);
-    typeBoxEffect2->addItem("AutoChord Down", 0);
-    typeBoxEffect2->addItem("VST UP Plug 1", 0);
-    typeBoxEffect2->addItem("VST UP Plug 2", 0);
-    typeBoxEffect2->addItem("VST DOWN Plug 1", 0);
-    typeBoxEffect2->addItem("VST DOWN Plug 2", 0);
-    typeBoxEffect2->setCurrentIndex(-1);
-    connect(typeBoxEffect2, SIGNAL(currentIndexChanged(QString)), labelPitch2, SLOT(setText(QString)));
-
-    useVelocityBoxEffect2 = new QCheckBox(groupBoxEffect);
-    useVelocityBoxEffect2->setObjectName(QString::fromUtf8("useVelocityBoxEffect2"));
-    useVelocityBoxEffect2->setGeometry(QRect(xx + 100, yy, 91, 20));
-    useVelocityBoxEffect2->setText("Use Velocity");
-    useVelocityBoxEffect2->setChecked(_note_effect2_usevel);
-    useVelocityBoxEffect2->setToolTip("Use the velocity from the note as value\n"
-                                       "For pressure sensitive MIDI keyboards");
-    connect(useVelocityBoxEffect2, SIGNAL(clicked(bool)), this, SLOT(set_note_effect2_usevel(bool)));
-
-    pressedBoxEffect2 = new QCheckBox(groupBoxEffect);
-    pressedBoxEffect2->setObjectName(QString::fromUtf8("pressedBoxEffect2"));
-    pressedBoxEffect2->setGeometry(QRect(xx + 120, yy + 51, 91, 31));
-    pressedBoxEffect2->setText("key pressed");
-    pressedBoxEffect2->setChecked(_note_effect2_fkeypressed);
-    pressedBoxEffect2->setToolTip("two working modes here: without checking,\n"
-                                  "the effect starts pressing the key and ends\n"
-                                  "when it is released.\n"
-                                  "When it is checked, pressing the key activates\n"
-                                  "the effect and another pressing stops it");
-
-    LEDBoxEffect2 = new QCheckBox(groupBoxEffect);
-    LEDBoxEffect2->setObjectName(QString::fromUtf8("LEDBoxEffect2"));
-    LEDBoxEffect2->setGeometry(QRect(xx + 100, yy + 51, 16, 31));
-    LEDBoxEffect2->setCheckable(false);
-    LEDBoxEffect2->setText(QString());
-    LEDBoxEffect2->setToolTip("Operation indicator");
-
-    labelEffect2 = new QLabel(groupBoxEffect);
-    labelEffect2->setObjectName(QString::fromUtf8("labelEffect2"));
-    labelEffect2->setGeometry(QRect(xx, yy, 91, 20));
-    labelEffect2->setAlignment(Qt::AlignCenter);
-    labelEffect2->setText("Note Effect2");
-    labelEffect2->setStyleSheet(QString::fromUtf8("background-color: #40404040"));
-    labelEffect2->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one");
-
-    VlabelPitch2 = new QLabel(groupBoxEffect);
-    VlabelPitch2->setObjectName(QString::fromUtf8("VlabelPitch2"));
-    VlabelPitch2->setGeometry(QRect(xx + 180, yy + 80, 21, 16));
-    VlabelPitch2->setStyleSheet(QString::fromUtf8("color: black; background-color: white;"));
-    VlabelPitch2->setAlignment(Qt::AlignCenter);
-    VlabelPitch2->setText(QString());
-
-    horizontalSliderPitch2 = new QSlider(groupBoxEffect);
-    horizontalSliderPitch2->setObjectName(QString::fromUtf8("horizontalSliderPitch2"));
-    horizontalSliderPitch2->setGeometry(QRect(xx, yy + 80, 171, 22));
-    horizontalSliderPitch2->setMinimum(-99);
-    horizontalSliderPitch2->setOrientation(Qt::Horizontal);
-    horizontalSliderPitch2->setTickPosition(QSlider::TicksAbove);
-    horizontalSliderPitch2->setTickInterval(99);
-    horizontalSliderPitch2->setValue(1);
-    connect(horizontalSliderPitch2, SIGNAL(valueChanged(int)), VlabelPitch2, SLOT(setNum(int)));
-    horizontalSliderPitch2->setValue(_note_effect2_value);
-    horizontalSliderPitch2->setToolTip("Effect value to setting. When key\n"
-                                       "velocity is used, this is the scale value\n"
-                                        "to fix the range");
-
-    curr = _note_effect2_type;
-
-    VSTBoxPresetOff2 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOff2->setObjectName(QString::fromUtf8("VSTBoxPresetOff2"));
-    VSTBoxPresetOff2->setGeometry(QRect(xx, yy + 80, 91, 25));
-    VSTBoxPresetOff2->setToolTip("When VST key is OFF");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOff2->setFont(font1);
-    VSTBoxPresetOff2->addItem("Off", -1);
-    VSTBoxPresetOff2->addItem("Preset 0", 0);
-    VSTBoxPresetOff2->addItem("Preset 1", 1);
-    VSTBoxPresetOff2->addItem("Preset 2", 2);
-    VSTBoxPresetOff2->addItem("Preset 3", 3);
-    VSTBoxPresetOff2->addItem("Preset 4", 4);
-    VSTBoxPresetOff2->addItem("Preset 5", 5);
-    VSTBoxPresetOff2->addItem("Preset 6", 6);
-    VSTBoxPresetOff2->addItem("Preset 7", 7);
-    VSTBoxPresetOff2->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST2_plugin2_off : _note_VST2_plugin1_off) + 1);
-
-    VSTBoxPresetOn2 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOn2->setObjectName(QString::fromUtf8("VSTBoxPresetOn2"));
-    VSTBoxPresetOn2->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
-    VSTBoxPresetOn2->setToolTip("When VST key is ON");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOn2->setFont(font1);
-    VSTBoxPresetOn2->addItem("Preset 0", 0);
-    VSTBoxPresetOn2->addItem("Preset 1", 1);
-    VSTBoxPresetOn2->addItem("Preset 2", 2);
-    VSTBoxPresetOn2->addItem("Preset 3", 3);
-    VSTBoxPresetOn2->addItem("Preset 4", 4);
-    VSTBoxPresetOn2->addItem("Preset 5", 5);
-    VSTBoxPresetOn2->addItem("Preset 6", 6);
-    VSTBoxPresetOn2->addItem("Preset 7", 7);
-    VSTBoxPresetOn2->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST2_plugin2_on : _note_VST2_plugin1_on);
-
-    if(curr >= 8 && curr <= 11) {
-
-        horizontalSliderPitch2->setVisible(false);
-        VlabelPitch2->setVisible(false);
-
-    } else {
-
-        VSTBoxPresetOff2->setVisible(false);
-        VSTBoxPresetOn2->setVisible(false);
-    }
-
-    connect(VSTBoxPresetOff2, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOff2->itemData(v).toInt();
-
-        int curr = typeBoxEffect2->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST2_plugin1_off = val;
-            _settings->setValue("MIDIin_note_VST2_plugin1_off", _note_VST2_plugin1_off);
-        }
-
-        if(curr == 9 || curr == 11) {
-            _note_VST2_plugin2_off = val;
-            _settings->setValue("MIDIin_note_VST2_plugin2_off", _note_VST2_plugin2_off);
-        }
-
-    });
-
-    connect(VSTBoxPresetOn2, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOn2->itemData(v).toInt();
-
-        int curr = typeBoxEffect2->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST2_plugin1_on = val;
-            _settings->setValue("MIDIin_note_VST2_plugin1_on", _note_VST2_plugin1_on);
-        }
-
-        if(curr == 9  || curr == 11) {
-            _note_VST2_plugin2_on = val;
-            _settings->setValue("MIDIin_note_VST2_plugin2_on", _note_VST2_plugin2_on);
-
-        }
-
-    });
-
-    connect(typeBoxEffect2, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int type = typeBoxEffect2->itemData(v).toInt();
-
-        if(v >= 8 && v <= 11) {
-
-            horizontalSliderPitch2->setVisible(false);
-            VlabelPitch2->setVisible(false);
-            VSTBoxPresetOff2->setVisible(true);
-            VSTBoxPresetOn2->setVisible(true);
-
-        } else {
-
-            VSTBoxPresetOff2->setVisible(false);
-            VSTBoxPresetOn2->setVisible(false);
-            horizontalSliderPitch2->setVisible(true);
-            VlabelPitch2->setVisible(true);
-        }
-
-        if(type == 2) {
-            horizontalSliderPitch2->setDisabled(false);
-            horizontalSliderPitch2->setMinimum(-99);
-            horizontalSliderPitch2->setMaximum(99);
-            horizontalSliderPitch2->setTickInterval(99);
-            if(!first) _note_effect2_value = 0;
-        } else if(type == 1) {
-            horizontalSliderPitch2->setDisabled(false);
-            horizontalSliderPitch2->setMinimum(0);
-            horizontalSliderPitch2->setMaximum(127);
-            horizontalSliderPitch2->setTickInterval(64);
-            if(!first) _note_effect2_value = 64;
-        } else if(type == 0) {
-            horizontalSliderPitch2->setDisabled(true);
-        }
-
-        set_note_effect2_type(v);
-        horizontalSliderPitch2->setValue(_note_effect2_value);
-        _settings->setValue("MIDIin_note_effect2_value", _note_effect2_value);
-
-    });
-
-    typeBoxEffect2->setCurrentIndex(_note_effect2_type);
-
-    connect(horizontalSliderPitch2, QOverload<int>::of(&QSlider::valueChanged), [=](int i)
-    {
-        _note_effect2_value = i;
-        horizontalSliderPitch2->setValue(_note_effect2_value);
-        _settings->setValue("MIDIin_note_effect2_value", _note_effect2_value);
-    });
-
-    connect(pressedBoxEffect2, SIGNAL(clicked(bool)), this, SLOT(set_note_effect2_fkeypressed(bool)));
-
-    xx = 20; yy = 150;
-    NoteBoxEffect3 = new QComboBox(groupBoxEffect);
-    NoteBoxEffect3->setObjectName(QString::fromUtf8("NoteBoxEffect3"));
-    NoteBoxEffect3->setGeometry(QRect(xx, yy + 20, 91, 31));
-    NoteBoxEffect3->setFont(font);
-    NoteBoxEffect3->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one");
-    NoteBoxEffect3->addItem("Get It", -1);
-    if(_note_effect3 >= 0) {
-        NoteBoxEffect3->addItem(QString::asprintf("%s %i", notes[_note_effect3 % 12], _note_effect3 / 12 - 1), _note_effect3);
-        NoteBoxEffect3->setCurrentIndex(1);
-    }
-
-    labelPitch3 = new QLabel(groupBoxEffect);
-    labelPitch3->setObjectName(QString::fromUtf8("labelPitch3"));
-    labelPitch3->setGeometry(QRect(xx + 10, yy + 62, 101, 16));
-    labelPitch3->setText("Pitch Bend");
-
-    typeBoxEffect3 = new QComboBox(groupBoxEffect);
-    typeBoxEffect3->setObjectName(QString::fromUtf8("typeBoxEffect3"));
-    typeBoxEffect3->setGeometry(QRect(xx + 100, yy + 20, 131, 31));
-    typeBoxEffect3->setToolTip("Select the effect to apply here");
-    typeBoxEffect3->setFont(font1);
-    typeBoxEffect3->addItem("Pitch Bend", 2);
-    typeBoxEffect3->addItem("Modulation Wheel", 1);
-    typeBoxEffect3->addItem("Sustain", 0);
-    typeBoxEffect3->addItem("Sostenuto", 0);
-    typeBoxEffect3->addItem("Reverb Level", 1);
-    typeBoxEffect3->addItem("Chorus Level", 1);
-    typeBoxEffect3->addItem("AutoChord Up", 0);
-    typeBoxEffect3->addItem("AutoChord Down", 0);
-    typeBoxEffect3->addItem("VST UP Plug 1", 0);
-    typeBoxEffect3->addItem("VST UP Plug 2", 0);
-    typeBoxEffect3->addItem("VST DOWN Plug 1", 0);
-    typeBoxEffect3->addItem("VST DOWN Plug 2", 0);
-    typeBoxEffect3->setCurrentIndex(-1);
-    connect(typeBoxEffect3, SIGNAL(currentIndexChanged(QString)), labelPitch3, SLOT(setText(QString)));
-
-    useVelocityBoxEffect3 = new QCheckBox(groupBoxEffect);
-    useVelocityBoxEffect3->setObjectName(QString::fromUtf8("useVelocityBoxEffect3"));
-    useVelocityBoxEffect3->setGeometry(QRect(xx + 100, yy, 91, 20));
-    useVelocityBoxEffect3->setText("Use Velocity");
-    useVelocityBoxEffect3->setChecked(_note_effect3_usevel);
-    useVelocityBoxEffect3->setToolTip("Use the velocity from the note as value\n"
-                                       "For pressure sensitive MIDI keyboards");
-    connect(useVelocityBoxEffect3, SIGNAL(clicked(bool)), this, SLOT(set_note_effect3_usevel(bool)));
-
-    pressedBoxEffect3 = new QCheckBox(groupBoxEffect);
-    pressedBoxEffect3->setObjectName(QString::fromUtf8("pressedBoxEffect3"));
-    pressedBoxEffect3->setGeometry(QRect(xx + 120, yy + 51, 91, 31));
-    pressedBoxEffect3->setText("key pressed");
-    pressedBoxEffect3->setChecked(_note_effect3_fkeypressed);
-    pressedBoxEffect3->setToolTip("two working modes here: without checking,\n"
-                                  "the effect starts pressing the key and ends\n"
-                                  "when it is released.\n"
-                                  "When it is checked, pressing the key activates\n"
-                                  "the effect and another pressing stops it");
-
-    LEDBoxEffect3 = new QCheckBox(groupBoxEffect);
-    LEDBoxEffect3->setObjectName(QString::fromUtf8("LEDBoxEffect3"));
-    LEDBoxEffect3->setGeometry(QRect(xx + 100, yy + 51, 16, 31));
-    LEDBoxEffect3->setCheckable(false);
-    LEDBoxEffect3->setText(QString());
-    LEDBoxEffect3->setToolTip("Operation indicator");
-
-    labelEffect3 = new QLabel(groupBoxEffect);
-    labelEffect3->setObjectName(QString::fromUtf8("labelEffect3"));
-    labelEffect3->setGeometry(QRect(xx, yy, 91, 20));
-    labelEffect3->setAlignment(Qt::AlignCenter);
-    labelEffect3->setText("Note Effect3");
-    labelEffect3->setStyleSheet(QString::fromUtf8("background-color: #40404040"));
-    labelEffect3->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one");
-
-    VlabelPitch3 = new QLabel(groupBoxEffect);
-    VlabelPitch3->setObjectName(QString::fromUtf8("VlabelPitch3"));
-    VlabelPitch3->setGeometry(QRect(xx + 180, yy + 80, 21, 16));
-    VlabelPitch3->setStyleSheet(QString::fromUtf8("color: black; background-color: white;"));
-    VlabelPitch3->setAlignment(Qt::AlignCenter);
-    VlabelPitch3->setText(QString());
-
-    horizontalSliderPitch3 = new QSlider(groupBoxEffect);
-    horizontalSliderPitch3->setObjectName(QString::fromUtf8("horizontalSliderPitch3"));
-    horizontalSliderPitch3->setGeometry(QRect(xx, yy + 80, 171, 22));
-    horizontalSliderPitch3->setMinimum(-99);
-    horizontalSliderPitch3->setOrientation(Qt::Horizontal);
-    horizontalSliderPitch3->setTickPosition(QSlider::TicksAbove);
-    horizontalSliderPitch3->setTickInterval(99);
-    horizontalSliderPitch3->setValue(1);
-    connect(horizontalSliderPitch3, SIGNAL(valueChanged(int)), VlabelPitch3, SLOT(setNum(int)));
-    horizontalSliderPitch3->setValue(_note_effect3_value);
-    horizontalSliderPitch3->setToolTip("Effect value to setting. When key\n"
-                                       "velocity is used, this is the scale value\n"
-                                        "to fix the range");
-
-    curr = _note_effect3_type;
-
-    VSTBoxPresetOff3 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOff3->setObjectName(QString::fromUtf8("VSTBoxPresetOff3"));
-    VSTBoxPresetOff3->setGeometry(QRect(xx, yy + 80, 91, 25));
-    VSTBoxPresetOff3->setToolTip("When VST key is OFF");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOff3->setFont(font1);
-    VSTBoxPresetOff3->addItem("Off", -1);
-    VSTBoxPresetOff3->addItem("Preset 0", 0);
-    VSTBoxPresetOff3->addItem("Preset 1", 1);
-    VSTBoxPresetOff3->addItem("Preset 2", 2);
-    VSTBoxPresetOff3->addItem("Preset 3", 3);
-    VSTBoxPresetOff3->addItem("Preset 4", 4);
-    VSTBoxPresetOff3->addItem("Preset 5", 5);
-    VSTBoxPresetOff3->addItem("Preset 6", 6);
-    VSTBoxPresetOff3->addItem("Preset 7", 7);
-    VSTBoxPresetOff3->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST3_plugin2_off : _note_VST3_plugin1_off) + 1);
-
-    VSTBoxPresetOn3 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOn3->setObjectName(QString::fromUtf8("VSTBoxPresetOn3"));
-    VSTBoxPresetOn3->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
-    VSTBoxPresetOn3->setToolTip("When VST key is ON");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOn3->setFont(font1);
-    VSTBoxPresetOn3->addItem("Preset 0", 0);
-    VSTBoxPresetOn3->addItem("Preset 1", 1);
-    VSTBoxPresetOn3->addItem("Preset 2", 2);
-    VSTBoxPresetOn3->addItem("Preset 3", 3);
-    VSTBoxPresetOn3->addItem("Preset 4", 4);
-    VSTBoxPresetOn3->addItem("Preset 5", 5);
-    VSTBoxPresetOn3->addItem("Preset 6", 6);
-    VSTBoxPresetOn3->addItem("Preset 7", 7);
-    VSTBoxPresetOn3->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST3_plugin2_on : _note_VST3_plugin1_on);
-
-    if(curr >= 8 && curr <= 11) {
-
-        horizontalSliderPitch3->setVisible(false);
-        VlabelPitch3->setVisible(false);
-
-    } else {
-
-        VSTBoxPresetOff3->setVisible(false);
-        VSTBoxPresetOn3->setVisible(false);
-    }
-
-    connect(VSTBoxPresetOff3, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOff3->itemData(v).toInt();
-
-        int curr = typeBoxEffect3->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST3_plugin1_off = val;
-            _settings->setValue("MIDIin_note_VST3_plugin1_off", _note_VST3_plugin1_off);
-        }
-
-        if(curr == 9 || curr == 11) {
-            _note_VST3_plugin2_off = val;
-            _settings->setValue("MIDIin_note_VST3_plugin2_off", _note_VST3_plugin2_off);
-        }
-
-    });
-
-    connect(VSTBoxPresetOn3, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOn3->itemData(v).toInt();
-
-        int curr = typeBoxEffect3->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST3_plugin1_on = val;
-            _settings->setValue("MIDIin_note_VST3_plugin1_on", _note_VST3_plugin1_on);
-        }
-
-        if(curr == 9  || curr == 11) {
-            _note_VST3_plugin2_on = val;
-            _settings->setValue("MIDIin_note_VST3_plugin2_on", _note_VST3_plugin2_on);
-        }
-
-    });
-
-    connect(typeBoxEffect3, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int type = typeBoxEffect3->itemData(v).toInt();
-
-        if(v >= 8 && v <= 11) {
-
-            horizontalSliderPitch3->setVisible(false);
-            VlabelPitch3->setVisible(false);
-            VSTBoxPresetOff3->setVisible(true);
-            VSTBoxPresetOn3->setVisible(true);
-
-        } else {
-
-            VSTBoxPresetOff3->setVisible(false);
-            VSTBoxPresetOn3->setVisible(false);
-            horizontalSliderPitch3->setVisible(true);
-            VlabelPitch3->setVisible(true);
-        }
-
-        if(type == 2) {
-            horizontalSliderPitch3->setDisabled(false);
-            horizontalSliderPitch3->setMinimum(-99);
-            horizontalSliderPitch3->setMaximum(99);
-            horizontalSliderPitch3->setTickInterval(99);
-            if(!first) _note_effect3_value = 0;
-        } else if(type == 1) {
-            horizontalSliderPitch3->setDisabled(false);
-            horizontalSliderPitch3->setMinimum(0);
-            horizontalSliderPitch3->setMaximum(127);
-            horizontalSliderPitch3->setTickInterval(64);
-            if(!first) _note_effect3_value = 64;
-        } else if(type == 0) {
-            horizontalSliderPitch3->setDisabled(true);
-        }
-
-        set_note_effect3_type(v);
-        horizontalSliderPitch3->setValue(_note_effect3_value);
-        _settings->setValue("MIDIin_note_effect3_value", _note_effect3_value);
-
-    });
-
-    typeBoxEffect3->setCurrentIndex(_note_effect3_type);
-
-    connect(horizontalSliderPitch3, QOverload<int>::of(&QSlider::valueChanged), [=](int i)
-    {
-        _note_effect3_value = i;
-        horizontalSliderPitch3->setValue(_note_effect3_value);
-        _settings->setValue("MIDIin_note_effect3_value", _note_effect3_value);
-    });
-
-    connect(pressedBoxEffect3, SIGNAL(clicked(bool)), this, SLOT(set_note_effect3_fkeypressed(bool)));
-
-    xx = 290;
-    NoteBoxEffect4 = new QComboBox(groupBoxEffect);
-    NoteBoxEffect4->setObjectName(QString::fromUtf8("NoteBoxEffect4"));
-    NoteBoxEffect4->setGeometry(QRect(xx, yy + 20, 91, 31));
-    NoteBoxEffect4->setFont(font);
-    NoteBoxEffect4->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one");
-    NoteBoxEffect4->addItem("Get It", -1);
-    if(_note_effect4 >= 0) {
-        NoteBoxEffect4->addItem(QString::asprintf("%s %i", notes[_note_effect4 % 12], _note_effect4 / 12 - 1), _note_effect4);
-        NoteBoxEffect4->setCurrentIndex(1);
-    }
-
-    labelPitch4 = new QLabel(groupBoxEffect);
-    labelPitch4->setObjectName(QString::fromUtf8("labelPitch4"));
-    labelPitch4->setGeometry(QRect(xx + 10, yy + 62, 101, 16));
-    labelPitch4->setText("Pitch Bend");
-
-    typeBoxEffect4 = new QComboBox(groupBoxEffect);
-    typeBoxEffect4->setObjectName(QString::fromUtf8("typeBoxEffect4"));
-    typeBoxEffect4->setGeometry(QRect(xx + 100, yy + 20, 131, 31));
-    typeBoxEffect4->setToolTip("Select the effect to apply here");
-    typeBoxEffect4->setFont(font1);
-    typeBoxEffect4->addItem("Pitch Bend", 2);
-    typeBoxEffect4->addItem("Modulation Wheel", 1);
-    typeBoxEffect4->addItem("Sustain", 0);
-    typeBoxEffect4->addItem("Sostenuto", 0);
-    typeBoxEffect4->addItem("Reverb Level", 1);
-    typeBoxEffect4->addItem("Chorus Level", 1);
-    typeBoxEffect4->addItem("AutoChord Up", 0);
-    typeBoxEffect4->addItem("AutoChord Down", 0);
-    typeBoxEffect4->addItem("VST UP Plug 1", 0);
-    typeBoxEffect4->addItem("VST UP Plug 2", 0);
-    typeBoxEffect4->addItem("VST DOWN Plug 1", 0);
-    typeBoxEffect4->addItem("VST DOWN Plug 2", 0);
-    typeBoxEffect4->setCurrentIndex(-1);
-    connect(typeBoxEffect4, SIGNAL(currentIndexChanged(QString)), labelPitch4, SLOT(setText(QString)));
-
-    useVelocityBoxEffect4 = new QCheckBox(groupBoxEffect);
-    useVelocityBoxEffect4->setObjectName(QString::fromUtf8("useVelocityBoxEffect4"));
-    useVelocityBoxEffect4->setGeometry(QRect(xx + 100, yy, 91, 20));
-    useVelocityBoxEffect4->setText("Use Velocity");
-    useVelocityBoxEffect4->setChecked(_note_effect4_usevel);
-    useVelocityBoxEffect4->setToolTip("Use the velocity from the note as value\n"
-                                       "For pressure sensitive MIDI keyboards");
-
-    connect(useVelocityBoxEffect4, SIGNAL(clicked(bool)), this, SLOT(set_note_effect4_usevel(bool)));
-
-    pressedBoxEffect4 = new QCheckBox(groupBoxEffect);
-    pressedBoxEffect4->setObjectName(QString::fromUtf8("pressedBoxEffect4"));
-    pressedBoxEffect4->setGeometry(QRect(xx + 120, yy + 51, 91, 31));
-    pressedBoxEffect4->setText("key pressed");
-    pressedBoxEffect4->setChecked(_note_effect4_fkeypressed);
-    pressedBoxEffect4->setToolTip("two working modes here: without checking,\n"
-                                  "the effect starts pressing the key and ends\n"
-                                  "when it is released.\n"
-                                  "When it is checked, pressing the key activates\n"
-                                  "the effect and another pressing stops it");
-
-    LEDBoxEffect4 = new QCheckBox(groupBoxEffect);
-    LEDBoxEffect4->setObjectName(QString::fromUtf8("LEDBoxEffect4"));
-    LEDBoxEffect4->setGeometry(QRect(xx + 100, yy + 51, 16, 31));
-    LEDBoxEffect4->setCheckable(false);
-    LEDBoxEffect4->setText(QString());
-    LEDBoxEffect4->setToolTip("Operation indicator");
-
-    labelEffect4 = new QLabel(groupBoxEffect);
-    labelEffect4->setObjectName(QString::fromUtf8("labelEffect4"));
-    labelEffect4->setGeometry(QRect(xx, yy, 91, 20));
-    labelEffect4->setAlignment(Qt::AlignCenter);
-    labelEffect4->setText("Note Effect4");
-    labelEffect4->setStyleSheet(QString::fromUtf8("background-color: #40404040"));
-    labelEffect4->setToolTip("Record the activation note from \n"
-                               "the MIDI keyboard clicking\n"
-                               "'Get It' and pressing one");
-
-    VlabelPitch4 = new QLabel(groupBoxEffect);
-    VlabelPitch4->setObjectName(QString::fromUtf8("VlabelPitch4"));
-    VlabelPitch4->setGeometry(QRect(xx + 180, yy + 80, 21, 16));
-    VlabelPitch4->setStyleSheet(QString::fromUtf8("color: black; background-color: white;"));
-    VlabelPitch4->setAlignment(Qt::AlignCenter);
-    VlabelPitch4->setText(QString());
-
-    horizontalSliderPitch4 = new QSlider(groupBoxEffect);
-    horizontalSliderPitch4->setObjectName(QString::fromUtf8("horizontalSliderPitch4"));
-    horizontalSliderPitch4->setGeometry(QRect(xx, yy + 80, 171, 22));
-    horizontalSliderPitch4->setMinimum(-99);
-    horizontalSliderPitch4->setOrientation(Qt::Horizontal);
-    horizontalSliderPitch4->setTickPosition(QSlider::TicksAbove);
-    horizontalSliderPitch4->setTickInterval(99);
-    horizontalSliderPitch4->setValue(1);
-    connect(horizontalSliderPitch4, SIGNAL(valueChanged(int)), VlabelPitch4, SLOT(setNum(int)));
-    horizontalSliderPitch4->setValue(_note_effect4_value);
-    horizontalSliderPitch4->setToolTip("Effect value to setting. When key\n"
-                                       "velocity is used, this is the scale value\n"
-                                        "to fix the range");
-
-    curr = _note_effect4_type;
-
-    VSTBoxPresetOff4 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOff4->setObjectName(QString::fromUtf8("VSTBoxPresetOff4"));
-    VSTBoxPresetOff4->setGeometry(QRect(xx, yy + 80, 91, 25));
-    VSTBoxPresetOff4->setToolTip("When VST key is OFF");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOff4->setFont(font1);
-    VSTBoxPresetOff4->addItem("Off", -1);
-    VSTBoxPresetOff4->addItem("Preset 0", 0);
-    VSTBoxPresetOff4->addItem("Preset 1", 1);
-    VSTBoxPresetOff4->addItem("Preset 2", 2);
-    VSTBoxPresetOff4->addItem("Preset 3", 3);
-    VSTBoxPresetOff4->addItem("Preset 4", 4);
-    VSTBoxPresetOff4->addItem("Preset 5", 5);
-    VSTBoxPresetOff4->addItem("Preset 6", 6);
-    VSTBoxPresetOff4->addItem("Preset 7", 7);
-    VSTBoxPresetOff4->setCurrentIndex(((curr == 9 || curr == 11) ? _note_VST4_plugin2_off : _note_VST4_plugin1_off) + 1);
-
-    VSTBoxPresetOn4 = new QComboBox(groupBoxEffect);
-    VSTBoxPresetOn4->setObjectName(QString::fromUtf8("VSTBoxPresetOn4"));
-    VSTBoxPresetOn4->setGeometry(QRect(xx + 100, yy + 80, 91, 25));
-    VSTBoxPresetOn4->setToolTip("When VST key is ON");
-
-    font1.setPointSize(10);
-    VSTBoxPresetOn4->setFont(font1);
-    VSTBoxPresetOn4->addItem("Preset 0", 0);
-    VSTBoxPresetOn4->addItem("Preset 1", 1);
-    VSTBoxPresetOn4->addItem("Preset 2", 2);
-    VSTBoxPresetOn4->addItem("Preset 3", 3);
-    VSTBoxPresetOn4->addItem("Preset 4", 4);
-    VSTBoxPresetOn4->addItem("Preset 5", 5);
-    VSTBoxPresetOn4->addItem("Preset 6", 6);
-    VSTBoxPresetOn4->addItem("Preset 7", 7);
-    VSTBoxPresetOn4->setCurrentIndex((curr == 9 || curr == 11) ? _note_VST4_plugin2_on : _note_VST4_plugin1_on);
-
-    if(curr >= 8 && curr <= 11) {
-
-        horizontalSliderPitch4->setVisible(false);
-        VlabelPitch4->setVisible(false);
-
-    } else {
-
-        VSTBoxPresetOff4->setVisible(false);
-        VSTBoxPresetOn4->setVisible(false);
-    }
-
-    connect(VSTBoxPresetOff4, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOff4->itemData(v).toInt();
-
-        int curr = typeBoxEffect4->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST4_plugin1_off = val;
-            _settings->setValue("MIDIin_note_VST4_plugin1_off", _note_VST4_plugin1_off);
-        }
-
-        if(curr == 9 || curr == 11) {
-            _note_VST4_plugin2_off = val;
-            _settings->setValue("MIDIin_note_VST4_plugin2_off", _note_VST4_plugin2_off);
-        }
-
-    });
-
-    connect(VSTBoxPresetOn4, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int val = VSTBoxPresetOn4->itemData(v).toInt();
-
-        int curr = typeBoxEffect4->currentIndex();
-
-        if(curr == 8 || curr == 10) {
-            _note_VST4_plugin1_on = val;
-            _settings->setValue("MIDIin_note_VST4_plugin1_on", _note_VST4_plugin1_on);
-        }
-
-        if(curr == 9  || curr == 11) {
-            _note_VST4_plugin2_on = val;
-            _settings->setValue("MIDIin_note_VST4_plugin2_on", _note_VST4_plugin2_on);
-        }
-
-    });
-
-    connect(typeBoxEffect4, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
-    {
-        int type = typeBoxEffect4->itemData(v).toInt();
-
-        if(v >= 8 && v <= 11) {
-
-            horizontalSliderPitch4->setVisible(false);
-            VlabelPitch4->setVisible(false);
-            VSTBoxPresetOff4->setVisible(true);
-            VSTBoxPresetOn4->setVisible(true);
-
-        } else {
-
-            VSTBoxPresetOff4->setVisible(false);
-            VSTBoxPresetOn4->setVisible(false);
-            horizontalSliderPitch4->setVisible(true);
-            VlabelPitch4->setVisible(true);
-        }
-
-        if(type == 2) {
-            horizontalSliderPitch4->setDisabled(false);
-            horizontalSliderPitch4->setMinimum(-99);
-            horizontalSliderPitch4->setMaximum(99);
-            horizontalSliderPitch4->setTickInterval(99);
-            if(!first) _note_effect4_value = 0;
-        } else if(type == 1) {
-            horizontalSliderPitch4->setDisabled(false);
-            horizontalSliderPitch4->setMinimum(0);
-            horizontalSliderPitch4->setMaximum(127);
-            horizontalSliderPitch4->setTickInterval(64);
-            if(!first) _note_effect4_value = 64;
-        } else if(type == 0) {
-            horizontalSliderPitch4->setDisabled(true);
-        }
-
-        set_note_effect4_type(v);
-        horizontalSliderPitch4->setValue(_note_effect4_value);
-        _settings->setValue("MIDIin_note_effect4_value", _note_effect4_value);
-
-    });
-
-    typeBoxEffect4->setCurrentIndex(_note_effect4_type);
-
-    connect(horizontalSliderPitch4, QOverload<int>::of(&QSlider::valueChanged), [=](int i)
-    {
-        _note_effect4_value = i;
-        horizontalSliderPitch4->setValue(_note_effect4_value);
-        _settings->setValue("MIDIin_note_effect4_value", _note_effect4_value);
-    });
-
-    connect(pressedBoxEffect4, SIGNAL(clicked(bool)), this, SLOT(set_note_effect4_fkeypressed(bool)));
-
-
-    checkBoxPrgBank = new QCheckBox(MIDIin2);
-    checkBoxPrgBank->setObjectName(QString::fromUtf8("checkBoxPrgBank"));
-    checkBoxPrgBank->setGeometry(QRect(30, 490 + yyy, 121, 17));
-    checkBoxPrgBank->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
-    checkBoxPrgBank->setChecked(_skip_prgbanks);
-    checkBoxPrgBank->setText("Skip Prg/Bank Events");
-    checkBoxPrgBank->setToolTip("Skip Prg/Bank Events from the MIDI keyboard\n"
-                                "and instead use the 'Split Keyboard' instruments\n"
-                                "or from 'New Events' channel");
-
-    bankskipcheckBox = new QCheckBox(MIDIin2);
-    bankskipcheckBox->setObjectName(QString::fromUtf8("bankskipcheckBox"));
-    bankskipcheckBox->setGeometry(QRect(160, 490 + yyy, 101, 17));
-    bankskipcheckBox->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
-    bankskipcheckBox->setChecked(_skip_bankonly);
-    bankskipcheckBox->setText("Skip Bank Only");
-    bankskipcheckBox->setToolTip("ignore the bank change event coming from the\n"
-                                 "MIDI keyboard and use bank 0 instead\n"
-                                 "Useful if your MIDI keyboard is compatible with\n"
-                                 "the General Midi list");
+    channelBoxDown->setCurrentIndex(_channelDown[cur_pairdev] + 1);
+
+    dx1 = 388;
+
+    tlabelUp = new QLabel(SplitBox);
+    tlabelUp->setObjectName(QString::fromUtf8("tlabelUp"));
+    tlabelUp->setGeometry(QRect(dx1, 20, 71, 20));
+    tlabelUp->setAlignment(Qt::AlignCenter);
+    tlabelUp->setText("Transpose");
+
+    tspinBoxUp = new QSpinBox(SplitBox);
+    tspinBoxUp->setObjectName(QString::fromUtf8("tspinBoxUp"));
+    tspinBoxUp->setGeometry(QRect(dx1, 40, 71, 31));
+    tspinBoxUp->setFont(font);
+    tspinBoxUp->setMinimum(-24);
+    tspinBoxUp->setMaximum(24);
+    tspinBoxUp->setValue(_transpose_note_up[cur_pairdev]);
+    TOOLTIP(tspinBoxUp, "Transposes the position of the notes\n"
+                           "from -24 to 24 (24 = 2 octaves).\n"
+                            "Notes that exceed the MIDI range are clipped");
+
+    tlabelDown = new QLabel(SplitBox);
+    tlabelDown->setObjectName(QString::fromUtf8("tlabelDown"));
+    tlabelDown->setGeometry(QRect(dx1, 80, 71, 20));
+    tlabelDown->setAlignment(Qt::AlignCenter);
+    tlabelDown->setText("Transpose");
+
+    tspinBoxDown = new QSpinBox(SplitBox);
+    tspinBoxDown->setObjectName(QString::fromUtf8("tspinBoxDown"));
+    tspinBoxDown->setGeometry(QRect(dx1, 100, 71, 31));
+    tspinBoxDown->setFont(font);
+    tspinBoxDown->setMinimum(-24);
+    tspinBoxDown->setMaximum(24);
+    tspinBoxDown->setValue(_transpose_note_down[cur_pairdev]);
+    TOOLTIP(tspinBoxDown, "Transposes the position of the notes\n"
+                               "from -24 to 24 (24 = 2 octaves).\n"
+                                "Notes that exceed the MIDI range are clipped");
+
+    dx1 = 472;
+
+    vcheckBoxUp = new QCheckBox(SplitBox);
+    vcheckBoxUp->setObjectName(QString::fromUtf8("vcheckBoxUp"));
+    vcheckBoxUp->setGeometry(QRect(dx1, 28, 81, 33));
+    vcheckBoxUp->setText("Fix Velocity");
+    vcheckBoxUp->setChecked(_fixVelUp[cur_pairdev]);
+    TOOLTIP(vcheckBoxUp, "Fix velocity notes to 100 (0-127)");
+
+    vcheckBoxDown = new QCheckBox(SplitBox);
+    vcheckBoxDown->setObjectName(QString::fromUtf8("vcheckBoxDown"));
+    vcheckBoxDown->setGeometry(QRect(dx1, 88, 81, 33));
+    vcheckBoxDown->setText("Fix Velocity");
+    vcheckBoxDown->setChecked(_fixVelDown[cur_pairdev]);
+    TOOLTIP(vcheckBoxDown, "Fix velocity notes to 100 (0-127)");
+
+    achordcheckBoxUp = new QCheckBox(SplitBox);
+    achordcheckBoxUp->setObjectName(QString::fromUtf8("achordcheckBoxUp"));
+    achordcheckBoxUp->setGeometry(QRect(dx1, 50, 77, 31));
+    achordcheckBoxUp->setText("Auto Chord");
+    achordcheckBoxUp->setChecked(_autoChordUp[cur_pairdev]);
+    TOOLTIP(achordcheckBoxUp, "Select Auto Chord Mode for Up channel");
+
+    achordcheckBoxDown = new QCheckBox(SplitBox);
+    achordcheckBoxDown->setObjectName(QString::fromUtf8("achordcheckBoxDown"));
+    achordcheckBoxDown->setGeometry(QRect(dx1, 110, 77, 31));
+    achordcheckBoxDown->setText("Auto Chord");
+    achordcheckBoxDown->setChecked(_autoChordDown[cur_pairdev]);
+    TOOLTIP(achordcheckBoxDown, "Select Auto Chord Mode for Down channel");
+
+    dx1 = 559;
+
+    InstButtonUp = new QPushButton(SplitBox);
+    InstButtonUp->setObjectName(QString::fromUtf8("InstButtonUp"));
+    InstButtonUp->setGeometry(QRect(dx1/*410 + dx1*/, 40, 31, 31));
+    InstButtonUp->setIcon(QIcon(":/run_environment/graphics/channelwidget/instrument.png"));
+    InstButtonUp->setIconSize(QSize(24, 24));
+    TOOLTIP(InstButtonUp, "Select Live Instrument");
+    InstButtonUp->setText(QString());
+
+    InstButtonDown = new QPushButton(SplitBox);
+    InstButtonDown->setObjectName(QString::fromUtf8("InstButtonDown"));
+    InstButtonDown->setGeometry(QRect(dx1, 100, 31, 31));
+    InstButtonDown->setIcon(QIcon(":/run_environment/graphics/channelwidget/instrument.png"));
+    InstButtonDown->setIconSize(QSize(24, 24));
+    TOOLTIP(InstButtonDown, "Select Live Instrument");
+    InstButtonDown->setText(QString());
+
+    effectButtonUp = new QPushButton(SplitBox);
+    effectButtonUp->setObjectName(QString::fromUtf8("effectButtonUp"));
+    effectButtonUp->setGeometry(QRect(dx1 + 40, 40, 31, 31));
+    effectButtonUp->setIcon(QIcon(":/run_environment/graphics/channelwidget/sound_effect.png"));
+    effectButtonUp->setIconSize(QSize(24, 24));
+    effectButtonUp->setText(QString());
+    TOOLTIP(effectButtonUp, "Select Sound Effects events to play in Live\n"
+                               "These events will not be recorded");
+    effectButtonDown = new QPushButton(SplitBox);
+    effectButtonDown->setObjectName(QString::fromUtf8("effectButtonDown"));
+    effectButtonDown->setGeometry(QRect(dx1 + 40, 100, 31, 31));
+    effectButtonDown->setIcon(QIcon(":/run_environment/graphics/channelwidget/sound_effect.png"));
+    effectButtonDown->setIconSize(QSize(24, 24));
+    effectButtonDown->setText(QString());
+    TOOLTIP(effectButtonDown, "Select Sound Effects events to play in Live\n"
+                               "These events will not be recorded");
+
+    chordButtonUp = new QPushButton(SplitBox);
+    chordButtonUp->setObjectName(QString::fromUtf8("chordButtonUp"));
+    chordButtonUp->setGeometry(QRect(dx1 + 80, 40, 31, 31));
+    chordButtonUp->setIcon(QIcon(":/run_environment/graphics/tool/meter.png"));
+    chordButtonUp->setIconSize(QSize(24, 24));
+    chordButtonUp->setText(QString());
+    TOOLTIP(chordButtonUp, "Select the chord for auto chord mode");
+
+    connect(chordButtonUp, SIGNAL(clicked()), this, SLOT(setChordDialogUp()));
+
+    chordButtonDown = new QPushButton(SplitBox);
+    chordButtonDown->setObjectName(QString::fromUtf8("chordButtonDown"));
+    chordButtonDown->setGeometry(QRect(dx1 + 80, 100, 31, 31));
+    chordButtonDown->setIcon(QIcon(":/run_environment/graphics/tool/meter.png"));
+    chordButtonDown->setIconSize(QSize(24, 24));
+    chordButtonDown->setText(QString());
+    TOOLTIP(chordButtonDown, "Select the chord for auto chord mode");
+
+    connect(chordButtonDown, SIGNAL(clicked()), this, SLOT(setChordDialogDown()));
 
     checkBoxWait = new QCheckBox(MIDIin2);
     checkBoxWait->setObjectName(QString::fromUtf8("checkBoxWait"));
     checkBoxWait->setStyleSheet(QString::fromUtf8("QToolTip {color: black;} \n"));
-    checkBoxWait->setGeometry(QRect(30, 510 + yyy, 241, 17));
+    checkBoxWait->setGeometry(QRect(30, 634 - py - 10, 241, 17));
     checkBoxWait->setChecked(_record_waits);
     checkBoxWait->setText("Recording starts when one key is pressed");
-    checkBoxWait->setToolTip("Waits for a key pressed on the MIDI keyboard\n"
+    TOOLTIP(checkBoxWait, "Waits for a key pressed on the MIDI keyboard\n"
                              "to start the recording");
 
+
+    //////////////////////////////////////////////////////////////////
+
+    QGroupBox *PedalBox = new QGroupBox(MIDIin2);
+    PedalBox->setObjectName(QString::fromUtf8("PedalBox"));
+
+    PedalBox->setStyleSheet(style1);
+
+    PedalBox->setGeometry(QRect(30, 20 + yyy + 160, 790 - 60, 151));
+    PedalBox->setCheckable(false);
+    PedalBox->setTitle("Pedals");
+    TOOLTIP(PedalBox, "Midi events pedal sustain and expression input test");
+
+
+    int px = 64;
+
+    sustainUP = new QPedalE(PedalBox, "Sustain UP");
+    sustainUP->setObjectName(QString::fromUtf8("sustainUP"));
+    sustainUP->setGeometry(QRect(px, 9, 112, 135));
+    px+= 120;
+
+    expressionUP = new QPedalE(PedalBox, "Expression UP");
+    expressionUP->setObjectName(QString::fromUtf8("expressionUP"));
+    expressionUP->setGeometry(QRect(px, 9, 112, 135));
+    px+= 240;
+
+    sustainDOWN = new QPedalE(PedalBox, "Sustain DOWN");
+    sustainDOWN->setObjectName(QString::fromUtf8("sustainDOWN"));
+    sustainDOWN->setGeometry(QRect(px, 9, 112, 135));
+    px+= 120;
+
+    expressionDOWN = new QPedalE(PedalBox, "Expression DOWN");
+    expressionDOWN->setObjectName(QString::fromUtf8("expressionDOWN"));
+    expressionDOWN->setGeometry(QRect(px, 9, 112, 135));
+    px+= 120;
+
+    sustainUP->setVal(-1, MidiInControl::invSustainUP[cur_pairdev]);
+    expressionUP->setVal(-1, MidiInControl::invExpressionUP[cur_pairdev]);
+    sustainDOWN->setVal(-1, MidiInControl::invSustainDOWN[cur_pairdev]);
+    expressionDOWN->setVal(-1, MidiInControl::invExpressionDOWN[cur_pairdev]);
+
+    connect(sustainUP, &QPedalE::isChecked, this, [=](bool checked)
+    {
+        MidiInControl::invSustainUP[cur_pairdev] = checked;
+        _settings->setValue("MIDIin/MIDIin_invSustainUP" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), MidiInControl::invSustainUP[cur_pairdev]);
+    });
+
+    connect(expressionUP, &QPedalE::isChecked, this, [=](bool checked)
+    {
+        MidiInControl::invExpressionUP[cur_pairdev] = checked;
+        _settings->setValue("MIDIin/MIDIin_invExpressionUP" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), MidiInControl::invExpressionUP[cur_pairdev]);
+    });
+
+    connect(sustainDOWN, &QPedalE::isChecked, this, [=](bool checked)
+    {
+        MidiInControl::invSustainDOWN[cur_pairdev] = checked;
+        _settings->setValue("MIDIin/MIDIin_invSustainDOWN" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), MidiInControl::invSustainDOWN[cur_pairdev]);
+    });
+
+    connect(expressionDOWN, &QPedalE::isChecked, this, [=](bool checked)
+    {
+        MidiInControl::invExpressionDOWN[cur_pairdev] = checked;
+        _settings->setValue("MIDIin/MIDIin_invExpressionDOWN" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), MidiInControl::invExpressionDOWN[cur_pairdev]);
+    });
+
+
+    QGroupBox *seqBox = new QGroupBox(MIDIin2);
+    seqBox->setObjectName(QString::fromUtf8("seqBox"));
+
+    seqBox->setStyleSheet(style1);
+
+    seqBox->setGeometry(QRect(30, 20 + yyy + 320, 790 - 60, 64));
+    seqBox->setCheckable(false);
+    seqBox->setTitle("Sequencer");
+    TOOLTIP(seqBox, "Options to load sequencers when launching Midieditor\n"
+                    "or when selecting/connecting Midi devices.\n\n"
+                    "You can choose to load manually by pressing\n"
+                    "'LOAD SEQUENCERS' button or unload the sequencers and\n"
+                    "free memory with 'UNLOAD SEQUENCERS'");
+
+    seqSel = new QComboBox(seqBox);
+    seqSel->setObjectName(QString::fromUtf8("seqSel"));
+    seqSel->setGeometry(QRect(9, 16, 460, 32));
+    TOOLTIP(seqSel, "");
+    QFont font4;
+    font4.setPointSize(8);
+    seqSel->setFont(font4);
+    seqSel->addItem("Sequencer is not loaded automatically. Press 'LOAD SEQUENCERS' for connected devices", 0);
+    seqSel->addItem("Sequencer is not loaded automatically. Press 'LOAD SEQUENCERS' for load in all devices", 1);
+    seqSel->addItem("Sequencer is loaded automatically when you connect a device", 2);
+    seqSel->addItem("All sequencers are loaded at the start of Midieditor", 3);
+
+    seqSel->setCurrentIndex(MidiInput::loadSeq_mode);
+
+    connect(seqSel, QOverload<int>::of(&QComboBox::activated), this, [=](int v)
+    {
+        MidiInput::loadSeq_mode = v;
+        _settings->setValue("MIDIin/LoadSeq_mode", v);
+    });
+
+    QPushButton *seqLoad = new QPushButton(seqBox);
+    seqLoad->setObjectName(QString::fromUtf8("seqLoad"));
+    seqLoad->setGeometry(QRect(474, 16, 120, 32));
+    seqLoad->setFont(font4);
+    seqLoad->setText("LOAD SEQUENCERS");
+    TOOLTIP(seqLoad, "Load sequencers manually based on selected option");
+
+    connect(seqLoad, QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+    {
+        for(int pairdev = 0; pairdev < MAX_INPUT_PAIR; pairdev++) {
+
+            if((MidiInput::loadSeq_mode == 0 || MidiInput::loadSeq_mode == 2) &&
+               !MidiInput::isConnected(pairdev * 2) && !MidiInput::isConnected(pairdev * 2 + 1)) {
+                   MidiInControl::sequencer_unload(pairdev);
+                   continue;
+                }
+
+
+            MidiInControl::sequencer_load(pairdev);
+
+        }
+
+    });
+
+    QPushButton *seqUnLoad = new QPushButton(seqBox);
+    seqUnLoad->setObjectName(QString::fromUtf8("seqUnLoad"));
+    seqUnLoad->setGeometry(QRect(602, 16, 120, 32));
+    seqUnLoad->setFont(font4);
+    seqUnLoad->setText("UNLOAD SEQUENCERS");
+    TOOLTIP(seqUnLoad, "Unload sequencers manually based on selected option");
+
+    connect(seqUnLoad, QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+    {
+
+        for(int pairdev = 0; pairdev < MAX_INPUT_PAIR; pairdev++) {
+            MidiInControl::sequencer_unload(pairdev);
+        }
+
+    });
+
+
+
+    //////////////////////////////////////////////////////////////////
     connect(buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
     connect(buttonBox, SIGNAL(rejected()), this, SLOT(reject()));
 
@@ -2095,12 +1264,14 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     connect(channelBoxDown, SIGNAL(activated(int)), this, SLOT(set_channelDown(int)));
     connect(vcheckBoxUp, SIGNAL(clicked(bool)), this, SLOT(set_fixVelUp(bool)));
     connect(vcheckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_fixVelDown(bool)));
+
     connect(achordcheckBoxUp, SIGNAL(clicked(bool)), this, SLOT(set_autoChordUp(bool)));
     connect(achordcheckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_autoChordDown(bool)));
+
     connect(echeckBox, SIGNAL(clicked(bool)), this, SLOT(set_notes_only(bool)));
-    connect(echeckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_events_to_down(bool)));
+    //connect(echeckBoxDown, SIGNAL(clicked(bool)), this, SLOT(set_events_to_down(bool)));
 #ifdef USE_FLUIDSYNTH
-    connect(fluid_output, SIGNAL(MidiIn_set_events_to_down(bool)), echeckBoxDown, SLOT(setChecked(bool)));
+    //connect(fluid_output, SIGNAL(MidiIn_set_events_to_down(bool)), echeckBoxDown, SLOT(setChecked(bool)));
 #endif
 
     connect(tspinBoxUp, SIGNAL(valueChanged(int)), this, SLOT(set_transpose_note_up(int)));
@@ -2113,8 +1284,6 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     connect(effectButtonUp, SIGNAL(clicked()), this, SLOT(select_SoundEffectUp()));
     connect(effectButtonDown, SIGNAL(clicked()), this, SLOT(select_SoundEffectDown()));
 
-    connect(groupBoxEffect, SIGNAL(clicked(bool)), this, SLOT(set_key_effect(bool)));
-
     connect(checkBoxPrgBank, SIGNAL(clicked(bool)), this, SLOT(set_skip_prgbanks(bool)));
     connect(bankskipcheckBox, SIGNAL(clicked(bool)), this, SLOT(set_skip_bankonly(bool)));
     connect(checkBoxWait, SIGNAL(clicked(bool)), this, SLOT(set_record_waits(bool)));
@@ -2123,6 +1292,10 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
     {
        int nitem = NoteBoxCut->itemData(v).toInt();
        if(nitem == -1) {
+
+           _current_chan = MidiInControl::inchannelUp(cur_pairdev);
+
+           _current_device = cur_pairdev * 2;
 
            set_current_note(-1);
            int note = get_key();
@@ -2142,126 +1315,37 @@ MidiInControl::MidiInControl(QWidget* parent): QDialog(parent, Qt::WindowSystemM
                if(NoteBoxCut->itemData(1).toInt() >= 0)  NoteBoxCut->removeItem(1);
                set_note_cut(-1);
            }
-           _settings->setValue("MIDIin_note_cut", _note_cut);
-           _note_duo = false;
-           _note_zero = false;
+           _settings->setValue("MIDIin/MIDIin_note_cut" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _note_cut[cur_pairdev]);
+           _note_duo[cur_pairdev] = false;
+           _note_zero[cur_pairdev] = false;
        } else if(nitem == -2) {
-           _note_duo = true;
-           _note_zero = false;
+           _note_duo[cur_pairdev] = true;
+           _note_zero[cur_pairdev] = false;
        }
        else {
-           _note_duo = false;
-           _note_zero = false;
+           _note_duo[cur_pairdev] = false;
+           _note_zero[cur_pairdev] = false;
 
-           if(nitem == 0) _note_zero = true;
-           else _note_cut = nitem;
+           if(nitem == 0) _note_zero[cur_pairdev] = true;
+           else _note_cut[cur_pairdev] = nitem;
        }
 
-       _settings->setValue("MIDIin_note_duo", _note_duo);
-       _settings->setValue("MIDIin_note_zero", _note_zero);
+       _settings->setValue("MIDIin/MIDIin_note_duo" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _note_duo[cur_pairdev]);
+       _settings->setValue("MIDIin/MIDIin_note_zero" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _note_zero[cur_pairdev]);
 
     });
 
-    connect(NoteBoxEffect1, QOverload<int>::of(&QComboBox::activated), [=](int v)
-    {
-       if(NoteBoxEffect1->itemData(v).toInt() < 0) {
 
-           set_current_note(-1);
-           int note = get_key();
-           if(note >= 0) {
+    time_update= new QTimer(this);
+    time_update->setSingleShot(false);
 
-               NoteBoxEffect1->removeItem(1);
-               NoteBoxEffect1->insertItem(1, QString::asprintf("%s %i", notes[note % 12], note / 12 - 1), note);
-               NoteBoxEffect1->setCurrentIndex(1);
-               _note_effect1 = note;
-
-
-           } else _note_effect1 = -1;
-           _settings->setValue("MIDIin_note_effect1", _note_effect1);
-       } else {
-           _note_effect1 = NoteBoxEffect1->itemData(v).toInt();
-           _settings->setValue("MIDIin_note_effect1", _note_effect1);
-       }
-    });
-
-    connect(NoteBoxEffect2, QOverload<int>::of(&QComboBox::activated), [=](int v)
-    {
-       if(NoteBoxEffect2->itemData(v).toInt() < 0) {
-
-           set_current_note(-1);
-           int note = get_key();
-           if(note >= 0) {
-
-               NoteBoxEffect2->removeItem(1);
-               NoteBoxEffect2->insertItem(1, QString::asprintf("%s %i", notes[note % 12], note / 12 - 1), note);
-               NoteBoxEffect2->setCurrentIndex(1);
-               _note_effect2 = note;
-
-
-           } else _note_effect2 = -1;
-           _settings->setValue("MIDIin_note_effect2", _note_effect2);
-       } else {
-           _note_effect2 = NoteBoxEffect2->itemData(v).toInt();
-           _settings->setValue("MIDIin_note_effect2", _note_effect2);
-       }
-    });
-
-    connect(NoteBoxEffect3, QOverload<int>::of(&QComboBox::activated), [=](int v)
-    {
-       if(NoteBoxEffect3->itemData(v).toInt() < 0) {
-
-           set_current_note(-1);
-           int note = get_key();
-           if(note >= 0) {
-
-               NoteBoxEffect3->removeItem(1);
-               NoteBoxEffect3->insertItem(1, QString::asprintf("%s %i", notes[note % 12], note / 12 - 1), note);
-               NoteBoxEffect3->setCurrentIndex(1);
-               _note_effect3 = note;
-
-
-           } else _note_effect3 = -1;
-           _settings->setValue("MIDIin_note_effect3", _note_effect3);
-       } else {
-           _note_effect3 = NoteBoxEffect3->itemData(v).toInt();
-           _settings->setValue("MIDIin_note_effect3", _note_effect3);
-       }
-    });
-
-    connect(NoteBoxEffect4, QOverload<int>::of(&QComboBox::activated), [=](int v)
-    {
-       if(NoteBoxEffect4->itemData(v).toInt() < 0) {
-
-           set_current_note(-1);
-           int note = get_key();
-           if(note >= 0) {
-
-               NoteBoxEffect4->removeItem(1);
-               NoteBoxEffect4->insertItem(1, QString::asprintf("%s %i", notes[note % 12], note / 12 - 1), note);
-               NoteBoxEffect4->setCurrentIndex(1);
-               _note_effect4 = note;
-
-
-           } else _note_effect4 = -1;
-           _settings->setValue("MIDIin_note_effect4", _note_effect4);
-       } else {
-           _note_effect4 = NoteBoxEffect4->itemData(v).toInt();
-           _settings->setValue("MIDIin_note_effect4", _note_effect4);
-       }
-    });
-
-    time_updat= new QTimer(this);
-    time_updat->setSingleShot(false);
-
-    connect(time_updat, SIGNAL(timeout()), this, SLOT(update_checks()), Qt::DirectConnection);
-    time_updat->setSingleShot(false);
-    time_updat->start(50); //flip
+    connect(time_update, SIGNAL(timeout()), this, SLOT(update_checks()), Qt::DirectConnection);
+    time_update->setSingleShot(false);
+    time_update->start(50); //flip
 
     QMetaObject::connectSlotsByName(MIDIin);
     first = 0;
 }
-
-
 
 void MidiInControl::reject() {
 
@@ -2274,8 +1358,14 @@ void MidiInControl::accept() {
 }
 
 MidiInControl::~MidiInControl() {
-    time_updat->stop();
-    delete time_updat;
+
+    if(!osd_dialog) {
+        delete osd_dialog;
+        osd_dialog = NULL;
+    }
+
+    time_update->stop();
+    delete time_update;
     qWarning("MidiInControl() destructor");
 }
 
@@ -2292,30 +1382,32 @@ void MidiInControl::my_exit() {
 
 void MidiInControl::split_reset() {
 
-    int r = QMessageBox::question(this, "Reset Presets", "Are you sure?                         ");
+    int r = QMessageBox::question(this, "Reset Presets", "This action resets MidiInput to default options for these devices.\n\nAre you sure?                         ");
     if(r != QMessageBox::Yes) return;
 
-    _split_enable = false;
-    _note_cut = -1;
-    _note_duo = false;
-    _note_zero = false;
-    _inchannelUp = -1;
-    _inchannelDown = -1;
-    _channelUp = -1;
-    _channelDown = -1;
-    _fixVelUp = false;
-    _fixVelDown = false;
-    _autoChordUp = false;
-    _autoChordDown = false;
-    _notes_only = true;
-    _events_to_down = false;
-    _transpose_note_up = 0;
-    _transpose_note_down = 0;
-    _skip_prgbanks = true;
-    _skip_bankonly = true;
+    _split_enable[cur_pairdev] = true;
+    _note_cut[cur_pairdev] = -1;
+    _note_duo[cur_pairdev] = false;
+    _note_zero[cur_pairdev] = false;
+
+    _inchannelUp[cur_pairdev] = 0;
+    _inchannelDown[cur_pairdev] = 0;
+    _channelUp[cur_pairdev] =  (!cur_pairdev) ? -1 : cur_pairdev * 2;
+    _channelDown[cur_pairdev] = (!cur_pairdev) ? -1 : cur_pairdev * 2 + 1;
+
+    _fixVelUp[cur_pairdev] = false;
+    _fixVelDown[cur_pairdev] = false;
+    _autoChordUp[cur_pairdev] = false;
+    _autoChordDown[cur_pairdev] = false;
+    _notes_only[cur_pairdev] = true;
+
+    _transpose_note_up[cur_pairdev] = 0;
+    _transpose_note_down[cur_pairdev] = 0;
+    _skip_prgbanks[cur_pairdev] = false;
+    _skip_bankonly[cur_pairdev] = true;
     _record_waits = true;
 
-    SplitBox->setChecked(_split_enable);
+    SplitBox->setChecked(_split_enable[cur_pairdev]);
 
     while(NoteBoxCut->count() > 1) {
         NoteBoxCut->removeItem(1);
@@ -2325,31 +1417,41 @@ void MidiInControl::split_reset() {
     NoteBoxCut->addItem("C -1", 0);
     NoteBoxCut->setCurrentIndex(0);
 
-    inchannelBoxUp->setCurrentIndex(_inchannelUp + 1);
-    inchannelBoxDown->setCurrentIndex(_inchannelDown + 1);
-    channelBoxUp->setCurrentIndex(_channelUp + 1);
-    channelBoxDown->setCurrentIndex(_channelDown + 1);
-    vcheckBoxUp->setChecked(_fixVelUp);
-    vcheckBoxDown->setChecked(_fixVelDown);
-    achordcheckBoxUp->setChecked(_autoChordUp);
-    achordcheckBoxDown->setChecked(_autoChordDown);
-    echeckBox->setChecked(_notes_only);
-    echeckBoxDown->setChecked(_events_to_down);
-    tspinBoxUp->setValue(_transpose_note_up);
-    tspinBoxDown->setValue(_transpose_note_down);
-    checkBoxPrgBank->setChecked(_skip_prgbanks);
-    bankskipcheckBox->setChecked(_skip_bankonly);
+    inchannelBoxUp->setCurrentIndex(_inchannelUp[cur_pairdev] + 1);
+    inchannelBoxDown->setCurrentIndex(_inchannelDown[cur_pairdev] + 1);
+    channelBoxUp->setCurrentIndex(_channelUp[cur_pairdev] + 1);
+    channelBoxDown->setCurrentIndex(_channelDown[cur_pairdev] + 1);
+    vcheckBoxUp->setChecked(_fixVelUp[cur_pairdev]);
+    vcheckBoxDown->setChecked(_fixVelDown[cur_pairdev]);
+    achordcheckBoxUp->setChecked(_autoChordUp[cur_pairdev]);
+    achordcheckBoxDown->setChecked(_autoChordDown[cur_pairdev]);
+    echeckBox->setChecked(_notes_only[cur_pairdev]);
+    //echeckBoxDown->setChecked(_events_to_down);
+    tspinBoxUp->setValue(_transpose_note_up[cur_pairdev]);
+    tspinBoxDown->setValue(_transpose_note_down[cur_pairdev]);
+    checkBoxPrgBank->setChecked(_skip_prgbanks[cur_pairdev]);
+    bankskipcheckBox->setChecked(_skip_bankonly[cur_pairdev]);
     checkBoxWait->setChecked(_record_waits);
+
+    MidiInControl::invSustainUP[cur_pairdev] = false;
+    MidiInControl::invExpressionUP[cur_pairdev] = false;
+    MidiInControl::invSustainDOWN[cur_pairdev] = false;
+    MidiInControl::invExpressionDOWN[cur_pairdev] = false;
+
+    sustainUP->setVal(-1, MidiInControl::invSustainUP[cur_pairdev]);
+    expressionUP->setVal(-1, MidiInControl::invExpressionUP[cur_pairdev]);
+    sustainDOWN->setVal(-1, MidiInControl::invSustainDOWN[cur_pairdev]);
+    expressionDOWN->setVal(-1, MidiInControl::invExpressionDOWN[cur_pairdev]);
+
+
 
     if(file_live) delete file_live;
     file_live = NULL;
+
     panic_button();
-    effect1_on = 0;
-    effect2_on = 0;
-    effect3_on = 0;
-    effect4_on = 0;
-    led_up = 0;
-    led_down = 0;
+
+    led_up[cur_pairdev] = 0;
+    led_down[cur_pairdev] = 0;
     update_checks();
 
     if(!MidiInput::recording())
@@ -2359,34 +1461,42 @@ void MidiInControl::split_reset() {
 }
 
 void MidiInControl::panic_button() {
+
+    int dev1 = cur_pairdev * 2;
+
+    seqOn(dev1, -1, false);
+    seqOn(dev1 + 1, -1, false);
+
+    FingerPatternDialog::Finger_Action(dev1, 1, true, 1);
+    FingerPatternDialog::Finger_Action(dev1, 2, true, 1);
+    FingerPatternDialog::Finger_Action(dev1, 3, true, 1);
+    FingerPatternDialog::Finger_Action(dev1, 33, true, 1);
+    FingerPatternDialog::Finger_Action(dev1, 34, true, 1);
+    FingerPatternDialog::Finger_Action(dev1, 35, true, 1);
+
+    msDelay(200);
+
     MidiPlayer::panic();
     send_live_events();  // send live event effects
-    effect1_on = 0;
-    effect2_on = 0;
-    effect3_on = 0;
-    effect4_on = 0;
 
-    if(_note_effect1_type == 6 && _note_effect1_fkeypressed && _autoChordUp) effect1_on = true;
-    if(_note_effect1_type == 7 && _note_effect1_fkeypressed && _autoChordDown) effect1_on  = true;
-    if(_note_effect2_type == 6 && _note_effect2_fkeypressed && _autoChordUp) effect2_on = true;
-    if(_note_effect2_type == 7 && _note_effect2_fkeypressed && _autoChordDown) effect2_on  = true;
-    if(_note_effect3_type == 6 && _note_effect3_fkeypressed && _autoChordUp) effect3_on = true;
-    if(_note_effect3_type == 7 && _note_effect3_fkeypressed && _autoChordDown) effect3_on  = true;
-    if(_note_effect4_type == 6 && _note_effect4_fkeypressed && _autoChordUp) effect4_on = true;
-    if(_note_effect4_type == 7 && _note_effect4_fkeypressed && _autoChordDown) effect4_on  = true;
-
-    led_up = 0;
-    led_down = 0;
+    led_up[cur_pairdev] = 0;
+    led_down[cur_pairdev] = 0;
     if(!MidiInput::recording())
         MidiInput::cleanKeyMaps();
     update_checks();
 }
 
 void MidiInControl::send_live_events() {
+
     if(file_live) {
+        MidiFile * file = MidiOutput::file;
+        int index = file ? (file->MultitrackMode ? file->track(NewNoteTool::editTrack())->device_index() : 0) : 0;
+
+        MidiInput::track_index = index;
+
         for(int n = 0; n < 16; n++) {
             foreach (MidiEvent* event, file_live->channel(n)->eventMap()->values()) {
-                MidiOutput::sendCommand(event);
+                MidiOutput::sendCommand(event, index);
             }
         }
 
@@ -2395,15 +1505,19 @@ void MidiInControl::send_live_events() {
 
 void MidiInControl::select_instrumentUp() {
 
-    int ch = ((MidiInControl::channelUp() < 0)
+
+    int ch = ((MidiInControl::channelUp(cur_pairdev) < 0)
               ? MidiOutput::standardChannel()
-              : (MidiInControl::channelUp() & 15));
+              : (MidiInControl::channelUp(cur_pairdev) & 15));
+
 
     if(!file_live) {
         file_live = new MidiFile();
     }
 
-    InstrumentChooser* d = new InstrumentChooser(NULL, ch, this); // no MidiFile()
+    MidiFile * file = MidiInput::file;
+    if(!file) return;
+    InstrumentChooser* d = new InstrumentChooser(NULL, ch, file->track(NewNoteTool::editTrack()), this); // no MidiFile()
     d->setModal(true);
     d->exec();
     delete d;
@@ -2412,9 +1526,9 @@ void MidiInControl::select_instrumentUp() {
 
 void MidiInControl::select_SoundEffectUp()
 {
-    int ch = ((MidiInControl::channelUp() < 0)
+    int ch = ((MidiInControl::channelUp(cur_pairdev) < 0)
               ? MidiOutput::standardChannel()
-              : (MidiInControl::channelUp() & 15));
+              : (MidiInControl::channelUp(cur_pairdev) & 15));
 
     if(!file_live) {
         file_live = new MidiFile();
@@ -2428,19 +1542,20 @@ void MidiInControl::select_SoundEffectUp()
 
 void MidiInControl::select_instrumentDown() {
 
-    int ch = ((MidiInControl::channelDown() < 0)
-              ? ((MidiInControl::channelUp() < 0)
+    int ch = ((MidiInControl::channelDown(cur_pairdev) < 0)
+              ? ((MidiInControl::channelUp(cur_pairdev) < 0)
                  ? MidiOutput::standardChannel()
-                 : (MidiInControl::channelUp() & 15))
-              : (MidiInControl::channelDown() & 15));
+                 : (MidiInControl::channelUp(cur_pairdev) & 15))
+              : (MidiInControl::channelDown(cur_pairdev) & 15));
 
 
     if(!file_live) {
         file_live = new MidiFile();
     }
 
+    MidiFile * file = MidiInput::file;
+    InstrumentChooser* d = new InstrumentChooser(NULL, ch, file->track(NewNoteTool::editTrack()), this); // no MidiFile()
 
-    InstrumentChooser* d = new InstrumentChooser(NULL, ch, this); // no MidiFile()
     d->setModal(true);
     d->exec();
     delete d;
@@ -2449,11 +1564,11 @@ void MidiInControl::select_instrumentDown() {
 
 void MidiInControl::select_SoundEffectDown()
 {
-    int ch = ((MidiInControl::channelDown() < 0)
-              ? ((MidiInControl::channelUp() < 0)
+    int ch = ((MidiInControl::channelDown(cur_pairdev) < 0)
+              ? ((MidiInControl::channelUp(cur_pairdev) < 0)
                  ? MidiOutput::standardChannel()
-                 : (MidiInControl::channelUp() & 15))
-              : (MidiInControl::channelDown() & 15));
+                 : (MidiInControl::channelUp(cur_pairdev) & 15))
+              : (MidiInControl::channelDown(cur_pairdev) & 15));
 
 
     if(!file_live) {
@@ -2470,13 +1585,17 @@ void MidiInControl::select_SoundEffectDown()
 void MidiInControl::set_prog(int channel, int value) {
     if(channel >= 16)
         return;
-    Prog_MIDI[channel] = value;
+    MidiFile * file = MidiOutput::file;
+    int index = file->MultitrackMode ? file->track(NewNoteTool::editTrack())->device_index(): 0;
+    file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index] = value;
 }
 
 void MidiInControl::set_bank(int channel, int value) {
     if(channel >= 16)
         return;
-    Bank_MIDI[channel] = value;
+    MidiFile * file = MidiOutput::file;
+    int index = file->MultitrackMode ? file->track(NewNoteTool::editTrack())->device_index(): 0;
+    file->Bank_MIDI[channel + 4 * (index != 0) + 16 * index] = value;
 }
 
 void MidiInControl::set_output_prog_bank_channel(int channel) {
@@ -2485,43 +1604,106 @@ void MidiInControl::set_output_prog_bank_channel(int channel) {
         return;
     ProgChangeEvent* pevent;
     ControlChangeEvent* cevent;
-    pevent = new ProgChangeEvent(channel, Prog_MIDI[channel], 0);
-    cevent = new ControlChangeEvent(channel, 0x0, Bank_MIDI[channel], 0);
-    MidiOutput::sendCommand2(cevent);
-    MidiOutput::sendCommand2(pevent);
+    MidiFile * file = MidiOutput::file;
+    int index = file->MultitrackMode ? file->track(NewNoteTool::editTrack())->device_index() : 0;
+    pevent = new ProgChangeEvent(channel, file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index], 0);
+    cevent = new ControlChangeEvent(channel, 0x0, file->Bank_MIDI[channel + 4 * (index != 0) + 16 * index], 0);
+    MidiOutput::sendCommandDelete(cevent, index);
+    MidiOutput::sendCommandDelete(pevent, index);
 }
 
 static QMessageBox *mb2 = NULL;
+static QMessageBox *mb3 = NULL;
+
+static int get_key_mode = 0;
+
+int MidiInControl::get_key(int chan, int dev) {
+    _current_chan = chan;
+
+    if(dev == -1)
+        _current_device = cur_pairdev * 2;
+    else
+        _current_device = dev;
+
+    return get_key();
+}
 
 int MidiInControl::get_key() {
 
+    mb2 = NULL;
+    mb3 = NULL;
+    get_key_mode = 0;
     set_current_note(-1);
     QMessageBox *mb = new QMessageBox("MIDI Input Control",
                                       "Press a note in the keyboard",
                                       QMessageBox::Information,
                           QMessageBox::Cancel, 0, 0, _parent);
-
     QFont font;
     font.setPixelSize(24);
     mb->setFont(font);
     mb->setIconPixmap(QPixmap(":/run_environment/graphics/channelwidget/instrument.png"));
     mb->button(QMessageBox::Cancel)->animateClick(10000);
+
+    //mb->exec();
+    mb->setModal(false);
+    mb->show();
     mb2 = mb;
-    mb->exec();
+    while(1) {
+        if(!mb2 || mb->isHidden())
+            break;
+        QCoreApplication::processEvents();
+        QThread::msleep(5);
+    }
     mb2 = NULL;
     delete mb;
 
-    for(int n = 0; n < 16; n++) {
-        QByteArray array;
-        array.clear();
-        array.append(0xB0 | n);
-        array.append(char(123)); // all notes off
-        array.append(char(127));
+    for(int track_index = 0; track_index < 3; track_index++) {
+        for(int n = 0; n < 16; n++) {
+            QByteArray array;
+            array.clear();
+            array.append(0xB0 | n);
+            array.append(char(123)); // all notes off
+            array.append(char(127));
 
-        MidiOutput::sendCommand(array);
+            MidiOutput::sendCommand(array, track_index);
+        }
     }
 
     return current_note();
+}
+
+int MidiInControl::get_ctrl() {
+
+    mb2 = NULL;
+    mb3 = NULL;
+    _current_ctrl = -1;
+
+    QMessageBox *mb = new QMessageBox("MIDI Input Control",
+                                      "Press/use a Control Change in the Midi Device",
+                                      QMessageBox::Information,
+                                      QMessageBox::Cancel, 0, 0, _parent);
+    QFont font;
+    font.setPixelSize(24);
+    mb->setFont(font);
+    mb->setIconPixmap(QPixmap(":/run_environment/graphics/channelwidget/instrument.png"));
+    mb->button(QMessageBox::Cancel)->animateClick(10000);
+
+    //mb->exec();
+    mb->setModal(false);
+    mb->show();
+
+    mb3 = mb;
+
+    while(1) {
+        if(!mb3 || mb->isHidden())
+            break;
+        QCoreApplication::processEvents();
+        QThread::msleep(5);
+    }
+    mb3 = NULL;
+    delete mb;
+
+    return _current_ctrl;
 }
 
 static int _ret_wait = 555;
@@ -2532,6 +1714,10 @@ int MidiInControl::wait_record(QWidget *parent) {
 
     _ret_wait = 555;
 
+    _current_chan = 16;
+    _current_device = -1;
+
+    get_key_mode = 1;
     set_current_note(-1);
     QMessageBox *mb = new QMessageBox("MIDI Input Control",
                                       "Press a note in the keyboard\nto start the recording",
@@ -2543,8 +1729,16 @@ int MidiInControl::wait_record(QWidget *parent) {
     mb->setFont(font);
     mb->setIconPixmap(QPixmap(":/run_environment/graphics/channelwidget/instrument.png"));
 
+    //mb->exec();
+    mb->setModal(false);
+    mb->show();
     mb2 = mb;
-    mb->exec();
+    while(1) {
+        if(!mb2 || mb->isHidden())
+            break;
+        QCoreApplication::processEvents();
+        QThread::msleep(5);
+    }
     mb2 = NULL;
     delete mb;
     _ret_wait = current_note();
@@ -2556,102 +1750,138 @@ int MidiInControl::wait_record_thread() {
 
     int *v= &_ret_wait;
     while(*v == 555) {
+        QCoreApplication::processEvents();
         QThread::msleep(1);
     }
     return _ret_wait;
 }
 
+int MidiInControl::skip_key() {
+    return skip_keys != 0;
+}
 
-void MidiInControl::set_key(int key) {
-    if(mb2 == NULL) return;
+int MidiInControl::set_key(int key, int evt, int device) {
+    if(mb2 == NULL) return 0;
+/*
+    if(get_key_mode == 0 && (evt & 0xf0) == 0x90) return 0;
+    if(get_key_mode == 1 && (evt & 0xf0) == 0x80) return 0;
+    */
+    if((evt & 0xf) != _current_chan && _current_chan != 16  && _current_chan != -1) return 0;
+
+    if(device != _current_device && _current_device != -1) return 0;
+
+    if(_current_chan == 16)
+        _current_chan = (evt & 0xf);
+
     _current_note = key;
-    mb2->hide();
+    /*
+    if(mb2 != NULL)
+        mb2->hide();
+*/
     mb2 = NULL;
     QThread::msleep(30); // very important sleep()
+    if(get_key_mode == 1)
+        return 0;
+    else
+        skip_keys = 40;
+    return 1;
 
 }
 
+int MidiInControl::set_ctrl(int key, int evt, int device) {
+    if(mb3 == NULL) return 0;
 
-bool MidiInControl::split_enable() {
-    return _split_enable;
+    if((evt & 0xf0) != 0xb0) return 0;
+    if((evt & 0xf) != _current_chan && _current_chan != 16) return 0;
+    if(device != _current_device && _current_device != -1) return 0;
+
+    if(_current_chan == 16)
+        _current_chan = (evt & 0xf);
+    _current_ctrl = key;
+/*
+    if(mb3 != NULL)
+        mb3->hide();
+*/
+    mb3 = NULL;
+    QThread::msleep(30); // very important sleep()
+    skip_keys = 40;
+
+    return 1;
+
 }
 
-int MidiInControl::note_cut() {
-    return ((_note_zero) ? 0 : _note_cut);
+bool MidiInControl::split_enable(int dev) {
+    return _split_enable[dev];
 }
 
-bool MidiInControl::note_duo() {
-    return _note_duo;
+int MidiInControl::note_cut(int dev) {
+    return ((_note_zero[dev] || MidiInput::keyboard2_connected[dev * 2 + 1]) ? 0 : _note_cut[dev]);
 }
 
-int MidiInControl::inchannelUp() {
-    return _inchannelUp;
+bool MidiInControl::note_duo(int dev) {
+    return _note_duo[dev];
 }
 
-int MidiInControl::inchannelDown() {
-    return _inchannelDown;
+int MidiInControl::inchannelUp(int dev) {
+    return _inchannelUp[dev];
 }
 
-int MidiInControl::channelUp() {
-    return _channelUp;
+int MidiInControl::inchannelDown(int dev) {
+    return _inchannelDown[dev];
 }
 
-int MidiInControl::channelDown() {
-    return _channelDown;
+int MidiInControl::channelUp(int dev) {
+    return _channelUp[dev];
 }
 
-bool MidiInControl::fixVelUp() {
-    return _fixVelUp;
+int MidiInControl::channelDown(int dev) {
+    return _channelDown[dev];
 }
 
-bool MidiInControl::fixVelDown() {
-    return _fixVelDown;
+bool MidiInControl::fixVelUp(int dev) {
+    return _fixVelUp[dev];
 }
 
-bool MidiInControl::autoChordUp() {
-    return _autoChordUp;
+bool MidiInControl::fixVelDown(int dev) {
+    return _fixVelDown[dev];
 }
 
-bool MidiInControl::autoChordDown() {
-    return _autoChordDown;
+bool MidiInControl::autoChordUp(int dev) {
+    return _autoChordUp[dev];
+}
+
+bool MidiInControl::autoChordDown(int dev) {
+    return _autoChordDown[dev];
 }
 
 int MidiInControl::current_note() {
     return _current_note;
 }
 
-bool MidiInControl::skip_prgbanks() {
-    return _skip_prgbanks;
+bool MidiInControl::skip_prgbanks(int dev) {
+    return _skip_prgbanks[dev];
 }
 
-bool MidiInControl::skip_bankonly() {
-    return _skip_bankonly;
+bool MidiInControl::skip_bankonly(int dev) {
+    return _skip_bankonly[dev];
 }
 
-bool MidiInControl::notes_only() {
-    return _notes_only;
+bool MidiInControl::notes_only(int dev) {
+    return _notes_only[dev];
 }
 
-bool MidiInControl::events_to_down() {
-    return _events_to_down;
+int MidiInControl::transpose_note_up(int dev) {
+    return _transpose_note_up[dev];
 }
 
-int MidiInControl::transpose_note_up() {
-    return _transpose_note_up;
-}
-
-int MidiInControl::transpose_note_down() {
-    return _transpose_note_down;
-}
-
-bool MidiInControl::key_effect() {
-    return _key_effect;
+int MidiInControl::transpose_note_down(int dev) {
+    return _transpose_note_down[dev];
 }
 
 ////////////////////////////////////////////
 
 void MidiInControl::set_note_cut(int v) {
-    _note_cut = v;
+    _note_cut[cur_pairdev] = v;
 }
 
 void MidiInControl::set_current_note(int v){
@@ -2662,1217 +1892,240 @@ void MidiInControl::set_current_note(int v){
 
 void MidiInControl::set_split_enable(bool v) {
 
-    _split_enable= v;
-    _settings->setValue("MIDIin_split_enable", _split_enable);
+    _split_enable[cur_pairdev]= v;
+    _settings->setValue("MIDIin/MIDIin_split_enable" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _split_enable[cur_pairdev]);
 
 }
 
 void MidiInControl::set_inchannelUp(int v) {
-    _inchannelUp = v - 1;
-    _settings->setValue("MIDIin_inchannelUp", _inchannelUp);
+    _inchannelUp[cur_pairdev] = v - 1;
+    _settings->setValue("MIDIin/MIDIin_inchannelUp" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _inchannelUp[cur_pairdev]);
 
 }
 
 void MidiInControl::set_inchannelDown(int v) {
-    _inchannelDown = v - 1;
-    _settings->setValue("MIDIin_inchannelDown", _inchannelDown);
+    _inchannelDown[cur_pairdev] = v - 1;
+    _settings->setValue("MIDIin/MIDIin_inchannelDown" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _inchannelDown[cur_pairdev]);
 
 }
 
 void MidiInControl::set_channelUp(int v) {
-    _channelUp = v - 1;
-    _settings->setValue("MIDIin_channelUp", _channelUp);
+    _channelUp[cur_pairdev] = v - 1;
+    _settings->setValue("MIDIin/MIDIin_channelUp" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _channelUp[cur_pairdev]);
 
 }
 
 void MidiInControl::set_channelDown(int v) {
-    _channelDown = v - 1;
-    _settings->setValue("MIDIin_channelDown", _channelDown);
+    _channelDown[cur_pairdev] = v - 1;
+    _settings->setValue("MIDIin/MIDIin_channelDown" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), _channelDown[cur_pairdev]);
 
 }
 
 void MidiInControl::set_fixVelUp(bool v) {
-    _settings->setValue("MIDIin_fixVelUp", v);
-    _fixVelUp = v;
+    _settings->setValue("MIDIin/MIDIin_fixVelUp" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _fixVelUp[cur_pairdev] = v;
 }
 
 void MidiInControl::set_fixVelDown(bool v) {
-    _settings->setValue("MIDIin_fixVelDown", v);
-    _fixVelDown = v;
+    _settings->setValue("MIDIin/MIDIin_fixVelDown" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _fixVelDown[cur_pairdev] = v;
 }
 
 void MidiInControl::set_autoChordUp(bool v) {
 
-    _settings->setValue("MIDIin_autoChordUp", v);
-    _autoChordUp = v;
-
-    if(_note_effect1_fkeypressed && _note_effect1_type == 6) effect1_on = _autoChordUp;
-    if(_note_effect2_fkeypressed && _note_effect2_type == 6) effect2_on = _autoChordUp;
-    if(_note_effect3_fkeypressed && _note_effect3_type == 6) effect3_on = _autoChordUp;
-    if(_note_effect4_fkeypressed && _note_effect4_type == 6) effect4_on = _autoChordUp;
+    _settings->setValue("MIDIin/MIDIin_autoChordUp" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _autoChordUp[cur_pairdev] = v;
 }
 
 void MidiInControl::set_autoChordDown(bool v) {
 
-    _settings->setValue("MIDIin_autoChordDown", v);
-    _autoChordDown = v;
+    _settings->setValue("MIDIin/MIDIin_autoChordDown" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _autoChordDown[cur_pairdev] = v;
 
-    if(_note_effect1_fkeypressed && _note_effect1_type == 7) effect1_on = _autoChordDown;
-    if(_note_effect2_fkeypressed && _note_effect2_type == 7) effect2_on = _autoChordDown;
-    if(_note_effect3_fkeypressed && _note_effect3_type == 7) effect3_on = _autoChordDown;
-    if(_note_effect4_fkeypressed && _note_effect4_type == 7) effect4_on = _autoChordDown;
 }
+
 void MidiInControl::set_notes_only(bool v) {
-    _settings->setValue("MIDIin_notes_only", v);
-    _notes_only = v;
-}
-
-void MidiInControl::set_events_to_down(bool v) {
-    if(_settings)
-        _settings->setValue("MIDIin_events_to_down", v);
-    _events_to_down = v;
+    _settings->setValue("MIDIin/MIDIin_notes_only" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _notes_only[cur_pairdev] = v;
 }
 
 void MidiInControl::set_transpose_note_up(int v) {
-    _settings->setValue("MIDIin_transpose_note_up", v);
-    _transpose_note_up = v;
+    _settings->setValue("MIDIin/MIDIin_transpose_note_up" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _transpose_note_up[cur_pairdev] = v;
 }
 
 void MidiInControl::set_transpose_note_down(int v) {
-    _settings->setValue("MIDIin_transpose_note_down", v);
-    _transpose_note_down = v;
-}
-
-
-void MidiInControl::set_key_effect(bool v) {
-    _settings->setValue("MIDIin_key_effect", v);
-    _key_effect = v;
-}
-
-void MidiInControl::set_note_effect1_value(int v) {
-    _settings->setValue("MIDIin_note_effect1_value", v);
-    _note_effect1_value = v;
-}
-
-void MidiInControl::set_note_effect1_type(int v) {
-    _settings->setValue("MIDIin_note_effect1_type", v);
-    _note_effect1_type = v;
-
-    if(_note_effect1_fkeypressed && _note_effect1_type == 6) effect1_on = _autoChordUp;
-    if(_note_effect1_fkeypressed && _note_effect1_type == 7) effect1_on = _autoChordDown;
-}
-
-void MidiInControl::set_note_effect1_fkeypressed(bool v) {
-    if(!v) effect1_on = 0;
-    _settings->setValue("MIDIin_note_effect1_fkeypressed", v);
-    _note_effect1_fkeypressed = v;
-}
-
-void MidiInControl::set_note_effect1_usevel(bool v) {
-    _settings->setValue("MIDIin_note_effect1_usevel", v);
-    _note_effect1_usevel = v;
-}
-
-void MidiInControl::set_note_effect2_value(int v) {
-    _settings->setValue("MIDIin_note_effect2_value", v);
-    _note_effect2_value = v;
-}
-
-void MidiInControl::set_note_effect2_type(int v) {
-    _settings->setValue("MIDIin_note_effect2_type", v);
-    _note_effect2_type = v;
-
-    if(_note_effect2_fkeypressed && _note_effect2_type == 6) effect2_on = _autoChordUp;
-    if(_note_effect2_fkeypressed && _note_effect2_type == 7) effect2_on = _autoChordDown;
-}
-
-void MidiInControl::set_note_effect2_fkeypressed(bool v) {
-    if(!v) effect2_on = 0;
-    _settings->setValue("MIDIin_note_effect2_fkeypressed", v);
-    _note_effect2_fkeypressed = v;
-}
-
-void MidiInControl::set_note_effect2_usevel(bool v) {
-    _settings->setValue("MIDIin_note_effect2_usevel", v);
-    _note_effect2_usevel = v;
-}
-
-void MidiInControl::set_note_effect3_value(int v) {
-    _settings->setValue("MIDIin_note_effect3_value", v);
-    _note_effect3_value = v;
-}
-
-void MidiInControl::set_note_effect3_type(int v) {
-    _settings->setValue("MIDIin_note_effect3_type", v);
-    _note_effect3_type = v;
-
-    if(_note_effect3_fkeypressed && _note_effect3_type == 6) effect3_on = _autoChordUp;
-    if(_note_effect3_fkeypressed && _note_effect3_type == 7) effect3_on = _autoChordDown;
-}
-
-void MidiInControl::set_note_effect3_fkeypressed(bool v) {
-    if(!v) effect3_on = 0;
-    _settings->setValue("MIDIin_note_effect3_fkeypressed", v);
-    _note_effect3_fkeypressed = v;
-}
-
-void MidiInControl::set_note_effect3_usevel(bool v) {
-    _settings->setValue("MIDIin_note_effect3_usevel", v);
-    _note_effect3_usevel = v;
-}
-
-void MidiInControl::set_note_effect4_value(int v) {
-    _settings->setValue("MIDIin_note_effect4_value", v);
-    _note_effect4_value = v;
-}
-
-void MidiInControl::set_note_effect4_type(int v) {
-    _settings->setValue("MIDIin_note_effect4_type", v);
-    _note_effect4_type = v;
-
-    if(_note_effect4_fkeypressed && _note_effect4_type == 6) effect4_on = _autoChordUp;
-    if(_note_effect4_fkeypressed && _note_effect4_type == 7) effect4_on = _autoChordDown;
-}
-
-void MidiInControl::set_note_effect4_fkeypressed(bool v) {
-    if(!v) effect4_on = 0;
-    _settings->setValue("MIDIin_note_effect4_fkeypressed", v);
-    _note_effect4_fkeypressed = v;
-}
-
-void MidiInControl::set_note_effect4_usevel(bool v) {
-    _settings->setValue("MIDIin_note_effect4_usevel", v);
-    _note_effect4_usevel = v;
+    _settings->setValue("MIDIin/MIDIin_transpose_note_down" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _transpose_note_down[cur_pairdev] = v;
 }
 
 void MidiInControl::set_skip_prgbanks(bool v) {
-    _settings->setValue("MIDIin_skip_prgbanks", v);
-    _skip_prgbanks = v;
+    _settings->setValue("MIDIin/MIDIin_skip_prgbanks" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _skip_prgbanks[cur_pairdev] = v;
 }
 
 void MidiInControl::set_skip_bankonly(bool v) {
-    _settings->setValue("MIDIin_skip_bankonly", v);
-    _skip_bankonly = v;
+    _settings->setValue("MIDIin/MIDIin_skip_bankonly" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), v);
+    _skip_bankonly[cur_pairdev] = v;
 }
 
-void MidiInControl::set_leds(bool up, bool down) {
-    if(up) led_up = 7;
-    if(down) led_down = 7;
+void MidiInControl::set_leds(int dev, bool up, bool down, bool up_err, bool down_err) {
+    if(up) led_up[dev] = 7;
+    if(down) led_down[dev] = 7;
+    if(up_err) led_up[dev] = -7;
+    if(down_err) led_down[dev] = -7;
 }
 
 // from timer, set LEDs, ecc
 
+
+
 void MidiInControl::update_checks() {
+    /*
     static int flip = 0;
     flip++;
+*/
 
-    if(!groupBoxEffect->isEnabled() || !groupBoxEffect->isChecked()) flip = 0;
+    if(skip_keys)
+        skip_keys--;
 
-    if(MidiInput::isConnected() && !MIDIin->isEnabled()) {
+    if(MidiInput::keyboard2_connected[cur_pairdev * 2 + 1])
+        NoteBoxCut->setDisabled(true);
+    else
+        NoteBoxCut->setDisabled(false);
 
-        if(!MIDI_INPUT->count()) {
+    achordcheckBoxUp->setChecked(_autoChordUp[cur_pairdev]);
+    achordcheckBoxDown->setChecked(_autoChordDown[cur_pairdev]);
 
-            int n = 0;
+    if(MidiInControl::sustainUPval >= 0) {
+        int val = MidiInControl::sustainUPval;
+        MidiInControl::sustainUPval = -1;
+        sustainUP->setVal(val, MidiInControl::invSustainUP[cur_pairdev]);
+    }
 
-            foreach (QString name, MidiInput::inputPorts()) {
+    if(MidiInControl::expressionUPval >= 0) {
+        int val = MidiInControl::expressionUPval;
+        MidiInControl::expressionUPval = -1;
+        expressionUP->setVal(val, MidiInControl::invExpressionUP[cur_pairdev]);
+    }
 
-                if(name != MidiInput::inputPort()) continue;
+    if(MidiInControl::sustainDOWNval >= 0) {
+        int val = MidiInControl::sustainDOWNval;
+        MidiInControl::sustainDOWNval = -1;
+        sustainDOWN->setVal(val, MidiInControl::invSustainDOWN[cur_pairdev]);
+    }
 
-                MIDI_INPUT->addItem(name);
-                MIDI_INPUT->setCurrentIndex(n);
+    if(MidiInControl::expressionDOWNval >= 0) {
+        int val = MidiInControl::expressionDOWNval;
+        MidiInControl::expressionDOWNval = -1;
+        expressionDOWN->setVal(val, MidiInControl::invExpressionDOWN[cur_pairdev]);
+    }
 
-                break;
+    for(int pairdev = 0; pairdev < MAX_INPUT_PAIR; pairdev++) {
 
-                n++;
+        if(MidiInput::isConnected(pairdev * 2) && !MIDIin->isEnabled()) {
+
+            if(!MIDI_INPUT->count()) {
+
+                int n = 0;
+
+                foreach (QString name, MidiInput::inputPorts(pairdev * 2)) {
+
+                    if(name != MidiInput::inputPort(pairdev * 2))
+                        continue;
+
+                    MIDI_INPUT->addItem(name);
+                    MIDI_INPUT->setCurrentIndex(n);
+
+                    break;
+
+                    n++;
+                }
+
             }
+
+            if(tabMIDIin1)
+                tabMIDIin1->setDisabled(false);
+        } else if(!MidiInput::isConnected(pairdev * 2) && MIDIin->isEnabled()) {
+
+           /* if(tabMIDIin1)
+                tabMIDIin1->setDisabled(true);*/
 
         }
 
-        setDisabled(false);
-    } else if(!MidiInput::isConnected() && MIDIin->isEnabled()) {
+        if(MidiInput::isConnected(pairdev * 2 + 1) && !MIDIin->isEnabled()) {
 
-        setDisabled(true);
+            if(!MIDI_INPUT2->count()) {
+
+                int n = 0;
+
+                foreach (QString name, MidiInput::inputPorts(pairdev * 2 + 1)) {
+
+                    if(name != MidiInput::inputPort(pairdev * 2 + 1))
+                        continue;
+
+                    MIDI_INPUT2->addItem(name);
+                    MIDI_INPUT2->setCurrentIndex(n);
+
+                    break;
+
+                    n++;
+                }
+
+            }
+
+            if(tabMIDIin1)
+                tabMIDIin1->setDisabled(false);
+
+        } else if(!MidiInput::isConnected(pairdev * 2 + 1) && MIDIin->isEnabled()) {
+
+        /* if(tabMIDIin1)
+             tabMIDIin1->setDisabled(true);*/
+
     }
 
-    if(_autoChordUp != achordcheckBoxUp->isChecked())
-        achordcheckBoxUp->setChecked(_autoChordUp);
-    if(_autoChordDown != achordcheckBoxDown->isChecked())
-        achordcheckBoxDown->setChecked(_autoChordDown);
+        if(led_up[pairdev]) {
+            if(pairdev == this->cur_pairdev) {
+                if(led_up[pairdev] < 0)
+                    LEDBoxUp->setLed(QColor(0xff, 0x10, 0x00));
+                else
+                    LEDBoxUp->setLed(QColor(0x60, 0xff, 0x00));
+            }
 
-    if(led_up) {
-        led_up--;
-        LEDBoxUp->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ff60ff00\n}"));
-    } else
-        LEDBoxUp->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #80004010\n}"));
+            if(led_up[pairdev] < 0)
+                led_up[pairdev]++;
+            else
+                led_up[pairdev]--;
 
-    if(led_down) {
-        led_down--;
-        LEDBoxDown->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ff60ff00\n}"));
-    } else
-        LEDBoxDown->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #80004010\n}"));
+        } else if(pairdev == this->cur_pairdev)
+                    LEDBoxUp->setLed(QColor(0x00, 0x80, 0x10));
+
+        if(led_down[pairdev]) {
+
+            if(pairdev == this->cur_pairdev) {
+
+                if(led_down[pairdev] < 0)
+                    LEDBoxDown->setLed(QColor(0xff, 0x10, 0x00));
+                else
+                    LEDBoxDown->setLed(QColor(0x60, 0xff, 0x00));
+            }
+
+            if(led_down[pairdev] < 0)
+                led_down[pairdev]++;
+            else
+                led_down[pairdev]--;
 
 
-    if(effect1_on && ((flip & 2) || !_note_effect1_fkeypressed)) {
-        if(_note_effect1_fkeypressed)
-            LEDBoxEffect1->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ffff3030\n}"));
-        else
-            LEDBoxEffect1->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ff60ff00\n}"));
-    } else
-        LEDBoxEffect1->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #80004010\n}"));
-
-    if(effect2_on && ((flip & 2) || !_note_effect2_fkeypressed)) {
-        if(_note_effect2_fkeypressed)
-            LEDBoxEffect2->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ffff3030\n}"));
-        else
-            LEDBoxEffect2->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ff60ff00\n}"));
-    } else
-        LEDBoxEffect2->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #80004010\n}"));
-
-    if(effect3_on && ((flip & 2) || !_note_effect3_fkeypressed)) {
-        if(_note_effect3_fkeypressed)
-            LEDBoxEffect3->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ffff3030\n}"));
-        else
-            LEDBoxEffect3->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ff60ff00\n}"));
-    } else
-        LEDBoxEffect3->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #80004010\n}"));
-
-    if(effect4_on && ((flip & 2) || !_note_effect4_fkeypressed)) {
-        if(_note_effect4_fkeypressed)
-            LEDBoxEffect4->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ffff3030\n}"));
-        else
-            LEDBoxEffect4->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #ff60ff00\n}"));
-    } else
-        LEDBoxEffect4->setStyleSheet(QString::fromUtf8("QCheckBox::indicator{\nbackground-color: #80004010\n}"));
-
+        } else if(pairdev == this->cur_pairdev)
+                    LEDBoxDown->setLed(QColor(0x00, 0x80, 0x10));
+    }
    // update();
 }
 
-///////////////////////////////////////////////////////////////////////////////////////
-// effects from keyboard
-
-int MidiInControl::set_effect(std::vector<unsigned char>* message) {
-
-    int evt = message->at(0);
-    int ch = evt & 0xF;
-    evt &= 0xF0;
-
-    int pedal = (evt == 0xB0 && message->at(1) == 64);
-    int pedal_on = 0;
-    int effect_bypass = -1;
-    int effect_bypass_vel = 0;
-
-    int channel = ((MidiInControl::channelUp() < 0)
-                  ? MidiOutput::standardChannel()
-                  : (MidiInControl::channelUp() & 15));
-
-    int ch_up = channel;
-
-    int ch_down = ((MidiInControl::channelDown() < 0)
-                   ? ((MidiInControl::channelUp() < 0)
-                      ? MidiOutput::standardChannel()
-                      : MidiInControl::channelUp())
-                   : MidiInControl::channelDown()) & 0xF;
-
-    // send channel volume, balance and pan CC directly
-    if(evt == 0xB0 && (message->at(1) == 7 || message->at(1) == 8 || message->at(1) == 10)) {
-
-        return 2;
-    }
-
-    if(MidiInControl::events_to_down()) {
-        if(ch == MidiInControl::inchannelUp())
-            channel = ch_down;
-    }
-
-    if(evt == 0xB0 && message->at(1) >= 20 && message->at(1) < 32) { // custom Fluidsynth support messages
-
-        extern bool _note_finger_disabled;
-
-        if(!_note_finger_disabled) {
-            if(ch == 1 && MidiInControl::inchannelUp() == 0)
-                message->at(0) = 0xb0 | ch_down;
-            else
-                message->at(0) = 0xb0 | channel;
-
-        }
-
-        return 2;
-    }
-
-    if(evt == 0xB0 && message->at(1) == 1) {// modulation wheel
-
-        message->at(0) = 0xb0 | channel;
-        message->at(1) = 1;
-        return 2;
-    }
-
-    if(evt == 0xB0 && message->at(1) == 11) { // expression
-
-        switch(MidiInControl::expression_mode) {
-
-            case 2: // ch volume
-                message->at(0) = 0xB0 | channel;
-                message->at(1) = 7;
-                message->at(2) = message->at(2) * 63 / 127 + 64;
-                return 2;
-
-            case 3: // Fluidsynth ch gain volume
-                message->at(0) = 0xB0 | channel;
-                message->at(1) = 22;
-                message->at(2) = message->at(2) * 63 / 127 + 64;
-                return 2;
-
-            case 4: // Modulation Wheel
-                message->at(0) = 0xb0 | channel;
-                message->at(1) = 1;
-                return 2;
-
-            case 5: {// Pitch Bend
-                message->at(0) = 0xE0 | channel;
-                message->at(1) = 0;
-                message->at(2) = 64 + (message->at(2) >> 1);
-                }
-                return 2;
-
-            case 6: // N.Effect 1
-                evt = 0;
-                message->at(0) = 0x0; // disabled
-                //_note_effect1_fkeypressed = false;
-                effect_bypass = 1;
-                effect_bypass_vel = message->at(2);
-                break;
-
-            case 7: // N.Effect 2
-                evt = 0;
-                message->at(0) = 0x0; // disabled
-                //_note_effect2_fkeypressed = false;
-                effect_bypass = 2;
-                effect_bypass_vel = message->at(2);
-                break;
-
-            case 8: // N.Effect 3
-                evt = 0;
-                message->at(0) = 0x0; // disabled
-                //_note_effect3_fkeypressed = false;
-                effect_bypass = 3;
-                effect_bypass_vel = message->at(2);
-                break;
-
-            case 9: // N.Effect 4
-                evt = 0;
-                message->at(0) = 0x0; // disabled
-                //_note_effect4_fkeypressed = false;
-                effect_bypass = 4;
-                effect_bypass_vel = message->at(2);
-                break;
-
-            default:
-                message->at(0) = 0; // disabled
-                return 2;
-        }
-
-    }
-
-    if(evt == 0xD0 || evt == 0xA0) {// aftertouch channel // key
-
-        if(message->size() == 2) {
-
-            message->emplace_back(message->at(1));
-        } else
-            message->at(2) = message->at(1);
-
-        if(MidiInControl::key_flag == 1)
-            channel = ch_down;
-        else
-            channel = ch_up;
-
-
-        if(MidiInControl::aftertouch_mode == 2) { // Pitch Bend
-
-            message->at(0) = 0xE0 | channel;
-            message->at(1) = 0;
-            message->at(2) = 64 + (message->at(2) >> 1);
-            return 2;
-
-        } else {
-
-            // Modulation Wheel
-            message->at(0) = 0xb0 | channel;
-            message->at(1) = 1;
-            return 2;
-        }
-    }
-
-    if(evt == 0xE0) {// pitch bend
-
-        message->at(0) = 0xE0 | channel;
-        return 2;
-    }
-
-    if(pedal)
-        pedal_on = (((int) message->at(2)) >= 64);
-
-    if((pedal  || effect_bypass == 1 ||
-        ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect1))
-            && message->size() == 3) {
-
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        if(evt == 0x90 || (evt == 0xB0 && pedal_on) || (effect_bypass == 1 && effect_bypass_vel >= 64)) {
-
-            if(effect_bypass != 1 && _note_effect1_fkeypressed)
-                effect1_on^= 1; // toggle
-            else
-                effect1_on = 1;
-
-        } else if(effect_bypass == 1 || !_note_effect1_fkeypressed)
-                effect1_on = 0;
-
-        if(_note_effect1_type == 0) { // pitch bend
-
-            int v = (_note_effect1_usevel) ? message->at(2) : 127;
-            v = (((v*_note_effect1_value / 198)+64)*128) & 16383;
-
-            message->at(0) = 0xE0 | channel;
-
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel <  64)) {
-                if(effect_bypass != 1 && _note_effect1_fkeypressed) {
-
-                    message->at(0) = 0; // no event
-                    return 1;
-
-                } else
-                    v = 8192;
-
-            } else if(_note_effect1_fkeypressed && !effect1_on)
-                v = 8192;
-
-            message->at(1) = (v & 0x7F);
-            message->at(2) = ((v >> 7) & 0x7F);
-
-            return 1;
-
-        } else if(_note_effect1_type == 1 || // Modulation Wheel
-                  _note_effect1_type == 4 || // Reverb
-                  _note_effect1_type == 5) { // Chorus
-
-                   int v = (_note_effect1_usevel) ? message->at(2) : 127;
-                   v = ((v*(_note_effect1_value)) / 127);
-
-                   message->at(0) = 0xB0 | channel;
-
-                   if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel <  64)) {
-                       if(effect_bypass != 1 && _note_effect1_fkeypressed) {
-                           message->at(0) = 0; // no event
-                           return 1;
-                       } else v = 0;
-                   } else if(_note_effect1_fkeypressed && !effect1_on)
-                       v = 0;
-
-                   switch(_note_effect1_type) {
-                       case 1:
-                           message->at(1) = 1; // Modulation Wheel
-                           break;
-                       case 4:
-                           message->at(1) = 91;  // Reverb
-                           break;
-                       case 5:
-                           message->at(1) = 93; // Chorus
-                           break;
-                       default:
-                           message->at(0) = 0; // invalid
-                           break;
-                   }
-
-                   message->at(2) = v;
-
-                   return 1;
-
-               } else if(_note_effect1_type == 2 || _note_effect1_type == 3) {
-
-            message->at(0) = 0xB0 | channel;
-
-            message->at(1) = 64 + 2 * (_note_effect1_type == 3); // sustain / sostenuto
-            message->at(2) = 127;
-
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 1 && _note_effect1_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else message->at(2) = 0;
-            } else if(_note_effect1_fkeypressed && !effect1_on)
-                message->at(2) = 0;
-
-            return 1;
-        }  else if(_note_effect1_type == 6 || _note_effect1_type == 7) { // autochord
-            //
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 1 && _note_effect1_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else {
-                    if(_note_effect1_type == 6)
-                        _autoChordUp = false;
-                    else _autoChordDown = false;
-                }
-            } else if(_note_effect1_fkeypressed && !effect1_on){
-                if(_note_effect1_type == 6)
-                    _autoChordUp = false;
-                else _autoChordDown = false;
-            } else {
-                if(_note_effect1_type == 6)
-                    _autoChordUp = true;
-                else _autoChordDown = true;
-            }
-
-            message->at(0) = 0;
-            return 1;
-
-        } else if(_note_effect1_type >= 8 && _note_effect1_type <= 11) { // VST
-
-            int v_off = -1;
-            int v_on = 0;
-
-            if(_note_effect1_type >= 10) {
-
-                channel = ((MidiInControl::channelDown() < 0)
-                               ? ((MidiInControl::channelUp() < 0)
-                                  ? MidiOutput::standardChannel()
-                                  : (MidiInControl::channelUp() & 15))
-                               : (MidiInControl::channelDown() & 15));
-            }
-
-            if(_note_effect1_type & 1) {
-
-                channel = channel + 16;
-                v_off = _note_VST1_plugin2_off;
-                v_on = _note_VST1_plugin2_on;
-            } else {
-                v_off = _note_VST1_plugin1_off;
-                v_on = _note_VST1_plugin1_on;
-            }
-
-            if(v_off < 0) v_off = 0x7f;
-
-            if(evt == 0x80 || (evt == 0xB0 && !pedal_on) || (effect_bypass == 1 && effect_bypass_vel < 64)) {
-                if(effect_bypass == 1 || !_note_effect1_fkeypressed) {
-
-                    message->at(0) = 0xf0;
-                    message->at(1) = 6;
-                    message->at(2) = channel;
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 'W');
-                    message->insert(message->end(), (unsigned char) v_off);
-                    message->insert(message->end(), (unsigned char) 0xF7);
-                    return 2;
-
-                } else if(_note_effect1_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                }
-            } else if(_note_effect1_fkeypressed && !effect1_on) {
-
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_off);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            } else if(effect1_on){
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_on);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            }
-
-            message->at(0) = 0;
-            return 1;
-
-        } else {
-            message->at(0) = 0;
-            return 1;
-        }
-    } else if(effect_bypass == 2 || ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect2
-              && message->size() == 3)) {
-
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        if(evt == 0x90 || (effect_bypass == 2 && effect_bypass_vel >= 64)) {
-            if(effect_bypass != 2 && _note_effect2_fkeypressed)
-                effect2_on^= 1; // toggle
-            else
-                effect2_on = 1;
-        } else if(effect_bypass == 2 || !_note_effect2_fkeypressed)
-                effect2_on = 0;
-
-        if(_note_effect2_type == 0) { // pitch bend
-
-            int v = (_note_effect2_usevel) ? message->at(2) : 127;
-            v = (((v*_note_effect2_value / 198)+64)*128) & 16383;
-
-            message->at(0) = 0xE0 | channel;
-
-            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else v = 8192;
-            } else if(_note_effect2_fkeypressed && !effect2_on)
-                v = 8192;
-
-            message->at(1) = (v & 0x7F);
-            message->at(2) = ((v >> 7) & 0x7F);
-
-            return 1;
-
-        } else if(_note_effect2_type == 1 || // Modulation Wheel
-                  _note_effect2_type == 4 || // Reverb
-                  _note_effect2_type == 5) { // Chorus
-
-            int v = (_note_effect2_usevel) ? message->at(2) : 127;
-            v = ((v*(_note_effect2_value)) / 127);
-
-            message->at(0) = 0xB0 | channel;
-
-            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else v = 0;
-            } else if(_note_effect2_fkeypressed && !effect2_on)
-                v = 0;
-
-            switch(_note_effect2_type) {
-            case 1:
-                message->at(1) = 1; // Modulation Wheel
-                break;
-            case 4:
-                message->at(1) = 91;  // Reverb
-                break;
-            case 5:
-                message->at(1) = 93; // Chorus
-                break;
-            default:
-                message->at(0) = 0; // invalid
-                break;
-            }
-
-            message->at(2) = v;
-
-            return 1;
-
-        } else if(_note_effect2_type == 2 || _note_effect2_type == 3) {
-
-            message->at(0) = 0xB0 | channel;
-
-            message->at(1) = 64 + 2 * (_note_effect2_type == 3); // sustain / sostenuto
-            message->at(2) = 127;
-
-            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else message->at(2) = 0;
-            } else if(_note_effect2_fkeypressed && !effect2_on)
-                message->at(2) = 0;
-
-            return 1;
-
-        }  else if(_note_effect2_type == 6 || _note_effect2_type == 7) { // autochord
-            //
-            if(evt == 0x80 || (effect_bypass == 2 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 2 && _note_effect2_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else {
-                    if(_note_effect2_type == 6)
-                        _autoChordUp = false;
-                    else _autoChordDown = false;
-                }
-            } else if(_note_effect2_fkeypressed && !effect2_on){
-                if(_note_effect2_type == 6)
-                    _autoChordUp = false;
-                else _autoChordDown = false;
-            } else {
-                if(_note_effect2_type == 6)
-                    _autoChordUp = true;
-                else _autoChordDown = true;
-            }
-
-            message->at(0) = 0;
-            return 1;
-        } else if(_note_effect2_type >= 8 && _note_effect2_type <= 11) { // VST
-
-            int v_off = -1;
-            int v_on = 0;
-
-            if(_note_effect2_type >= 10) {
-
-                channel = ((MidiInControl::channelDown() < 0)
-                               ? ((MidiInControl::channelUp() < 0)
-                                  ? MidiOutput::standardChannel()
-                                  : (MidiInControl::channelUp() & 15))
-                               : (MidiInControl::channelDown() & 15));
-            }
-
-            if(_note_effect2_type & 1) {
-                channel = channel + 16;
-                v_off = _note_VST2_plugin2_off;
-                v_on = _note_VST2_plugin2_on;
-            } else {
-                v_off = _note_VST2_plugin1_off;
-                v_on = _note_VST2_plugin1_on;
-            }
-
-            if(v_off < 0) v_off = 0x7f;
-
-            if(evt == 0x80  || (effect_bypass == 2 && effect_bypass_vel < 64)) {
-                if(effect_bypass == 2 || !_note_effect2_fkeypressed) {
-
-                    message->at(0) = 0xf0;
-                    message->at(1) = 6;
-                    message->at(2) = channel;
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 'W');
-                    message->insert(message->end(), (unsigned char) v_off);
-                    message->insert(message->end(), (unsigned char) 0xF7);
-                    return 2;
-
-                } else if(_note_effect2_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                }
-            } else if(_note_effect2_fkeypressed && !effect2_on) {
-
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_off);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            } else if(effect2_on){
-
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_on);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            }
-
-            message->at(0) = 0;
-            return 1;
-
-        } else {
-            message->at(0) = 0;
-            return 1;
-        }
-
-    } else if(effect_bypass == 3 || ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect3
-              && message->size() == 3)) {
-
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        if(evt == 0x90 || (effect_bypass == 3 && effect_bypass_vel >= 64)) {
-            if(effect_bypass != 3 && _note_effect3_fkeypressed)
-                effect3_on^= 1; // toggle
-            else
-                effect3_on = 1;
-        } else if(effect_bypass == 3 || !_note_effect3_fkeypressed)
-            effect3_on = 0;
-
-        if(_note_effect3_type == 0) { // pitch bend
-
-            int v = (_note_effect3_usevel) ? message->at(2) : 127;
-            v = (((v*_note_effect3_value / 198)+64)*128) & 16383;
-
-            message->at(0) = 0xE0 | channel;
-
-            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else v = 8192;
-            } else if(_note_effect3_fkeypressed && !effect3_on)
-                v = 8192;
-
-            message->at(1) = (v & 0x7F);
-            message->at(2) = ((v >> 7) & 0x7F);
-
-            return 1;
-
-        } else if(_note_effect3_type == 1 || // Modulation Wheel
-                  _note_effect3_type == 4 || // Reverb
-                  _note_effect3_type == 5) { // Chorus
-
-            int v = (_note_effect3_usevel) ? message->at(2) : 127;
-            v = ((v*(_note_effect3_value)) / 127);
-
-            message->at(0) = 0xB0 | channel;
-
-            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else v = 0;
-            } else if(_note_effect3_fkeypressed && !effect2_on)
-                v = 0;
-
-            switch(_note_effect3_type) {
-            case 1:
-                message->at(1) = 1; // Modulation Wheel
-                break;
-            case 4:
-                message->at(1) = 91;  // Reverb
-                break;
-            case 5:
-                message->at(1) = 93; // Chorus
-                break;
-            default:
-                message->at(0) = 0; // invalid
-                break;
-            }
-
-            message->at(2) = v;
-
-            return 1;
-
-        } else if(_note_effect3_type == 2 || _note_effect3_type == 3) {
-
-            message->at(0) = 0xB0 | channel;
-
-            message->at(1) = 64 + 2 * (_note_effect3_type == 3); // sustain / sostenuto
-            message->at(2) = 127;
-
-            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else message->at(2) = 0;
-            } else if(_note_effect3_fkeypressed && !effect3_on)
-                message->at(2) = 0;
-
-            return 1;
-
-        }  else if(_note_effect3_type == 6 || _note_effect3_type == 7) { // autochord
-            //
-            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 3 && _note_effect3_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else {
-                    if(_note_effect3_type == 6)
-                        _autoChordUp = false;
-                    else _autoChordDown = false;
-                }
-            } else if(_note_effect3_fkeypressed && !effect3_on){
-                if(_note_effect3_type == 6)
-                    _autoChordUp = false;
-                else _autoChordDown = false;
-            } else {
-                if(_note_effect3_type == 6)
-                    _autoChordUp = true;
-                else _autoChordDown = true;
-            }
-
-            message->at(0) = 0;
-            return 1;
-
-        } else if(_note_effect3_type >= 8 && _note_effect3_type <= 11) { // VST
-
-            int v_off = -1;
-            int v_on = 0;
-
-            if(_note_effect3_type >= 10) {
-
-                channel = ((MidiInControl::channelDown() < 0)
-                               ? ((MidiInControl::channelUp() < 0)
-                                  ? MidiOutput::standardChannel()
-                                  : (MidiInControl::channelUp() & 15))
-                               : (MidiInControl::channelDown() & 15));
-            }
-
-            if(_note_effect3_type & 1) {
-                channel = channel + 16;
-                v_off = _note_VST3_plugin2_off;
-                v_on = _note_VST3_plugin2_on;
-            } else {
-                v_off = _note_VST3_plugin1_off;
-                v_on = _note_VST3_plugin1_on;
-            }
-
-            if(v_off < 0) v_off = 0x7f;
-
-            if(evt == 0x80 || (effect_bypass == 3 && effect_bypass_vel < 64)) {
-                if(effect_bypass == 3 || !_note_effect3_fkeypressed) {
-                    message->at(0) = 0xf0;
-                    message->at(1) = 6;
-                    message->at(2) = channel;
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 'W');
-                    message->insert(message->end(), (unsigned char) v_off);
-                    message->insert(message->end(), (unsigned char) 0xF7);
-                    return 2;
-
-                } else if(_note_effect3_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                }
-            } else if(_note_effect3_fkeypressed && !effect3_on) {
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_off);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            } else if(effect3_on){
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_on);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            }
-
-            message->at(0) = 0;
-            return 1;
-
-        } else {
-            message->at(0) = 0;
-            return 1;
-        }
-    } else if(effect_bypass == 4 || ((evt == 0x80 || evt == 0x90) && ((int) message->at(1)) == _note_effect4
-              && message->size() == 3)) {
-
-        int channel = ((MidiInControl::channelUp() < 0)
-                       ? MidiOutput::standardChannel()
-                       : (MidiInControl::channelUp() & 15));
-
-        if(evt == 0x90 || (effect_bypass == 4 && effect_bypass_vel >= 64)) {
-            if(effect_bypass != 4 && _note_effect4_fkeypressed)
-                effect4_on^= 1; // toggle
-            else
-                effect4_on = 1;
-        } else if(effect_bypass == 4 || !_note_effect4_fkeypressed)
-            effect4_on = 0;
-
-        if(_note_effect4_type == 0) { // pitch bend
-
-            int v = (_note_effect4_usevel) ? message->at(2) : 127;
-            v = (((v*_note_effect4_value / 198)+64)*128) & 16383;
-
-            message->at(0) = 0xE0 | channel;
-
-            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else v = 8192;
-            } else if(_note_effect4_fkeypressed && !effect4_on)
-                v = 8192;
-
-            message->at(1) = (v & 0x7F);
-            message->at(2) = ((v >> 7) & 0x7F);
-
-
-            return 1;
-
-        } else if(_note_effect4_type == 1 || // Modulation Wheel
-                  _note_effect4_type == 4 || // Reverb
-                  _note_effect4_type == 5) { // Chorus
-
-            int v = (_note_effect4_usevel) ? message->at(2) : 127;
-            v = ((v*(_note_effect4_value)) / 127);
-
-            message->at(0) = 0xB0 | channel;
-
-            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else v = 0;
-            } else if(_note_effect4_fkeypressed && !effect4_on)
-                v = 0;
-
-            switch(_note_effect4_type) {
-            case 1:
-                message->at(1) = 1; // Modulation Wheel
-                break;
-            case 4:
-                message->at(1) = 91;  // Reverb
-                break;
-            case 5:
-                message->at(1) = 93; // Chorus
-                break;
-            default:
-                message->at(0) = 0; // invalid
-                break;
-            }
-
-            message->at(2) = v;
-
-            return 1;
-
-        } else if(_note_effect4_type == 2 || _note_effect4_type == 3) {
-
-            message->at(0) = 0xB0 | channel;
-
-            message->at(1) = 64 + 2 * (_note_effect4_type == 3); // sustain / sostenuto
-            message->at(2) = 127;
-
-            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else message->at(2) = 0;
-            } else if(_note_effect4_fkeypressed && !effect4_on)
-                message->at(2) = 0;
-
-            return 1;
-
-        } else if(_note_effect4_type == 6 || _note_effect4_type == 7) { // autochord
-            //
-
-            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
-                if(effect_bypass != 4 && _note_effect4_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                } else {
-                    if(_note_effect4_type == 6)
-                        _autoChordUp = false;
-                    else _autoChordDown = false;
-                }
-            } else if(_note_effect4_fkeypressed && !effect4_on){
-                if(_note_effect4_type == 6)
-                    _autoChordUp = false;
-                else _autoChordDown = false;
-            } else {
-                if(_note_effect4_type == 6)
-                    _autoChordUp = true;
-                else _autoChordDown = true;
-            }
-
-            message->at(0) = 0;
-            return 1;
-
-        } else if(_note_effect4_type >= 8 && _note_effect4_type <= 11) { // VST
-
-            int v_off = -1;
-            int v_on = 0;
-
-            if(_note_effect4_type >= 10) {
-
-                channel = ((MidiInControl::channelDown() < 0)
-                               ? ((MidiInControl::channelUp() < 0)
-                                  ? MidiOutput::standardChannel()
-                                  : (MidiInControl::channelUp() & 15))
-                               : (MidiInControl::channelDown() & 15));
-            }
-
-            if(_note_effect4_type & 1) {
-                channel = channel + 16;
-                v_off = _note_VST4_plugin2_off;
-                v_on = _note_VST4_plugin2_on;
-            } else {
-                v_off = _note_VST4_plugin1_off;
-                v_on = _note_VST4_plugin1_on;
-            }
-
-            if(v_off < 0) v_off = 0x7f;
-
-            if(evt == 0x80 || (effect_bypass == 4 && effect_bypass_vel < 64)) {
-                if(effect_bypass == 4 || !_note_effect4_fkeypressed) {
-                    message->at(0) = 0xf0;
-                    message->at(1) = 6;
-                    message->at(2) = channel;
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 0x66);
-                    message->insert(message->end(), (unsigned char) 'W');
-                    message->insert(message->end(), (unsigned char) v_off);
-                    message->insert(message->end(), (unsigned char) 0xF7);
-                    return 2;
-
-                } else if(_note_effect4_fkeypressed) {
-                    message->at(0) = 0; // no event
-                    return 1;
-                }
-            } else if(_note_effect4_fkeypressed && !effect4_on) {
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_off);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            } else if(effect4_on){
-                message->at(0) = 0xf0;
-                message->at(1) = 6;
-                message->at(2) = channel;
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 0x66);
-                message->insert(message->end(), (unsigned char) 'W');
-                message->insert(message->end(), (unsigned char) v_on);
-                message->insert(message->end(), (unsigned char) 0xF7);
-                return 2;
-
-            }
-
-            message->at(0) = 0;
-            return 1;
-
-        } else {
-            message->at(0) = 0;
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
 void MidiInControl::set_record_waits(bool v) {
-    _settings->setValue("MIDIin_record_waits", v);
+    _settings->setValue("MIDIin/MIDIin_record_waits", v);
     _record_waits = v;
 }
-
-
 
 ////////////////////////////////////////////////////////////////////////////////////
 // auto chord section
@@ -4044,16 +2297,18 @@ int MidiInControl::GetNoteChord(int type, int index, int note) {
     return note;
 }
 
-int MidiInControl::autoChordfunUp(int index, int note, int vel) {
+int MidiInControl::autoChordfunUp(int pairdev, int index, int note, int vel) {
 
-    if(!_autoChordUp) { // no chord
+    if(!_autoChordUp[pairdev]) { // no chord
+
         if(index == AUTOCHORD_MAX) return 1;
         if(note >= 0) return note;
         return vel;
     }
 
     if(note >= 0 || index == AUTOCHORD_MAX) {
-        switch(chordTypeUp) {
+
+        switch(chordTypeUp[pairdev]) {
             case 0:
                 note = buildPowerChord(index, note);
                 break;
@@ -4075,13 +2330,13 @@ int MidiInControl::autoChordfunUp(int index, int note, int vel) {
     } else { // velocity
         switch(index) {
             case 1:
-                vel = vel * chordScaleVelocity3Up / 20;
+                vel = vel * chordScaleVelocity3Up[pairdev] / 20;
                 break;
             case 2:
-                vel = vel * chordScaleVelocity5Up / 20;
+                vel = vel * chordScaleVelocity5Up[pairdev] / 20;
                 break;
             case 3:
-                vel = vel * chordScaleVelocity7Up / 20;
+                vel = vel * chordScaleVelocity7Up[pairdev] / 20;
                 break;
         }
         return vel;
@@ -4089,16 +2344,18 @@ int MidiInControl::autoChordfunUp(int index, int note, int vel) {
     return 0;
 }
 
-int MidiInControl::autoChordfunDown(int index, int note, int vel) {
+int MidiInControl::autoChordfunDown(int pairdev, int index, int note, int vel) {
 
-    if(!_autoChordDown) { // no chord
+    if(!_autoChordDown[pairdev]) { // no chord
+
         if(index == AUTOCHORD_MAX) return 1;
         if(note >= 0) return note;
         return vel;
     }
 
     if(note >= 0 || index == AUTOCHORD_MAX) {
-        switch(chordTypeDown) {
+
+        switch(chordTypeDown[pairdev]) {
             case 0:
                 note = buildPowerChord(index, note);
                 break;
@@ -4120,13 +2377,13 @@ int MidiInControl::autoChordfunDown(int index, int note, int vel) {
     } else { // velocity
         switch(index) {
             case 1:
-                vel = vel * chordScaleVelocity3Down / 20;
+                vel = vel * chordScaleVelocity3Down[pairdev] / 20;
                 break;
             case 2:
-                vel = vel * chordScaleVelocity5Down / 20;
+                vel = vel * chordScaleVelocity5Down[pairdev] / 20;
                 break;
             case 3:
-                vel = vel * chordScaleVelocity7Down / 20;
+                vel = vel * chordScaleVelocity7Down[pairdev] / 20;
                 break;
         }
         return vel;
@@ -4134,26 +2391,25 @@ int MidiInControl::autoChordfunDown(int index, int note, int vel) {
         return 0;
 }
 
-
 void MidiInControl::setChordDialogUp() {
 
     MidiInControl_chord* d = new MidiInControl_chord(this);
-    d->chordBox->setCurrentIndex(chordTypeUp);
-    d->Slider3->setValue(chordScaleVelocity3Up);
-    d->Slider5->setValue(chordScaleVelocity5Up);
-    d->Slider7->setValue(chordScaleVelocity7Up);
+    d->chordBox->setCurrentIndex(chordTypeUp[cur_pairdev]);
+    d->Slider3->setValue(chordScaleVelocity3Up[cur_pairdev]);
+    d->Slider5->setValue(chordScaleVelocity5Up[cur_pairdev]);
+    d->Slider7->setValue(chordScaleVelocity7Up[cur_pairdev]);
 
-    d->extChord = &chordTypeUp;
-    d->extSlider3 = &chordScaleVelocity3Up;
-    d->extSlider5 = &chordScaleVelocity5Up;
-    d->extSlider7 = &chordScaleVelocity7Up;
+    d->extChord = &chordTypeUp[cur_pairdev];
+    d->extSlider3 = &chordScaleVelocity3Up[cur_pairdev];
+    d->extSlider5 = &chordScaleVelocity5Up[cur_pairdev];
+    d->extSlider7 = &chordScaleVelocity7Up[cur_pairdev];
 
     d->exec();
 
-    _settings->setValue("chordTypeUp", chordTypeUp);
-    _settings->setValue("chordScaleVelocity3Up", chordScaleVelocity3Up);
-    _settings->setValue("chordScaleVelocity5Up", chordScaleVelocity5Up);
-    _settings->setValue("chordScaleVelocity7Up", chordScaleVelocity7Up);
+    _settings->setValue("MIDIin/chordTypeUp" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordTypeUp[cur_pairdev]);
+    _settings->setValue("MIDIin/chordScaleVelocity3Up" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordScaleVelocity3Up[cur_pairdev]);
+    _settings->setValue("MIDIin/chordScaleVelocity5Up" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordScaleVelocity5Up[cur_pairdev]);
+    _settings->setValue("MIDIin/chordScaleVelocity7Up" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordScaleVelocity7Up[cur_pairdev]);
 
     delete d;
 }
@@ -4161,22 +2417,22 @@ void MidiInControl::setChordDialogUp() {
 void MidiInControl::setChordDialogDown() {
 
     MidiInControl_chord* d = new MidiInControl_chord(this);
-    d->chordBox->setCurrentIndex(chordTypeDown);
-    d->Slider3->setValue(chordScaleVelocity3Down);
-    d->Slider5->setValue(chordScaleVelocity5Down);
-    d->Slider7->setValue(chordScaleVelocity7Down);
+    d->chordBox->setCurrentIndex(chordTypeDown[cur_pairdev]);
+    d->Slider3->setValue(chordScaleVelocity3Down[cur_pairdev]);
+    d->Slider5->setValue(chordScaleVelocity5Down[cur_pairdev]);
+    d->Slider7->setValue(chordScaleVelocity7Down[cur_pairdev]);
 
-    d->extChord = &chordTypeDown;
-    d->extSlider3 = &chordScaleVelocity3Down;
-    d->extSlider5 = &chordScaleVelocity5Down;
-    d->extSlider7 = &chordScaleVelocity7Down;
+    d->extChord = &chordTypeDown[cur_pairdev];
+    d->extSlider3 = &chordScaleVelocity3Down[cur_pairdev];
+    d->extSlider5 = &chordScaleVelocity5Down[cur_pairdev];
+    d->extSlider7 = &chordScaleVelocity7Down[cur_pairdev];
 
     d->exec();
 
-    _settings->setValue("chordTypeDown", chordTypeDown);
-    _settings->setValue("chordScaleVelocity3Down", chordScaleVelocity3Down);
-    _settings->setValue("chordScaleVelocity5Down", chordScaleVelocity5Down);
-    _settings->setValue("chordScaleVelocity7Down", chordScaleVelocity7Down);
+    _settings->setValue("MIDIin/chordTypeDown" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordTypeDown[cur_pairdev]);
+    _settings->setValue("MIDIin/chordScaleVelocity3Down" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordScaleVelocity3Down[cur_pairdev]);
+    _settings->setValue("MIDIin/chordScaleVelocity5Down" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordScaleVelocity5Down[cur_pairdev]);
+    _settings->setValue("MIDIin/chordScaleVelocity7Down" + (cur_pairdev ? QString::number(cur_pairdev) : QString()), chordScaleVelocity7Down[cur_pairdev]);
 
     delete d;
 }
@@ -4322,12 +2578,4234 @@ MidiInControl_chord::MidiInControl_chord(QWidget* parent): QDialog(parent, Qt::W
     QMetaObject::connectSlotsByName(chord);
 }
 
-
 // finger
 
-int MidiInControl::finger_func(std::vector<unsigned char>* message) {
+int MidiInControl::finger_func(int pairdev, std::vector<unsigned char>* message, bool is_keyboard2, bool only_enable) {
 
-    return FingerPatternDialog::Finger_note(message);
+    return FingerPatternDialog::Finger_note(pairdev, message, is_keyboard2, only_enable);
 
+}
+
+void MidiInControl::seqOn(int seq, int index, bool on) {
+
+    // stop sequencer
+    if(MidiPlayer::fileSequencer[seq])
+        MidiPlayer::fileSequencer[seq]->setMode(-1, 0);
+
+    MidiOutput::sequencer_enabled[seq] = -1;
+    if(!on) {
+        MidiInput::note_roll[seq].clear();
+    }
+
+    if(on && index >= 0) {
+
+        unsigned buttons = 0;
+
+        if(MidiPlayer::fileSequencer[seq])
+            buttons = MidiPlayer::fileSequencer[seq]->getButtons(index & 3);
+
+
+        // disable other autorhythm sequencer(s)
+        if(buttons & SEQ_FLAG_AUTORHYTHM) {
+            for(int seq1 = 0; seq1 < 16; seq1++) {
+                if(seq1 == seq)
+                    continue;
+                if(MidiPlayer::fileSequencer[seq1] && MidiOutput::sequencer_enabled[seq1] >= 0) {
+
+                    if(MidiPlayer::fileSequencer[seq1]->autorhythm) {
+                        MidiPlayer::fileSequencer[seq1]->setMode(-1, 0);
+
+                    }
+
+
+                }
+            }
+
+        }
+
+        // prepare sequencer
+        if(MidiPlayer::fileSequencer[seq])
+            MidiPlayer::fileSequencer[seq]->setMode(index & 3, buttons | SEQ_FLAG_SWITCH_ON);
+
+        //MidiOutput::sequencer_enabled[seq] = (index & 3);
+    }
+
+}
+
+int MidiInControl::new_effects(std::vector<unsigned char>* message, int id) {
+
+    int dev = 0;
+    bool is_kb2 = false;
+    bool delayed_return1 = false;
+    bool skip_sustain = false;
+    bool skip_expression = false;
+    bool skip_aftertouch = false;
+    bool is_pitch_bend = false;
+
+    if(id < DEVICE_ID || id >= (DEVICE_ID + MAX_INPUT_DEVICES))
+        return RET_NEWEFFECTS_NONE;
+
+    int idev = (id - DEVICE_ID);
+    dev = idev / 2;
+
+    // skip DOWN when keyboard is connected for this reason
+    if(MidiInput::keyboard2_connected[dev * 2 + 1] &&
+        !(idev & 1)) {
+        is_kb2 = true;
+    }
+
+    int evt = message->at(0);
+
+    int ch = evt & 0xF;
+
+    evt&= 0xF0;
+
+    if(evt == 0xD0) {// Aftertouch Channel Pressure
+
+        if(idev & 1) {
+
+           int ch_in = MidiInControl::inchannelDown(dev);
+
+           if(ch != ch_in)
+               skip_aftertouch = true;
+           if(ch < 0)
+               ch = 0;
+        } else {
+            int ch_in = MidiInControl::inchannelUp(dev);
+            if(ch != ch_in && ch_in >= 0)
+                skip_aftertouch = true;
+
+            if(ch < 0)
+                ch = 0;
+        }
+
+        // hack to Aftertouch Key Pressure
+
+        message->at(0) = 0xA0 | ch;
+        evt = 0xA0;
+
+        if(message->size() == 2) {
+
+            message->emplace_back(message->at(1));
+        }
+
+        delayed_return1 = true; // skip without action (very important)
+
+    } else if(evt == 0xA0) {// Aftertouch Key Pressure
+
+        delayed_return1 = true; // skip without action
+    }
+
+    // Pitch bend
+    if(evt == 0xE0 && message->size() == 3) {
+
+        if(idev & 1) {
+
+            if(ch == MidiInControl::inchannelDown(dev)) {
+
+                is_pitch_bend = true;
+            }
+
+        } else {
+
+            if(ch == MidiInControl::inchannelUp(dev)) {
+
+                is_pitch_bend = true;
+            }
+        }
+
+    }
+
+
+    // sustain pedal
+    if(evt == 0xB0 && message->at(1) == 64 && message->size() == 3) {
+
+        if(idev & 1) {
+
+            if(ch == MidiInControl::inchannelDown(dev)) {
+
+                int val = message->at(2);
+
+                if(MidiInControl::invSustainDOWN[dev])
+                    val = 127 - val;
+                message->at(2) = val;
+
+                MidiInControl::sustainDOWNval = val;
+            }
+
+        } else {
+
+            if(ch == MidiInControl::inchannelUp(dev)) {
+
+                int val = message->at(2);
+
+                if(MidiInControl::invSustainUP[dev])
+                    val = 127 - val;
+                message->at(2) = val;
+
+                MidiInControl::sustainUPval = val;
+            }
+        }
+
+    }
+
+    // expression pedal
+    if(evt == 0xB0 && message->at(1) == 11 && message->size() == 3) {
+
+        if(idev & 1) {
+
+            if(ch == MidiInControl::inchannelDown(dev)) {
+
+                int val = message->at(2);
+
+                if(MidiInControl::invExpressionDOWN[dev])
+                    val = 127 - val;
+                message->at(2) = val;
+
+                MidiInControl::expressionDOWNval = val;
+            }
+
+        } else {
+
+            if(ch == MidiInControl::inchannelUp(dev)) {
+
+                int val = message->at(2);
+
+                if(MidiInControl::invExpressionUP[dev])
+                    val = 127 - val;
+                message->at(2) = val;
+
+                MidiInControl::expressionUPval = val;
+            }
+        }
+    }
+
+
+    ////
+
+    if(show_effects) {
+
+        if(evt == 0xb0) {
+            qWarning("cc %i %i - %x %i", message->at(1), message->at(2),
+                     id, idev);
+        }
+
+        if(evt == 0xe0) {
+            qWarning("e0 %i %i - %x %i", message->at(1), message->at(2),
+                     id, idev);
+        }
+    }
+
+    int ch_up = ((MidiInControl::channelUp(dev) < 0)
+                     ? MidiOutput::standardChannel()
+                     : (MidiInControl::channelUp(dev) & 15));
+
+    int ch_down = ((MidiInControl::channelDown(dev) < 0)
+                       ? ((MidiInControl::channelUp(dev) < 0)
+                              ? MidiOutput::standardChannel()
+                              : MidiInControl::channelUp(dev))
+                       : MidiInControl::channelDown(dev)) & 0xF;
+
+    bool update_event = false;
+    bool expression_switch = false;
+    bool aftertouch_switch = false;
+
+    for(int l = 0; l < action_effects[dev].count(); l++) {
+
+        bool is_aftertouch = false;
+        bool skip_note = false;
+
+        if(update_event) {
+
+            update_event = false;
+            evt = message->at(0);
+
+            ch = evt & 0xF;
+
+            evt&= 0xF0;
+        }
+
+        InputActionData action = action_effects[dev].at(l);
+
+        if(action.device < 0)
+            continue;
+
+        if((DEVICE_ID + action.device) != id)
+            continue;
+
+        if(action.channel == 17) {
+
+            if(!(action.device & 1) && (ch != MidiInControl::inchannelUp(dev) && MidiInControl::inchannelUp(dev) != -1))
+                continue;
+
+            if((action.device & 1) && (ch != MidiInControl::inchannelDown(dev) && MidiInControl::inchannelDown(dev) != -1))
+                continue;
+
+        } else if(action.channel != 16 && action.channel != ch)
+            continue;
+
+
+        if(action.event == EVENT_SUSTAIN || action.event == EVENT_SUSTAIN_INV) {
+
+            skip_sustain = true;
+
+            if(action.control_note >= 0) {
+                if(!(MidiInput::keys_switch[idev] & (1 << (action.control_note & 31))))
+                    continue;
+            }
+
+            if(evt == 0xB0 && message->at(1) == 64 && message->size() == 3) {
+                update_event = true;
+                int vel  = message->at(2);
+
+                if(action.event == EVENT_SUSTAIN_INV)
+                    vel = 127 - vel;
+
+                if(vel >= 64) {
+                    evt = 0x90;
+                } else {
+                    evt = 0x80;
+                }
+            } else
+                continue;
+        }
+
+        if(action.event == EVENT_EXPRESSION || action.event == EVENT_EXPRESSION_INV) {
+
+            skip_expression = true;
+
+            if(action.control_note >= 0) {
+                if(!(MidiInput::keys_switch[idev] & (1 << (action.control_note & 31))))
+                    continue;
+            }
+
+            if(evt == 0xB0 && message->at(1) == 11  && message->size() == 3) {
+               update_event = true;
+               int vel  = message->at(2);
+
+               if(action.event == EVENT_EXPRESSION_INV)
+                   vel = 127 - vel;
+
+               if(vel >= 64) {
+                    if(!(MidiInput::keys_dev[idev][ch] & KEY_EXPRESSION_PEDAL))
+                        expression_switch = true;
+
+                    MidiInput::keys_dev[idev][ch]|= KEY_EXPRESSION_PEDAL;
+
+               } else {
+                   if(MidiInput::keys_dev[idev][ch] & KEY_EXPRESSION_PEDAL)
+                       expression_switch = true;
+
+                    MidiInput::keys_dev[idev][ch]&= ~KEY_EXPRESSION_PEDAL;
+               }
+            } else
+                continue;
+        }
+
+        if(action.event == EVENT_AFTERTOUCH) {
+
+            skip_aftertouch = true;
+
+            action.bypass = -1; // don?t use bypass!
+
+            if(action.control_note >= 0) {
+                if(!(MidiInput::keys_switch[idev] & (1 << (action.control_note & 31))))
+                    continue;
+            }
+
+            if((evt == 0xA0) && message->size() == 3) {
+               update_event = true;
+               is_aftertouch = true;
+               int vel  = message->at(2);
+
+               if(vel >= 64) {
+                    if(!(MidiInput::keys_dev[idev][ch] & KEY_AFTERTOUCH))
+                        aftertouch_switch = true;
+
+                    MidiInput::keys_dev[idev][ch]|= KEY_AFTERTOUCH;
+
+               }  else if(vel <= 8){
+                   if(MidiInput::keys_dev[idev][ch] & KEY_AFTERTOUCH)
+                       aftertouch_switch = true;
+
+                    MidiInput::keys_dev[idev][ch]&= ~KEY_AFTERTOUCH;
+               }
+            } else
+                continue;
+        }
+
+        if(action.event == EVENT_PITCH_BEND && is_pitch_bend  && message->size() == 3) {
+            delayed_return1 = true;
+
+            if(action.control_note >= 0) {
+                if(!(MidiInput::keys_switch[idev] & (1 << (action.control_note & 31))))
+                    continue;
+            }
+
+            action.event = EVENT_CONTROL;
+            evt = 0xB0;
+            skip_note = true;
+        }
+
+        if(action.event == EVENT_MODULATION_WHEEL &&
+                (evt == 0xb0) && message->at(1) == 1 && message->size() == 3) {
+            delayed_return1 = true;
+
+            if(action.control_note >= 0) {
+                if(!(MidiInput::keys_switch[idev] & (1 << (action.control_note & 31))))
+                    continue;
+            }
+
+            action.event = EVENT_CONTROL;
+            skip_note = true;
+        }
+
+        if(update_event || action.event == EVENT_NOTE || action.event == EVENT_CONTROL) { // note event & control
+            if((((action.event == EVENT_NOTE || action.event == EVENT_SUSTAIN || action.event == EVENT_SUSTAIN_INV)
+                 && (evt == 0x80 || evt == 0x90)) ||
+                ((action.event == EVENT_CONTROL ||
+                  action.event == EVENT_EXPRESSION || action.event == EVENT_EXPRESSION_INV) && (evt == 0xB0)) ||
+                  (action.event == EVENT_AFTERTOUCH && (evt == 0xA0))
+
+                ) && message->size() == 3) {
+
+                int note = message->at(1);
+                int vel  = message->at(2);
+
+                if(skip_note) {
+                    action.control_note = note;
+
+                    if(is_pitch_bend) {
+
+                        if(vel < 64)
+                            vel = (63 - vel) * 2 + 1;
+                        else
+                            vel = (vel - 64)  * 2 + 1;
+
+                        if(vel == 1)
+                            vel = 0;
+
+                    } else {
+                        if(vel < 80)
+                            vel = 64 * vel/ 80;
+                        else
+                            vel = 64 + 63 * (vel - 80) / 47;
+                    }
+
+                }
+
+                if(update_event || (!update_event && action.control_note == note)) {
+
+                    if(update_event && (action.event == EVENT_SUSTAIN || action.event == EVENT_SUSTAIN_INV)) {
+                        action.event = EVENT_NOTE;
+                        if(evt == 0x80)
+                            vel = 0;
+                    }
+
+                    if(update_event && (action.event == EVENT_EXPRESSION || action.event == EVENT_EXPRESSION_INV)) {
+                        if(action.function == FUNCTION_VAL_BUTTON) {
+                            action.event = EVENT_NOTE;
+
+                            if(MidiInput::keys_dev[idev][ch] & KEY_EXPRESSION_PEDAL) {
+                                if(!expression_switch)
+                                    return RET_NEWEFFECTS_SKIP; // ignore all
+                                vel = 127;
+                                evt = 0x90;
+                            } else {
+
+                                evt = 0x80;
+                                vel = 0;
+                            }
+
+                        } else if(action.function == FUNCTION_VAL_SWITCH) {
+
+                            if(!expression_switch)
+                                return RET_NEWEFFECTS_SKIP; // ignore all
+
+                            action.event = EVENT_NOTE;
+
+                            if(MidiInput::keys_dev[idev][ch] & KEY_EXPRESSION_PEDAL) {
+
+                                vel = 127;
+                                evt = 0x90;
+                            } else {
+
+                                evt = 0x80;
+                                vel = 0;
+                            }
+
+
+                        } else if(action.function == FUNCTION_VAL || action.function == FUNCTION_VAL_CLIP) {
+                            action.event = EVENT_CONTROL;
+                            evt = 0xb0;
+                        }
+                    }
+
+                    if(update_event && action.event == EVENT_AFTERTOUCH) {
+                        if(action.function == FUNCTION_VAL_BUTTON) {
+                            action.event = EVENT_NOTE;
+
+                            if(MidiInput::keys_dev[idev][ch] & KEY_AFTERTOUCH) {
+                                if(!aftertouch_switch)
+                                    return RET_NEWEFFECTS_SKIP; // ignore all
+                                vel = 127;
+                                evt = 0x90;
+                            } else {
+
+                                evt = 0x80;
+                                vel = 0;
+                            }
+
+                        } else if(action.function == FUNCTION_VAL_SWITCH) {
+
+                            if(!aftertouch_switch)
+                                return RET_NEWEFFECTS_SKIP; // ignore all
+
+                            action.event = EVENT_NOTE;
+
+                            if(MidiInput::keys_dev[idev][ch] & KEY_AFTERTOUCH) {
+
+                                vel = 127;
+                                evt = 0x90;
+                            } else {
+
+                                evt = 0x80;
+                                vel = 0;
+                            }
+
+
+                        } else if(action.function == FUNCTION_VAL || action.function == FUNCTION_VAL_CLIP) {
+                            action.event = EVENT_CONTROL;
+                            evt = 0xb0;
+                        }
+                    }
+
+                    if(action.category == CATEGORY_MIDI_EVENTS) { // Midi Events
+
+                        int dev1 = dev;
+                        int adev1 = idev;
+                        int ch_up1 = ch_up;
+                        int ch_down1 = ch_down;
+
+                        if(action.bypass != -1 && action.bypass != idev) {
+                            adev1 = action.bypass;
+                            dev1 = action.bypass/2;
+
+                            ch_up1 = ((MidiInControl::channelUp(dev1) < 0)
+                                             ? MidiOutput::standardChannel()
+                                             : (MidiInControl::channelUp(dev1) & 15));
+
+                            ch_down1 = ((MidiInControl::channelDown(dev1) < 0)
+                                               ? ((MidiInControl::channelUp(dev1) < 0)
+                                                      ? MidiOutput::standardChannel()
+                                                      : MidiInControl::channelUp(dev1))
+                                               : MidiInControl::channelDown(dev1)) & 0xF;
+
+                        }
+
+                        QString text = "Dev: " + QString::number(adev1) + " -";
+                        QString text2;
+
+                        if(action.function == FUNCTION_VAL_CLIP) {
+                            if(vel < action.min)
+                                vel = action.min;
+                            if(vel > action.max)
+                                vel = action.max;
+
+                        } else if(action.function == FUNCTION_VAL_BUTTON) {
+                            if(evt == 0x90)
+                                vel = action.max;
+                            if(evt == 0x80)
+                                vel = action.min;
+
+                        } else if(action.function == FUNCTION_VAL_SWITCH) {
+
+                            int sw = -1;
+
+                            if(evt == 0x90 || (evt == 0xB0  && (vel >= 64))) {
+
+                                if(action.action == ACTION_PITCHBEND_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_PITCHBEND_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_PITCHBEND_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_MODULATION_WHEEL_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_MODULATION_WHEEL_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_MODULATION_WHEEL_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_SUSTAIN_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_SUSTAIN_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_SUSTAIN_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_SOSTENUTO_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_SOSTENUTO_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_SOSTENUTO_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_REVERB_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_REVERB_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_REVERB_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_CHORUS_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_CHORUS_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_CHORUS_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_PROGRAM_CHANGE_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_PROGRAM_CHANGE_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_PROGRAM_CHANGE_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_CHAN_VOLUME_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_CHAN_VOLUME_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_CHAN_VOLUME_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_PAN_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_PAN_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_PAN_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_ATTACK_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_ATTACK_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_ATTACK_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_RELEASE_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_RELEASE_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_RELEASE_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_DECAY_UP) {
+
+                                    MidiInput::keys_dev[adev1][ch_up1]^= KEY_DECAY_UP;
+                                    if(MidiInput::keys_dev[adev1][ch_up1] & KEY_DECAY_UP)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_PITCHBEND_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_PITCHBEND_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_PITCHBEND_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_MODULATION_WHEEL_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_MODULATION_WHEEL_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_MODULATION_WHEEL_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_SUSTAIN_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_SUSTAIN_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_SUSTAIN_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_SOSTENUTO_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_SOSTENUTO_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_SOSTENUTO_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_REVERB_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_REVERB_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_REVERB_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_CHORUS_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_CHORUS_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_CHORUS_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_PROGRAM_CHANGE_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_PROGRAM_CHANGE_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_PROGRAM_CHANGE_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_CHAN_VOLUME_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_CHAN_VOLUME_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_CHAN_VOLUME_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_PAN_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_PAN_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_PAN_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_ATTACK_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_ATTACK_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_ATTACK_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_RELEASE_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_RELEASE_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_RELEASE_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                } else if(action.action == ACTION_DECAY_DOWN) {
+
+                                    MidiInput::keys_dev[adev1][ch_down1]^= KEY_DECAY_DOWN;
+                                    if(MidiInput::keys_dev[adev1][ch_down1] & KEY_DECAY_DOWN)
+                                        sw = 1;
+                                    else
+                                        sw = 0;
+
+                                }
+
+
+                                if(action.action == ACTION_SUSTAIN_DOWN ||
+                                    action.action == ACTION_SOSTENUTO_DOWN) {
+
+                                    if(sw == 1) {
+                                        vel = 127;
+                                        text2 = " ON ";
+                                    } else if(sw == 0) {
+                                        vel = 0;
+                                        text2 = " OFF ";
+                                    }
+                                } else {
+                                    if(sw == 1) {
+                                        vel = action.max;
+                                        text2 = " ON ";
+                                    } else if(sw == 0) {
+                                        vel = action.min;
+                                        text2 = " OFF ";
+                                    }
+                                }
+                            }
+
+                            if(sw == -1)
+                                return RET_NEWEFFECTS_SKIP; // ignore
+
+                        }
+
+                        if(action.action == ACTION_PITCHBEND_UP) {
+
+                            text+= " PITCHBEND UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xE0 | ch_up1;
+                            if(!is_pitch_bend) {
+                                message->at(1) = (vel << 6) & 192;
+                                message->at(2) = (vel >> 2);
+                            }
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_MODULATION_WHEEL_UP) {
+
+                            text+= " MODULATION WHEEL UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 1;
+                            message->at(2) = (vel >> 2);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_SUSTAIN_UP) {
+
+                            text+= " SUSTAIN UP - " + text2;
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 64;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_SOSTENUTO_UP) {
+
+                            text+= " SOSTENUTO UP - " + text2;
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 66;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_REVERB_UP) {
+
+                            text+= " REVERB UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 91;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_CHORUS_UP) {
+
+                            text+= " CHORUS UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 93;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_PROGRAM_CHANGE_UP) {
+
+                            text+= " PROGRAM_CHANGE UP - " + text2 + "n: " + QString::number(vel);
+                            OSD = text;
+
+                            message->clear();
+                            message->emplace_back(0xC0 | ch_up1);
+                            message->emplace_back(vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_CHAN_VOLUME_UP) {
+
+                            text+= " CHAN VOLUME UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 7;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_PAN_UP) {
+
+                            text+= " PAN UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 10;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_ATTACK_UP) {
+
+                            text+= " ATTACK UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 73;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_RELEASE_UP) {
+
+                            text+= " RELEASE UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 72;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_DECAY_UP) {
+
+                            text+= " DECAY UP - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_up1;
+                            message->at(1) = 75;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_PITCHBEND_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " PITCHBEND DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xE0 | ch_down1;
+                            if(!is_pitch_bend) {
+                                message->at(1) = (vel << 6) & 192;
+                                message->at(2) = (vel >> 2);
+                            }
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_MODULATION_WHEEL_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " MODULATION WHEEL DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 1;
+                            message->at(2) = (vel >> 2);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_SUSTAIN_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " SUSTAIN DOWN - " + text2;
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 64;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_SOSTENUTO_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " SOSTENUTO DOWN - " + text2;
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 66;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_REVERB_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " REVERB DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 91;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_CHORUS_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " CHORUS DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 93;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_PROGRAM_CHANGE_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " PROGRAM CHANGE DOWN - " + text2 + "n: " + QString::number(vel);
+                            OSD = text;
+
+                            message->clear();
+                            message->emplace_back(0xC0 | ch_down1);
+                            message->emplace_back(vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_CHAN_VOLUME_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " VOLUME DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 7;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_PAN_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " PAN DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 10;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_ATTACK_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " ATTACK DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 73;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_RELEASE_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " RELEASE DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 72;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        } else if(action.action == ACTION_DECAY_DOWN) {
+
+                            if(is_kb2)
+                                continue;
+
+                            text+= " DECAY DOWN - " + text2 + "v: " + QString::number(vel);
+                            OSD = text;
+
+                            message->at(0) = 0xB0 | ch_down1;
+                            message->at(1) = 75;
+                            message->at(2) = (vel);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                        }
+
+                        return RET_NEWEFFECTS_NONE;
+
+                    } else if(action.category == CATEGORY_AUTOCHORD) { // Autochord
+
+                        int dev1 = dev;
+                        int idev1 = idev;
+
+                        if(action.bypass != -1 && action.bypass != idev) {
+
+                            dev1 = action.bypass/2;
+                            idev1 = action.bypass;
+
+                        }
+
+                        QString text = "Dev: " + QString::number(idev1) + " - AUTO CHORD -";
+
+                        switch(action.action & 3) {
+                            case 0:
+                                text+= "Power Chord ";
+                                break;
+                            case 1:
+                                text+= "Power Chord Extended ";
+                                break;
+                            case 2:
+                                text+= "C Major Chord (CM) ";
+                                break;
+                            case 3:
+                                text+= "C Major Chord  Progression (CM) ";
+                                break;
+                        }
+
+                        if(action.action & 32) {
+                            if(is_kb2)
+                                continue;
+
+
+                            chordTypeDown[dev1] = action.action & 3;
+                            chordScaleVelocity3Down[dev1] = action.lev0;
+                            chordScaleVelocity5Down[dev1] = action.lev1;
+                            chordScaleVelocity7Down[dev1] = action.lev2;
+
+                        } else {
+
+                            chordTypeUp[dev1] = action.action & 3;
+                            chordScaleVelocity3Up[dev1] = action.lev0;
+                            chordScaleVelocity5Up[dev1] = action.lev1;
+                            chordScaleVelocity7Up[dev1] = action.lev2;
+                        }
+
+                        if(action.function == FUNCTION_VAL_SWITCH || action.event == EVENT_CONTROL) {
+                            if(evt == 0x90 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                if(action.action & 32)
+                                    _autoChordDown[dev1] ^= true;
+                                else
+                                    _autoChordUp[dev1] ^= true;
+
+                                if(action.action & 32) {
+                                    if(_autoChordDown[dev1])
+                                        text+= "Down ON";
+                                    else
+                                        text+= "Down OFF";
+                                } else {
+                                    if(_autoChordUp[dev1])
+                                        text+= "Up ON";
+                                    else
+                                        text+= "Up OFF";
+                                }
+
+                                OSD = text;
+                            }
+
+                        } else {
+
+                            if(evt == 0x90) {
+
+                                if(action.action & 32)
+                                    _autoChordDown[dev1] = true;
+                                else
+                                    _autoChordUp[dev1] = true;
+
+                            } else {
+
+                                if(action.action & 32)
+                                    _autoChordDown[dev1] = false;
+                                else
+                                    _autoChordUp[dev1] = false;
+                            }
+
+                            if(action.action & 32) {
+                                if(_autoChordDown[dev1])
+                                    text+= "Down ON";
+                                else
+                                    text+= "Down OFF";
+                            } else {
+                                if(_autoChordUp[dev1])
+                                    text+= "Up ON";
+                                else
+                                    text+= "Up OFF";
+                            }
+
+                            OSD = text;
+
+                        }
+
+                        //qWarning("auto chord %i %i", _autoChordUp[dev1] != 0, _autoChordDown[dev1] != 0);
+                        return RET_NEWEFFECTS_SKIP;
+                    } else if(action.category == CATEGORY_FLUIDSYNTH) { // Fluidsynth events
+
+                            int dev1 = dev;
+                            int adev1 = idev;
+                            int ch_up1 = ch_up;
+                            int ch_down1 = ch_down;
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                adev1 = action.bypass;
+                                dev1 = action.bypass/2;
+
+                                ch_up1 = ((MidiInControl::channelUp(dev1) < 0)
+                                                 ? MidiOutput::standardChannel()
+                                                 : (MidiInControl::channelUp(dev1) & 15));
+
+                                ch_down1 = ((MidiInControl::channelDown(dev1) < 0)
+                                                   ? ((MidiInControl::channelUp(dev1) < 0)
+                                                          ? MidiOutput::standardChannel()
+                                                          : MidiInControl::channelUp(dev1))
+                                                   : MidiInControl::channelDown(dev1)) & 0xF;
+
+                            }
+
+                            QString text = "Dev: " + QString::number(adev1) + " - ";
+                            QString text2;
+
+                            if(action.function == FUNCTION_VAL_CLIP) {
+                                if(vel < action.min)
+                                    vel = action.min;
+                                if(vel > action.max)
+                                    vel = action.max;
+
+                            } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                if(evt == 0x90)
+                                    vel = action.max;
+                                if(evt == 0x80)
+                                    vel = action.min;
+
+                            } else if(action.function == FUNCTION_VAL_SWITCH) {
+
+                                int sw = -1;
+
+                                if(evt == 0x90 || (evt == 0xB0  && (vel >= 64))) {
+
+                                    if(action.action >= 20 && action.action <= 30) {
+
+                                        MidiInput::keys_fluid[adev1]^= (1 << (action.action - 30));
+                                        if(MidiInput::keys_fluid[adev1] & (1 << (action.action - 30)))
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                    }
+
+                                    if(sw == 1) {
+                                        vel = action.max;
+                                        text2 = " ON ";
+                                    } else if(sw == 0) {
+                                        vel = action.min;
+                                        text2 = " OFF ";
+                                    }
+
+                                }
+
+                                if(sw == -1)
+                                    return RET_NEWEFFECTS_SKIP; // ignore
+
+                            }
+
+                            if(action.action >= 20 && action.action <= 30) {
+
+                                text+= MidiFile::controlChangeName(action.action) + " - " + text2 + "v: " + QString::number(vel);
+                                OSD = text;
+
+                                message->at(0) = 0xB0 | ((adev1 & 1) ? ch_down1 : ch_up1);
+                                message->at(1) = action.action;
+                                message->at(2) = vel;
+
+                                if(action.bypass != -1 && action.bypass != idev) {
+                                    return RET_NEWEFFECTS_BYPASS + action.bypass;
+                                }
+
+                                return RET_NEWEFFECTS_SET;
+
+                            }
+
+                            return RET_NEWEFFECTS_NONE;
+
+                    } else if(action.category == CATEGORY_VST1) { // VST1
+                        int dev1 = dev;
+                        int adev1 = idev;
+                        int ch_up1 = ch_up;
+                        int ch_down1 = ch_down;
+
+                        if(action.bypass != -1 && action.bypass != idev) {
+                            adev1 = action.bypass;
+                            dev1 = action.bypass/2;
+
+                            ch_up1 = ((MidiInControl::channelUp(dev1) < 0)
+                                             ? MidiOutput::standardChannel()
+                                             : (MidiInControl::channelUp(dev1) & 15));
+
+                            ch_down1 = ((MidiInControl::channelDown(dev1) < 0)
+                                               ? ((MidiInControl::channelUp(dev1) < 0)
+                                                      ? MidiOutput::standardChannel()
+                                                      : MidiInControl::channelUp(dev1))
+                                               : MidiInControl::channelDown(dev1)) & 0xF;
+
+                        }
+
+                        QString text = "Dev: " + QString::number(adev1) + " - VST1 ";
+
+                        if(action.action & 32) {
+                           if(!(adev1 & 1))
+                               adev1++;
+
+                           text+= "DOWN - SET ";
+                        } else
+                           text+= "UP - SET ";
+
+                        if(action.function == FUNCTION_VAL_BUTTON) {
+                            if(evt == 0x90)
+                                vel = action.action;
+                            if(evt == 0x80)
+                                vel = action.action2;
+
+                        } else if(action.function == FUNCTION_VAL_SWITCH) {
+
+                            if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                if(action.action & 32) {
+
+                                    if(MidiInput::keys_vst[adev1][ch_down1] != (action.action & 31))
+                                        MidiInput::keys_vst[adev1][ch_down1] = (action.action & 31);
+                                    else
+                                        MidiInput::keys_vst[adev1][ch_down1] = (action.action2 & 31);
+
+                                    vel = MidiInput::keys_vst[adev1][ch_down1];
+                                } else {
+
+                                   if(MidiInput::keys_vst[adev1][ch_up1] != (action.action & 31))
+                                       MidiInput::keys_vst[adev1][ch_up1] = (action.action & 31);
+                                   else
+                                       MidiInput::keys_vst[adev1][ch_up1] = (action.action2 & 31);
+
+                                   vel = MidiInput::keys_vst[adev1][ch_up1];
+
+                                }
+
+                            } else
+                                return RET_NEWEFFECTS_SKIP;
+
+                        }
+
+                        vel&= 31;
+                        vel--;
+                        if(vel < 0)
+                            vel = 0x7f;
+
+                        if(vel == 0x7f)
+                            text+= "DISABLED";
+                        else
+                            text+= "#" + QString::number(vel);
+
+                        OSD = text;
+
+                        message->clear();
+                        message->emplace_back((char) 0xf0);
+                        message->emplace_back((char) 0x6);
+                        message->emplace_back((char) (((adev1 & 1) ? ch_down1 : ch_up1) & 0xf)) ;
+                        message->emplace_back((char) 0x66);
+                        message->emplace_back((char) 0x66);
+                        message->emplace_back((char) 'W');
+
+                        message->emplace_back((char) vel);
+                        message->emplace_back((char) 0xf7);
+
+                        if(action.bypass != -1 && action.bypass != idev) {
+                            return RET_NEWEFFECTS_BYPASS + action.bypass;
+                        }
+
+                        return RET_NEWEFFECTS_SET;
+
+                    } else if(action.category == CATEGORY_VST2) { // VST2
+                            int dev1 = dev;
+                            int adev1 = idev;
+                            int ch_up1 = ch_up;
+                            int ch_down1 = ch_down;
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                adev1 = action.bypass;
+                                dev1 = action.bypass/2;
+
+                                ch_up1 = ((MidiInControl::channelUp(dev1) < 0)
+                                                 ? MidiOutput::standardChannel()
+                                                 : (MidiInControl::channelUp(dev1) & 15));
+
+                                ch_down1 = ((MidiInControl::channelDown(dev1) < 0)
+                                                   ? ((MidiInControl::channelUp(dev1) < 0)
+                                                          ? MidiOutput::standardChannel()
+                                                          : MidiInControl::channelUp(dev1))
+                                                   : MidiInControl::channelDown(dev1)) & 0xF;
+
+                            }
+
+                            QString text = "Dev: " + QString::number(adev1) + " - VST2 ";
+
+                            if(action.action & 32) {
+                               if(!(adev1 & 1))
+                                   adev1++;
+
+                               text+= "DOWN - SET ";
+                            } else
+                               text+= "UP - SET ";
+
+                            if(action.function == FUNCTION_VAL_BUTTON) {
+                                if(evt == 0x90)
+                                    vel = action.action;
+                                if(evt == 0x80)
+                                    vel = action.action2;
+
+                            } else if(action.function == FUNCTION_VAL_SWITCH) {
+
+                                if(evt == 0x90 || (evt == 0xB0  && (vel >= 64))) {
+
+                                    if(action.action & 32) {
+
+                                        if(MidiInput::keys_vst[adev1][ch_down1] != action.action)
+                                            MidiInput::keys_vst[adev1][ch_down1] = action.action;
+                                        else
+                                            MidiInput::keys_vst[adev1][ch_down1] = action.action2;
+
+                                        vel = MidiInput::keys_vst[adev1][ch_down1];
+                                    } else {
+
+                                       if(MidiInput::keys_vst[adev1][ch_up1] != action.action)
+                                           MidiInput::keys_vst[adev1][ch_up1] = action.action;
+                                       else
+                                           MidiInput::keys_vst[adev1][ch_up1] = action.action2;
+
+                                       vel = MidiInput::keys_vst[adev1][ch_up1];
+
+                                    }
+
+                                } else
+                                    return RET_NEWEFFECTS_SKIP;
+
+                            }
+
+                            vel&= 31;
+                            vel--;
+                            if(vel < 0)
+                                vel = 0x7f;
+
+                            if(vel == 0x7f)
+                                text+= "DISABLED";
+                            else
+                                text+= "#" + QString::number(vel);
+
+                            OSD = text;
+
+                            message->clear();
+                            message->emplace_back((char) 0xf0);
+                            message->emplace_back((char) 0x6);
+                            message->emplace_back((char) 0x10 + (((adev1 & 1) ? ch_down1 : ch_up1) & 0xf)) ;
+                            message->emplace_back((char) 0x66);
+                            message->emplace_back((char) 0x66);
+                            message->emplace_back((char) 'W');
+
+                            message->emplace_back((char) vel);
+                            message->emplace_back((char) 0xf7);
+
+                            if(action.bypass != -1 && action.bypass != idev) {
+                                return RET_NEWEFFECTS_BYPASS + action.bypass;
+                            }
+
+                            return RET_NEWEFFECTS_SET;
+
+                    } else if(action.category == CATEGORY_SEQUENCER) { // sequencer
+
+                        int dev1 = action.device;
+
+                        if(action.bypass != -1 && action.bypass != idev) {
+
+                            dev1 = action.bypass;
+
+                        }
+
+                        QString text = "Dev: " + QString::number(dev1) + " - SEQUENCER -";
+
+                        if(action.action & 32) {
+                            if(is_kb2)
+                                continue;
+
+                            if(action.action >= SEQUENCER_ON_1_DOWN && action.action <= SEQUENCER_ON_4_DOWN) {
+                                FingerPatternDialog::Finger_Action(dev1, 33, true, 1);
+                                FingerPatternDialog::Finger_Action(dev1, 34, true, 1);
+                                FingerPatternDialog::Finger_Action(dev1, 35, true, 1);
+                            }
+
+                            if(action.action == SEQUENCER_ON_1_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 0)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 0, true);
+                                        text+= " 1 DOWN - ON";
+
+                                    } else {
+
+                                        seqOn(seq_thd, 0, false);
+                                        text+= " 1 DOWN - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_ON_2_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 1)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 1)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 1, true);
+                                        text+= " 2 DOWN - ON";
+                                    } else {
+                                        seqOn(seq_thd, 1, false);
+                                        text+= " 2 DOWN - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_ON_3_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 2)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 2)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 2, true);
+                                        text+= " 3 DOWN - ON";
+                                    } else {
+                                        seqOn(seq_thd, 2, false);
+                                        text+= " 3 DOWN - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_ON_4_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 3)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 3)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 3, true);
+                                        text+= " 4 DOWN - ON";
+                                    } else {
+                                        seqOn(seq_thd, 3, false);
+                                        text+= " 4 DOWN - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_1_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S1_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S1_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 1 SCALE TIME DOWN - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 0);
+                                } else {
+                                    text+= " 1 SCALE TIME DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_2_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S2_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S2_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 2 SCALE TIME DOWN - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 1);
+                                } else {
+                                    text+= " 2 SCALE TIME DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_3_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S3_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S3_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 3 SCALE TIME DOWN - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 2);
+                                } else {
+                                    text+= " 3 SCALE TIME DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_4_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S4_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S4_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 4 SCALE TIME DOWN - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 3);
+                                } else {
+                                    text+= " 4 SCALE TIME DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_ALL_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_SALL_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_SALL_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " ALL SCALE TIME DOWN - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, -1);
+                                } else {
+                                    text+= " ALL SCALE TIME DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_1_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V1_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V1_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 1 VOLUME SCALE DOWN - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 0);
+                                } else {
+                                    text+= " 1 VOLUME SCALE DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_2_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0  && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V2_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V2_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 2 VOLUME SCALE DOWN - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 1);
+                                } else {
+                                    text+= " 2 VOLUME SCALE DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_3_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V3_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V3_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 3 VOLUME SCALE DOWN - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 2);
+                                } else {
+                                    text+= " 3 VOLUME SCALE DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_4_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V4_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V4_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 4 VOLUME SCALE DOWN - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 3);
+                                } else {
+                                    text+= " 4 VOLUME SCALE DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_ALL_DOWN) {
+
+                                int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_VALL_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_VALL_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " ALL VOLUME SCALE DOWN - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, -1);
+                                } else {
+                                    text+= " ALL VOLUME SCALE DOWN - IS OFF";
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                        } else {
+
+                            if(action.action >= SEQUENCER_ON_1_UP && action.action <= SEQUENCER_ON_4_UP) {
+                                FingerPatternDialog::Finger_Action(dev1, 1, true, 1);
+                                FingerPatternDialog::Finger_Action(dev1, 2, true, 1);
+                                FingerPatternDialog::Finger_Action(dev1, 3, true, 1);
+                            }
+
+                            if(action.action == SEQUENCER_ON_1_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 0)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 0, true);
+                                        text+= " 1 UP - ON";
+                                    } else {
+                                        seqOn(seq_thd, 0, false);
+                                        text+= " 1 UP - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_ON_2_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 1)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 1)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 1, true);
+                                        text+= " 2 UP - ON";
+                                    } else {
+                                        seqOn(seq_thd, 1, false);
+                                        text+= " 2 UP - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_ON_3_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 2)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 2)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 2, true);
+                                        text+= " 3 UP - ON";
+                                    } else {
+                                        seqOn(seq_thd, 2, false);
+                                        text+= " 3 UP - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_ON_4_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    int swx = 0;
+
+                                    if(action.function == FUNCTION_VAL_BUTTON) {
+                                       if(evt == 0x90 && MidiOutput::sequencer_enabled[seq_thd] == 3)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80 && MidiOutput::sequencer_enabled[seq_thd] < 0)
+                                           return RET_NEWEFFECTS_SKIP; // ignore it
+                                       if(evt == 0x80)
+                                           swx = 1;
+                                       else if(evt == 0x90)
+                                           swx = 2;
+
+
+                                    } else if(evt == 0x80)
+                                        return RET_NEWEFFECTS_SKIP; // ignore it
+
+                                    if(swx == 2 || (swx == 0 && MidiOutput::sequencer_enabled[seq_thd] != 3)) {
+                                        swx = 2;
+                                        seqOn(seq_thd, 3, true);
+                                        text+= " 4 UP - ON";
+                                    } else {
+                                        seqOn(seq_thd, 3, false);
+                                        text+= " 4 UP - OFF";
+                                    }
+
+                                    OSD = text;
+
+                                    if(is_aftertouch && swx == 2) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        int my_id = DEVICE_ID + idev;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInput::receiveMessage(0.0, &message2, &my_id);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_1_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S1_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S1_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 1 SCALE TIME UP - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 0);
+                                } else {
+                                    text+= " 1 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_2_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S2_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S2_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 2 SCALE TIME UP - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 1);
+                                } else {
+                                    text+= " 2 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_3_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S3_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S3_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 3 SCALE TIME UP - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 2);
+                                } else {
+                                    text+= " 3 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_4_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_S4_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_S4_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd])  {
+                                    text+= " 4 SCALE TIME UP - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 3);
+                                } else {
+                                    text+= " 4 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_SCALE_ALL_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_SALL_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_SALL_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd])  {
+                                    text+= " ALL SCALE TIME UP - BPM: " + QString::number(vel * 5);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setScaleTime(vel * 5, 3);
+                                } else {
+                                    text+= " ALL VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_1_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V1_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V1_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 1 VOLUME SCALE UP - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 0);
+                                } else {
+                                    text+= " 1 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_2_DOWN) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V2_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V2_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 2 VOLUME SCALE UP - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 1);
+                                } else {
+                                    text+= " 2 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_3_DOWN) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V3_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V3_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 3 VOLUME SCALE UP - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 2);
+                                } else {
+                                    text+= " 3 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_4_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_V4_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_V4_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " 4 VOLUME SCALE UP - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, 3);
+                                } else {
+                                    text+= " 4 VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == SEQUENCER_VOLUME_ALL_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(MidiOutput::sequencer_enabled[seq_thd] < 0) {
+
+                                    delayed_return1 = true;
+                                    continue;
+                                }
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_SEQ_VALL_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_SEQ_VALL_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+
+                                    if(sw == -1)
+                                        return RET_NEWEFFECTS_SKIP; // ignore
+
+                                }
+
+                                if(MidiPlayer::fileSequencer[seq_thd]) {
+                                    text+= " ALL VOLUME SCALE UP - VOL: " + QString::number(vel);
+                                    OSD = text;
+                                    MidiPlayer::fileSequencer[seq_thd]->setVolume(vel, -1);
+                                } else {
+                                    text+= " ALL VOLUME SCALE UP - IS OFF";
+                                    OSD = text;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                        }
+
+                        return RET_NEWEFFECTS_SKIP;
+
+                    } else if(action.category == CATEGORY_FINGERPATTERN) { // finger pattern
+
+                        int dev1 = action.device;
+
+                        if(action.bypass != -1 && action.bypass != idev) {
+
+                            dev1 = action.bypass;
+
+                        }
+
+                        if(action.action & 32) {
+                            if(is_kb2)
+                                continue;
+
+                            if(action.action == FINGERPATTERN_PICK_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0  && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 32, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    if(is_aftertouch && (evt != 0x80)) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_1_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 33, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    if(is_aftertouch && (evt != 0x80)) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_2_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 34, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+                                if(is_aftertouch && (evt != 0x80)) {
+                                    // start with previous note
+                                    std::vector<unsigned char> message2;
+                                    message2 = MidiInput::message[idev];
+                                    if(message2.size() == 3)
+                                        MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                }
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_3_DOWN) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1 + 1 * (!(dev1 & 1));
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 35, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    if(is_aftertouch && (evt != 0x80)) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_SCALE_DOWN) {
+
+                                int seq_thd = dev1;
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_FINGER_DOWN;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_FINGER_DOWN)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+                                    if(sw == -1) {
+                                        delayed_return1 = true;
+                                        continue;  // ignore
+                                    }
+
+                                }
+
+                                QString text = "Dev: " + QString::number(dev1) + " - FINGER PATTERN - TIME SCALE DOWN - ms: "
+                                        + QString::number(1000 * ((vel + 1)/2)/64);
+                                OSD = text;
+
+                                FingerPatternDialog::Finger_Action_time(dev1, 32, vel);
+                                return RET_NEWEFFECTS_SKIP;
+                                delayed_return1 = true;
+                                continue;
+
+                            }
+
+                        } else {
+                            if(action.action == FINGERPATTERN_PICK_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 0, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    if(is_aftertouch && (evt != 0x80)) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_1_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 1, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    if(is_aftertouch && (evt != 0x80)) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                    }
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_2_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 2, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    if(is_aftertouch && (evt != 0x80)) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_3_UP) {
+
+                                if(evt == 0x90 || evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                    int seq_thd = dev1;
+
+                                    seqOn(seq_thd, -1, false);
+
+                                    FingerPatternDialog::Finger_Action(dev1, 3, action.function == FUNCTION_VAL_SWITCH, (evt == 0x80) ? 0 : 127);
+
+                                    if(is_aftertouch && (evt != 0x80)) {
+                                        // start with previous note
+                                        std::vector<unsigned char> message2;
+                                        message2 = MidiInput::message[idev];
+                                        if(message2.size() == 3)
+                                            MidiInControl::finger_func(dev, &message2, (idev & 1) != 0);
+                                    }
+
+                                    return RET_NEWEFFECTS_SKIP;
+                                }
+
+
+                                return RET_NEWEFFECTS_SKIP;
+                            }
+
+                            if(action.action == FINGERPATTERN_SCALE_UP) {
+
+                                int seq_thd = dev1;
+
+                                if(action.function == FUNCTION_VAL_CLIP) {
+                                    if(vel < action.min)
+                                        vel = action.min;
+                                    if(vel > action.max)
+                                        vel = action.max;
+                                } else if(action.function == FUNCTION_VAL_BUTTON) {
+                                    if(evt == 0x90)
+                                        vel = action.max;
+                                    if(evt == 0x80)
+                                        vel = action.min;
+                                } else if(action.function == FUNCTION_VAL_SWITCH) {
+                                    int sw = -1;
+
+                                    if(evt == 0x90 || (evt == 0xB0 && (vel >= 64))) {
+
+                                        MidiInput::keys_seq[seq_thd]^= KEY_FINGER_UP;
+                                        if(MidiInput::keys_seq[seq_thd] & KEY_FINGER_UP)
+                                            sw = 1;
+                                        else
+                                            sw = 0;
+
+                                        if(sw == 1)
+                                            vel = action.max;
+                                        else if(sw == 0)
+                                            vel = action.min;
+                                    }
+
+                                    if(sw == -1) {
+                                        delayed_return1 = true;
+                                        continue;  // ignore
+                                    }
+
+                                }
+
+                                QString text = "Dev: " + QString::number(dev1) + " - FINGER PATTERN - TIME SCALE UP - ms: "
+                                        + QString::number(1000 * ((vel + 1)/2)/64);
+                                OSD = text;
+
+                                FingerPatternDialog::Finger_Action_time(dev1, 0, vel);
+                                delayed_return1 = true;
+                                continue;
+
+                            }
+
+                        }
+
+                        return RET_NEWEFFECTS_SKIP;
+                    } else if(action.category == CATEGORY_SWITCH) { // switch
+
+                        int idev1 = idev;
+
+                        if(action.bypass != -1 && action.bypass != idev) {
+
+                            idev1 = action.bypass;
+
+                        }
+
+                        QString text = "Dev: " + QString::number(idev1) + " - PEDAL SWITCH " +
+                                QString::number(action.action & 31);
+
+
+                        if(action.function == FUNCTION_VAL_SWITCH || action.event == EVENT_CONTROL) {
+                            if(evt == 0x90 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                                MidiInput::keys_switch[idev1] &= (1 << (action.action & 31));
+                                MidiInput::keys_switch[idev1] ^= (1 << (action.action & 31));
+
+                                if(MidiInput::keys_switch[idev1] & (1 << (action.action & 31)))
+                                    text+= " - ON";
+                                else
+                                    text+= " - OFF";
+
+                                OSD = text;
+                            }
+
+                        } else {
+
+                            if(evt == 0x90) {
+
+                                MidiInput::keys_switch[idev1] = (1 << (action.action & 31));
+
+                            } else {
+
+                                MidiInput::keys_switch[idev1] = 0;
+                            }
+
+                            if(MidiInput::keys_switch[idev1] & (1 << (action.action & 31)))
+                                text+= " - ON";
+                            else
+                                text+= " - OFF";
+
+                            OSD = text;
+
+                        }
+
+
+                        return RET_NEWEFFECTS_SKIP;
+
+                    } else if(action.category == CATEGORY_GENERAL) { // general
+
+                        int idev1 = idev;
+
+                        QString text = "Dev: " + QString::number(idev1) + " - GENERAL ";
+
+                        if(evt == 0x80 || (action.event == EVENT_CONTROL && evt == 0xb0 && (vel >= 64))) {
+
+                            switch(action.action) {
+
+                                case 0: {
+                                    text+= "- Play / Stop";
+
+                                    OSD = text;
+                                    emit ((MainWindow *) MidiInControl::_main)->remPlayStop();
+
+                                    break;
+                                }
+
+                                case 1: {
+                                    text+= "- Record / Stop";
+
+                                    OSD = text;
+                                    emit ((MainWindow *) MidiInControl::_main)->remRecordStop(-1);
+
+                                    break;
+                                }
+
+                                case 2: {
+                                    text+= "- Record from (2 secs) / Stop";
+
+                                    OSD = text;
+                                    MidiInput::setTime(2000);
+                                    emit ((MainWindow *) MidiInControl::_main)->remRecordStop(2000);
+
+                                    break;
+                                }
+
+                                case 3: {
+                                    text+= "- Stop";
+
+                                    OSD = text;
+                                    emit ((MainWindow *) MidiInControl::_main)->remStop();
+
+                                    break;
+                                }
+
+                                case 4: {
+                                    text+= "- Forward";
+
+                                    OSD = text;
+                                    emit ((MainWindow *) MidiInControl::_main)->remForward();
+
+                                    break;
+                                }
+
+                                case 5: {
+                                    text+= "- Back";
+
+                                    OSD = text;
+                                    emit ((MainWindow *) MidiInControl::_main)->remBack();
+
+                                    break;
+                                }
+
+                            }
+
+                        }
+
+                        return RET_NEWEFFECTS_SKIP;
+
+                    } else if(action.category == CATEGORY_NONE) { // none
+                        return RET_NEWEFFECTS_SKIP;
+                    }
+
+                    return RET_NEWEFFECTS_NONE;
+                }
+            }
+        } // end note event
+
+    }
+
+    // default aftertouch
+    if(evt == 0xA0) {
+
+        if(skip_aftertouch)
+            return RET_NEWEFFECTS_SKIP;
+
+        if(message->size() != 3)
+            return RET_NEWEFFECTS_SKIP; // truncated
+
+        QString text = "Dev: " + QString::number(idev) + " - AFTERTOUCH (default) -";
+
+        if(idev & 1) {
+            if(ch == MidiInControl::inchannelDown(dev)) {
+                // Pitch Bend
+                message->at(0) = 0xE0 | ch_down;
+                message->at(1) = 0;
+                text+= " PITCHBEND DOWN - v: " + QString::number(message->at(2));
+                message->at(2) = 64 + (message->at(2) >> 1);
+                OSD = text;
+
+                return RET_NEWEFFECTS_SET;
+            }
+        } else {
+            if(ch == MidiInControl::inchannelUp(dev)) {
+                // Pitch Bend
+                message->at(0) = 0xE0 | ch_up;
+                message->at(1) = 0;
+                text+= " PITCHBEND UP - v: " + QString::number(message->at(2));
+                message->at(2) = 64 + (message->at(2) >> 1);
+                OSD = text;
+
+                return RET_NEWEFFECTS_SET;
+            }
+        }
+
+        return RET_NEWEFFECTS_SKIP;
+    }
+
+    if(delayed_return1)
+        return RET_NEWEFFECTS_SKIP;
+
+    // default sustain pedal
+    if(evt == 0xB0 && message->at(1) == 64) {
+
+        if(skip_sustain)
+            return RET_NEWEFFECTS_SKIP;
+
+        if(message->size() != 3)
+            return RET_NEWEFFECTS_SKIP; // truncated
+
+        QString text = "Dev: " + QString::number(idev) + " -";
+
+        if(idev & 1) {
+            if(ch == MidiInControl::inchannelDown(dev)) {
+                message->at(0) = 0xB0 | ch_down;
+
+                if(message->at(2) >= 64)
+                    text+= " SUSTAIN PEDAL (default) DOWN - ON";
+                else
+                    text+= " SUSTAIN PEDAL (default) DOWN - OFF";
+
+                OSD = text;
+                return RET_NEWEFFECTS_SET;
+            }
+        } else {
+            if(ch == MidiInControl::inchannelUp(dev)) {
+                message->at(0) = 0xB0 | ch_up;
+                if(message->at(2) >= 64)
+                    text+= " SUSTAIN PEDAL (default) UP - ON";
+                else
+                    text+= " SUSTAIN PEDAL (default) UP - OFF";
+
+                OSD = text;
+                return RET_NEWEFFECTS_SET;
+            }
+        }
+
+        return RET_NEWEFFECTS_SKIP;
+    }
+
+    // default expression pedal
+    if(evt == 0xB0 && message->at(1) == 11) {
+
+        if(skip_expression)
+            return RET_NEWEFFECTS_SKIP;
+
+        if(message->size() != 3)
+            return RET_NEWEFFECTS_SKIP; // truncated
+
+        QString text = "Dev: " + QString::number(idev) + " - EXPRESSION PEDAL (default) -";
+
+        if(idev & 1) {
+            if(ch == MidiInControl::inchannelDown(dev)) {
+                // Pitch Bend
+                message->at(0) = 0xE0 | ch_down;
+                message->at(1) = 0;
+                text+= " PITCHBEND DOWN - v: " + QString::number(message->at(2));
+                message->at(2) = 64 + (message->at(2) >> 1);
+                OSD = text;
+
+                return RET_NEWEFFECTS_SET;
+            }
+        } else {
+            if(ch == MidiInControl::inchannelUp(dev)) {
+                // Pitch Bend
+                message->at(0) = 0xE0 | ch_up;
+                message->at(1) = 0;
+                text+= " PITCHBEND UP - v: " + QString::number(message->at(2));
+                message->at(2) = 64 + (message->at(2) >> 1);
+                OSD = text;
+
+                return RET_NEWEFFECTS_SET;
+            }
+        }
+
+        return RET_NEWEFFECTS_SKIP;
+    }
+
+    return RET_NEWEFFECTS_NONE;
+}
+
+void MidiInControl::loadActionSettings() {
+
+    for(int index = 0; index < MAX_INPUT_DEVICES; index++) {
+        action_effects[index].clear();
+        for(int number = 0; number < MAX_LIST_ACTION; number++) {
+
+            InputActionData inActiondata;
+            inActiondata.status = 1;
+            inActiondata.device = -1; // none
+            inActiondata.channel = 17; // user
+            inActiondata.event = 0; // note
+            inActiondata.control_note = -1;
+            inActiondata.category = CATEGORY_MIDI_EVENTS;
+            inActiondata.action = 0;
+            inActiondata.action2 = 0;
+            inActiondata.function = 0;
+            inActiondata.min = 0;
+            inActiondata.max = 127;
+            inActiondata.lev0 = 14;
+            inActiondata.lev1 = 15;
+            inActiondata.lev2 = 16;
+            inActiondata.lev3 = 15;
+            inActiondata.bypass = -1;
+
+            QByteArray d = _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number), "").toByteArray();
+            if(d.count() == 16) {
+                inActiondata.status =       d[0];
+                inActiondata.device =       d[1];
+                inActiondata.channel =      d[2];
+                inActiondata.event =        d[3];
+                inActiondata.control_note = d[4];
+                inActiondata.category =     d[5];
+                inActiondata.action =       d[6];
+                inActiondata.action2 =      d[7];
+                inActiondata.function =     d[8];
+                inActiondata.min =          d[9];
+                inActiondata.max =          d[10];
+                inActiondata.lev0 =         d[11];
+                inActiondata.lev1 =         d[12];
+                inActiondata.lev2 =         d[13];
+                inActiondata.lev3 =         d[14];
+                inActiondata.bypass =      d[15];
+                action_effects[index].append(inActiondata);
+            }
+        }
+    }
+
+}
+
+void MidiInControl::saveActionSettings() {
+
+    for (int index = 0; index < MAX_INPUT_DEVICES; index++) {
+        for (int number = 0; number < action_effects[index].count(); number++) {
+            InputActionData inActiondata = action_effects[index].at(number);
+            QByteArray d;
+            d.append((const char *) &inActiondata, 16);
+            _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number), d);
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////
+// InputActionListWidget
+////////////////////////////////////////////////////////////////////////
+
+void MidiInControl::tab_Actions(QWidget *w)
+{
+
+    QFont font;
+    QFont font1;
+    QFont font2;
+    font.setPointSize(16);
+    font1.setPointSize(8);
+    font2.setPointSize(12);
+
+    ActionGP = _settings->value("MIDIin/ActionGroup", "Default").toString();
+    MidiInControl::loadActionSettings();
+
+    //w->setStyleSheet(QString::fromUtf8("color: white;\n"));
+
+    InputListAction = new InputActionListWidget(w, this);
+    InputListAction->setObjectName(QString::fromUtf8("InputActionListWidget"));
+    InputListAction->resize(970 - 180, 562);
+
+    QGroupBox *groupBox = new QGroupBox(w);
+    groupBox->setObjectName(QString::fromUtf8("groupBox"));
+    groupBox->setGeometry(QRect(9, 562 + 10 , 970 - 198 /*931 - 164*/, 111 - 30));
+    groupBox->setTitle("");
+
+    int xx = 0;
+
+    QPushButton *ButtonAdd = new QPushButton(groupBox);
+    ButtonAdd->setObjectName(QString::fromUtf8("ButtonAdd"));
+    ButtonAdd->setGeometry(QRect(9, 9, 110, 30));
+    ButtonAdd->setText("Add Action Before");
+    ButtonAdd->setCheckable(false);
+    TOOLTIP(ButtonAdd, "Add an action before the selected one to the list");
+
+    xx+= 120;
+
+    QPushButton *ButtonAdd2 = new QPushButton(groupBox);
+    ButtonAdd2->setObjectName(QString::fromUtf8("ButtonAdd2"));
+    ButtonAdd2->setGeometry(QRect(9 + xx, 9, 110, 30));
+    ButtonAdd2->setText("Add Action After");
+    ButtonAdd2->setCheckable(false);
+    TOOLTIP(ButtonAdd2, "Add an action after the selected one to the list");
+
+    xx+= 120;
+
+    QPushButton *ButtonDel = new QPushButton(groupBox);
+    ButtonDel->setObjectName(QString::fromUtf8("ButtonDel"));
+    ButtonDel->setGeometry(QRect(9 + xx, 9, 110 , 30));
+    ButtonDel->setText("Delete Action");
+    ButtonDel->setCheckable(false);
+    TOOLTIP(ButtonDel, "Deletes the selected action from the list");
+
+    xx+= 120;
+
+    QPushButton *ButtonMov = new QPushButton(groupBox);
+    ButtonMov->setObjectName(QString::fromUtf8("ButtonMov"));
+    ButtonMov->setGeometry(QRect(9 + xx, 9, 110, 30));
+    ButtonMov->setText("Move Action Before");
+    ButtonMov->setCheckable(false);
+    TOOLTIP(ButtonMov, "Moves the selected action one position up in the list");
+
+    xx+= 120;
+
+    QPushButton *ButtonMov2 = new QPushButton(groupBox);
+    ButtonMov2->setObjectName(QString::fromUtf8("ButtonMov2"));
+    ButtonMov2->setGeometry(QRect(9 + xx, 9, 110, 30));
+    ButtonMov2->setText("Move Action After");
+    ButtonMov2->setCheckable(false);
+    TOOLTIP(ButtonMov2, "Moves the selected action one position down in the list");
+
+    xx+= 120;
+
+    QLabel *label_ActionGroup = new QLabel(groupBox);
+    label_ActionGroup->setObjectName(QString::fromUtf8("label_ActionGroup"));
+    label_ActionGroup->setGeometry(QRect(QRect(9, 40, 110, 12)));
+    label_ActionGroup->setAlignment(Qt::AlignLeft);
+    label_ActionGroup->setFont(font1);
+    label_ActionGroup->setStyleSheet("color: white;");
+    label_ActionGroup->setText("Action Group:");
+
+    ActionGroup = new QComboBox(groupBox);
+    ActionGroup->setObjectName(QString::fromUtf8("ActionGroup"));
+    ActionGroup->setGeometry(QRect(9, 44 + 10, 110, 20));
+    TOOLTIP(ActionGroup, "Choose the group list of actions.");
+
+    ActionGroup->addItem("Default", 0);
+
+    for(int n = 0; n < 4; n++) {
+
+        ActionGroup->addItem("List " + QString::number(n + 1), n);
+    }
+
+    for(int n = 0; n < ActionGroup->count(); n++) {
+
+        if(ActionGroup->itemText(n) == _settings->value("MIDIin/ActionGroup", "Default").toString()) {
+            ActionGP = _settings->value("MIDIin/ActionGroup", "Default").toString();
+            ActionGroup->setCurrentIndex(n);
+            break;
+        }
+    }
+
+    QLabel *label_ActionTitle = new QLabel(groupBox);
+    label_ActionTitle->setObjectName(QString::fromUtf8("label_ActionTitle"));
+    label_ActionTitle->setGeometry(QRect(QRect(9 + 120, 40, 110, 12)));
+    label_ActionTitle->setAlignment(Qt::AlignLeft);
+    label_ActionTitle->setFont(font1);
+    label_ActionTitle->setStyleSheet("color: white;");
+    label_ActionTitle->setText("Title/Description:");
+
+    ActionTitle = new QLineEdit(groupBox);
+    ActionTitle->setObjectName(QString::fromUtf8("ActionTitle"));
+    ActionTitle->setGeometry(QRect(9 + 120, 44 + 10, 240 - 9, 20));
+    ActionTitle->setMaxLength(64);
+    ActionTitle->setText(_settings->value(ActionGP + "/ActionTitle").toString());
+    TOOLTIP(ActionTitle, "Title or description of the selected action group.");
+
+    connect(ActionGroup, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int v)
+    {
+        ActionGP = ActionGroup->itemText(v);
+        _settings->setValue("MIDIin/ActionGroup", ActionGP);
+        ActionTitle->setText(_settings->value(ActionGP + "/ActionTitle").toString());
+        MidiInControl::loadActionSettings();
+
+        InputListAction->updateList();
+
+        this->update();
+
+    });
+
+    connect(ActionTitle, &QLineEdit::textEdited, this, [=](const QString &text) {
+        _settings->setValue(ActionGP + "/ActionTitle", text);
+    });
+
+    connect(ButtonAdd, &QPushButton::clicked, this, [=](bool)
+    {
+
+        for(int n = 0; n < InputListAction->count(); n++) {
+            if(n == InputListAction->selected) {
+
+                int index = cur_pairdev;
+
+                int number = 0;
+                for (; number < MAX_LIST_ACTION; number++) {
+                    QByteArray d = _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number), "").toByteArray();
+                    if(d.count() != 16) {
+                        break;
+                    }
+                }
+
+                if(number < MAX_LIST_ACTION) { // add one
+
+                    // displace
+                    for(int m = number; m > ((n > 0) ? (n - 1) : n); m--) {
+                        _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(m),
+                                            _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(m - 1), ""));
+                    }
+
+                    InputActionData inActiondata;
+                    inActiondata.status = 1;
+                    inActiondata.device = -1; // none
+                    inActiondata.channel = 17; // user
+                    inActiondata.event = 0; // note
+                    inActiondata.control_note = -1;
+                    inActiondata.category = CATEGORY_MIDI_EVENTS;
+                    inActiondata.action = 0;
+                    inActiondata.action2 = 0;
+                    inActiondata.function = 0;
+                    inActiondata.min = 0;
+                    inActiondata.max = 127;
+                    inActiondata.lev0 = 14;
+                    inActiondata.lev1 = 15;
+                    inActiondata.lev2 = 16;
+                    inActiondata.lev3 = 15;
+                    inActiondata.bypass = -1;
+
+                    QByteArray d;
+                    d.append((const char *) &inActiondata, 16);
+
+                    _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(n), d);
+
+                    // load items
+
+                    MidiInControl::loadActionSettings();
+                    InputListAction->updateList();
+                    this->update();
+
+                    if(n >= InputListAction->count())
+                        n = InputListAction->count() - 1;
+
+                    InputListAction->selected = n;
+                    InputListAction->verticalScrollBar()->setValue(n);
+                    emit InputListAction->itemClicked(InputListAction->item(n));
+
+                }
+
+                break;
+            }
+
+        }
+
+    });
+
+    connect(ButtonAdd2, &QPushButton::clicked, this, [=](bool)
+    {
+
+        for(int n = 0; n < InputListAction->count(); n++) {
+            if(n == InputListAction->selected) {
+
+                int index = cur_pairdev;
+
+                int number = 0;
+                for (; number < MAX_LIST_ACTION; number++) {
+                    QByteArray d = _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number), "").toByteArray();
+                    if(d.count() != 16) {
+                        break;
+                    }
+                }
+
+                if(number < MAX_LIST_ACTION) { // add one
+
+                    // displace
+                    for(int m = number; m > n; m--) {
+                        _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(m),
+                                            _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(m - 1), ""));
+                    }
+
+                    InputActionData inActiondata;
+                    inActiondata.status = 1;
+                    inActiondata.device = -1; // none
+                    inActiondata.channel = 17; // user
+                    inActiondata.event = 0; // note
+                    inActiondata.control_note = -1;
+                    inActiondata.category = CATEGORY_MIDI_EVENTS;
+                    inActiondata.action = 0;
+                    inActiondata.action2 = 0;
+                    inActiondata.function = 0;
+                    inActiondata.min = 0;
+                    inActiondata.max = 127;
+                    inActiondata.lev0 = 14;
+                    inActiondata.lev1 = 15;
+                    inActiondata.lev2 = 16;
+                    inActiondata.lev3 = 15;
+                    inActiondata.bypass = -1;
+
+                    QByteArray d;
+                    d.append((const char *) &inActiondata, 16);
+                    _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(n + 1), d);
+
+                    // load items
+
+                    MidiInControl::loadActionSettings();
+                    InputListAction->updateList();
+                    this->update();
+
+                    if(n >= InputListAction->count())
+                        n = InputListAction->count() - 1;
+
+                    InputListAction->selected = n;
+                    InputListAction->verticalScrollBar()->setValue(n);
+                    emit InputListAction->itemClicked(InputListAction->item(n));
+
+                }
+
+                break;
+            }
+
+        }
+
+    });
+
+    connect(ButtonDel, &QPushButton::clicked, this, [=](bool)
+    {
+
+        for(int n = 0; n < InputListAction->count(); n++) {
+            if(n == InputListAction->selected) {
+
+                int index = cur_pairdev;
+
+                int number = 0;
+                for (; number < MAX_LIST_ACTION; number++) {
+                    QByteArray d = _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number), "").toByteArray();
+                    if(d.count() != 16) {
+                        break;
+                    }
+                }
+
+                // delete 1
+
+                if(number <= 4) {
+                    InputActionData inActiondata;
+                    inActiondata.status = 1;
+                    inActiondata.device = -1; // none
+                    inActiondata.channel = 17; // user
+                    inActiondata.event = 0; // note
+                    inActiondata.control_note = -1;
+                    inActiondata.category = CATEGORY_MIDI_EVENTS;
+                    inActiondata.action = 0;
+                    inActiondata.action2 = 0;
+                    inActiondata.function = 0;
+                    inActiondata.min = 0;
+                    inActiondata.max = 127;
+                    inActiondata.lev0 = 14;
+                    inActiondata.lev1 = 15;
+                    inActiondata.lev2 = 16;
+                    inActiondata.lev3 = 15;
+                    inActiondata.bypass = -1;
+
+                    QByteArray d;
+                    d.append((const char *) &inActiondata, 16);
+                    _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(n), d);
+
+                } else {
+
+                    number--;
+                    // displace
+                    int m = n;
+                    for(; m < number; m++) {
+                        _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(m),
+                                            _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(m + 1), ""));
+                    }
+
+                    if(m < MAX_LIST_ACTION)
+                        _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(m), "");
+                }
+
+                // load items
+
+                MidiInControl::loadActionSettings();
+                InputListAction->updateList();
+                this->update();
+
+                if(n >= InputListAction->count())
+                    n = InputListAction->count() - 1;
+
+                InputListAction->selected = n;
+                InputListAction->verticalScrollBar()->setValue(n);
+                emit InputListAction->itemClicked(InputListAction->item(n));
+
+                break;
+            }
+
+        }
+
+    });
+
+    connect(ButtonMov, &QPushButton::clicked, this, [=](bool)
+    {
+
+        for(int n = 0; n < InputListAction->count(); n++) {
+            if(n == InputListAction->selected) {
+
+                int index = cur_pairdev;
+
+                int number = n - 1;
+
+                QByteArray d;
+
+                if(number >= 0) {
+                    d = _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number), "").toByteArray();
+                    if(d.count() != 16) number = -1;
+                }
+
+                if(number >= 0) {
+
+                    _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number),
+                                        _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(n), ""));
+                    _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(n),
+                                        d);
+                    // load items
+
+                    MidiInControl::loadActionSettings();
+                    InputListAction->updateList();
+                    this->update();
+
+                    n = number;
+
+                    if(n >= InputListAction->count())
+                        n = InputListAction->count() - 1;
+
+                    InputListAction->selected = n;
+                    InputListAction->verticalScrollBar()->setValue(n);
+                    emit InputListAction->itemClicked(InputListAction->item(n));
+
+                }
+
+                break;
+            }
+
+        }
+
+    });
+
+    connect(ButtonMov2, &QPushButton::clicked, this, [=](bool)
+    {
+
+        for(int n = 0; n < InputListAction->count(); n++) {
+            if(n == InputListAction->selected) {
+
+                int index = cur_pairdev;
+
+                int number = n + 1;
+
+                QByteArray d;
+
+                if(number < InputListAction->count()) {
+                    d = _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number), "").toByteArray();
+                    if(d.count() != 16) number = InputListAction->count();
+                }
+
+                if(number < InputListAction->count()) {
+
+                    _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(number),
+                                        _settings->value(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(n), ""));
+                    _settings->setValue(ActionGP + "/inActiondata" + QString::number(index) + " " + QString::number(n),
+                                        d);
+                    // load items
+
+                    MidiInControl::loadActionSettings();
+                    InputListAction->updateList();
+
+                    n = number;
+
+                    if(n >= InputListAction->count())
+                        n = InputListAction->count() - 1;
+
+                    InputListAction->selected = n;
+                    InputListAction->verticalScrollBar()->setValue(n);
+                    emit InputListAction->itemClicked(InputListAction->item(n));
+
+                }
+
+                break;
+            }
+
+        }
+
+    });
+
+
+}
+
+////////////////////////////////////////////////////////////////////////
+// Sequencer Tab
+////////////////////////////////////////////////////////////////////////
+
+void MidiInControl::tab_Sequencer(QWidget *w)
+{
+
+    QFont font;
+    QFont font2;
+    font.setPointSize(16);
+    font2.setPointSize(12);
+
+           //w->setStyleSheet(QString::fromUtf8("color: white;\n"));
+
+    InputListSequencer = new InputSequencerListWidget(w, this);
+    InputListSequencer->setObjectName(QString::fromUtf8("InputSequencerListWidget"));
+    InputListSequencer->resize(970 - 180, 562);
+
+}
+
+void MidiInControl::sequencer_load(int dev) {
+
+
+    QSettings *settings = new QSettings(QDir::homePath() + "/Midieditor/settings/sequencer.ini", QSettings::IniFormat);
+
+    for(int index = dev * 8; index < (dev * 8 + 8); index++) {
+
+        QString path;
+
+        QString entry = SequencerGP + QString("/seq-") + QString::number(index/8) + "-" + QString::number((index & 4) ? 32 + (index & 3) : (index & 3))
+                    + "-";
+
+        path = settings->value(entry + "select", "").toString();
+
+        if(path != "" && path != "Get It") {
+
+             if(!MidiPlayer::is_sequencer_loaded(index)) {
+
+                 qWarning("load %s %i", path.toLocal8Bit().constData(), index);
+
+                 int vol = settings->value(entry + "DialVol", 127).toInt();
+
+                 if(vol < 0)
+                    vol = 0;
+                 if(vol > 127)
+                    vol = 127;
+
+                 int beats = settings->value(entry + "DialBeats", 120).toInt();
+
+                 if(beats < 1)
+                     beats = 1;
+                 if(beats > 508)
+                     beats = 508;
+
+                 unsigned int buttons = 0;
+
+                 if(settings->value(entry + "ButtonLoop", false).toBool())
+                     buttons |= SEQ_FLAG_LOOP;
+                 if(settings->value(entry + "ButtonAuto", false).toBool())
+                     buttons |= SEQ_FLAG_INFINITE;
+                 if(settings->value(entry + "AutoRhythm", false).toBool())
+                     buttons |= SEQ_FLAG_AUTORHYTHM;
+
+                 MidiPlayer::unload_sequencer(index);
+
+                 bool ok = true;
+                 MidiFile* seq1  = new MidiFile(path, &ok);
+
+                 if(seq1 && ok) {
+                     if(MidiPlayer::play_sequencer(seq1, index, beats, vol) < 0) {
+                        delete seq1;
+                     }
+
+                     if(seq1->is_multichannel_sequencer) {
+                         buttons |= SEQ_FLAG_AUTORHYTHM;
+                         settings->setValue(entry + "AutoRhythm", true);
+                     }
+
+                     if(MidiPlayer::fileSequencer[index/4])
+                        MidiPlayer::fileSequencer[index/4]->setButtons(buttons, index & 3);
+                 }
+
+             }
+        }
+    }
+}
+
+void MidiInControl::sequencer_unload(int dev) {
+
+    for(int index = dev * 8; index < (dev * 8 + 8); index++) {
+
+        if(MidiPlayer::is_sequencer_loaded(index)) {
+            MidiPlayer::unload_sequencer(index);
+
+        }
+    }
 }
 

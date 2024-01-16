@@ -11,8 +11,8 @@ HEADERS += $$files(src/*.h, true) $$files(fluidsynth/*.h, true)
 SOURCES += $$files(src/*.cpp, true)
 FORMS += 
 RESOURCES += resources.qrc
-message(get arch)
-message($$(OVERRIDE_ARCH))
+#message(get arch)
+#message($$(OVERRIDE_ARCH))
 ARCH_FORCE = $$(OVERRIDE_ARCH)
 contains(ARCH_FORCE, 64){
     DEFINES += __ARCH64__
@@ -74,7 +74,7 @@ win32: {
     DEFINES += __WINDOWS_MM__
     LIBS += -lwinmm
     CONFIG += release
-    DEFINES += USE_FLUIDSYNTH CUSTOM_MIDIEDITOR CUSTOM_MIDIEDITOR_GUI #VISIBLE_VST_SYSEX
+    DEFINES += USE_FLUIDSYNTH CUSTOM_MIDIEDITOR #VISIBLE_VST_SYSEX
     LIBS += ../midieditor/lib64/windows/libfluidsynth.dll.a
     LIBS += ../midieditor/lib/windows/fluidsynth.lib
     RC_FILE = midieditor.rc
@@ -91,3 +91,6 @@ macx: {
     MOC_DIR = .tmp
     ICON = midieditor.icns
 }
+
+DISTFILES += \
+    run_environment/graphics/custom/Midicustom2.png

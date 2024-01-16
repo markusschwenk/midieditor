@@ -41,13 +41,14 @@
 //#include <QtWidgets/QDesktopWidget>
 #include <QSemaphore>
 #include <QMutex>
+#include "../gui/MainWindow.h"
 
 #define DELETE(x) {if(x) delete x; x= NULL;}
 
 extern QWidget *main_widget;
 extern QMutex * externalMux;
 
-#define PRE_CHAN 32 // 16 chans * number of VST Plugins
+#define PRE_CHAN SYNTH_CHANS*2 // 48 chans * number of VST Plugins
 #define VST_NAME_32BITS_BARRIER "<----- 32 bits VST ----->"
 
 #define EXTERNAL_UPDATE_WINSETPRESET   0xABECE5
@@ -123,7 +124,7 @@ private:
     QLabel *labelPreset;
     QWidget* _parent;
 
-    QTimer *time_updat;
+    QTimer *time_update;
     QSemaphore *semaf;
     bool _dis_change;
 
@@ -186,6 +187,7 @@ public:
 
     static bool VST_isMIDI(int chan);
     static void VST_MIDIcmd(int chan, int ms, QByteArray cmd);
+    static void VST_MIDIvol(int chan, int vol);
     static void VST_MIDIend();
     static void VST_MIDInotesOff(int chan);
 
@@ -272,7 +274,7 @@ private:
 public:
     QLabel *VSTlabel;
     QLabel *Text;
-    QTimer *time_updat;
+    QTimer *time_update;
 
     VSTlogo(QWidget* parent, QString text);
 
@@ -320,8 +322,6 @@ public slots:
     void ImportVSTfile();
 
 };
-
-
 
 #endif
 #endif

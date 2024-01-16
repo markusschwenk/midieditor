@@ -31,14 +31,16 @@
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiOutput.h"
+#include "../midi/MidiTrack.h"
 #include "../protocol/Protocol.h"
 #include "../MidiEvent/NoteOnEvent.h"
+#include "../tool/NewNoteTool.h"
 
 #include <QThread>
 
 extern int itHaveInstrumentList;
 
-InstrumentChooser::InstrumentChooser(MidiFile* f, int channel, QWidget* parent, int mode, int ticks, int instrument, int bank)
+InstrumentChooser::InstrumentChooser(MidiFile* f, int channel, MidiTrack* track, QWidget* parent, int mode, int ticks, int instrument, int bank)
     : QDialog(parent)
 {
 
@@ -46,28 +48,48 @@ InstrumentChooser::InstrumentChooser(MidiFile* f, int channel, QWidget* parent, 
     _channel = channel;
 
     _mode= mode;
-    _bank =bank;
+    _bank = bank;
     _instrument = instrument;
 
+    _track = track;
+    _track_index = 0;
+
     if(_file) {
+        _track = _file->track(NewNoteTool::editTrack());
+        _track_index = _track->device_index();
         if(!mode) _current_tick= _file->cursorTick(); else _current_tick = ticks;
         _current_tick=(_current_tick/10)*10;
-    } else _current_tick = 0;
+    } else {
+        if(_track != NULL)
+            _track_index = _track->device_index();
+
+        _current_tick = 0;
+    }
 
     if(!mode) {
-        _bank = Bank_MIDI[_channel];
-        _instrument = Prog_MIDI[_channel];
+
+        MidiFile *file = _file ? _file : MidiOutput::file;
+
+        _bank = file->Bank_MIDI[_channel + 4 * (_track_index != 0) + 16 * _track_index];
+        _instrument = file->Prog_MIDI[_channel + 4 * (_track_index != 0) + 16 * _track_index];
 
     }
 
-    QLabel* starttext = new QLabel("Choose Instrument for Channel " + QString::number(channel), this);
+    QLabel* starttext = new QLabel("Choose Instrument for Channel " + QString::number(channel) + " track "+ QString::number(track->number()), this);
 
     QLabel* text = new QLabel("Instrument: ", this);
     _box = new QComboBox(this);
+
+    flag_usebank = _file ? _channel !=9 || (channel==9 && track->fluid_index() != 0 && MidiOutput::isFluidsynthConnected(track->device_index()))
+            : (_channel !=9 ? true : false);
+
     for (int i = 0; i < 128; i++) {
-       if(_channel!=9) _box->addItem(MidiFile::instrumentName( _bank, i));
-       else _box->addItem(MidiFile::drumName(i));
+       if(flag_usebank)
+           _box->addItem(MidiFile::instrumentName( _bank, i));
+       else
+           _box->addItem(MidiFile::drumName(i));
     }
+
     _box->setCurrentIndex(_instrument);
 
     QLabel* endText;
@@ -83,7 +105,8 @@ InstrumentChooser::InstrumentChooser(MidiFile* f, int channel, QWidget* parent, 
 
     QLabel* text2 = new QLabel("Bank: ", this);
     _box2 = new QComboBox(this);
-    if(_channel!=9) {
+
+    if(flag_usebank) {
         for (int i = 0; i < 128; i++) {
             QString text = "undefined";
 
@@ -96,7 +119,7 @@ InstrumentChooser::InstrumentChooser(MidiFile* f, int channel, QWidget* parent, 
             else _box2->addItem(QIcon(":/run_environment/graphics/channelwidget/noinstrument.png"),
                                 QString::asprintf("%3.3u", i));
         }
-        _box2->setCurrentIndex(/*(!mode) ? Bank_MIDI[_channel] :*/ _bank);
+        _box2->setCurrentIndex(_bank);
     } else {
         _box2->addItem(QString::asprintf("%3.3u", 0));
         _box2->setCurrentIndex(0);
@@ -110,8 +133,6 @@ InstrumentChooser::InstrumentChooser(MidiFile* f, int channel, QWidget* parent, 
     QPushButton* playButton = new QPushButton("Play");
     connect(playButton, SIGNAL(pressed()), this, SLOT(PlayTest()));
     connect(playButton, SIGNAL(released()), this, SLOT(PlayTestOff()));
-
-
 
     connect(_box, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &InstrumentChooser::setInstrument);
     connect(_box2, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &InstrumentChooser::setBank);
@@ -128,8 +149,6 @@ InstrumentChooser::InstrumentChooser(MidiFile* f, int channel, QWidget* parent, 
     layout->addWidget(acceptButton, 5, 2, 1, 1);
     layout->addWidget(playButton, 3, 0, 1, 1);
     layout->setColumnStretch(1, 1);
-
-
 }
 
 
@@ -137,15 +156,23 @@ void InstrumentChooser::PlayTestOff()
 {
     QByteArray offMessage;
 
+    int track_index = MidiOutput::file->track(NewNoteTool::editTrack())->device_index();
+
     offMessage.clear();
-    MidiOutput::sendCommand(offMessage);
+    MidiOutput::sendCommand(offMessage, track_index);
+
+    QByteArray NoteOff = QByteArray();
+    NoteOff.append(0x90 | _channel);
+    NoteOff.append((char) 60);
+    NoteOff.append((char) 0);
+    MidiOutput::sendCommand(NoteOff, track_index);
 
     QByteArray cevent = QByteArray();
     cevent.append(0xB0 | _channel);
     cevent.append((char) 123);
     cevent.append((char) 127);
 
-    MidiOutput::sendCommand(cevent);
+    MidiOutput::sendCommand(cevent, track_index);
 
 }
 
@@ -170,11 +197,13 @@ void InstrumentChooser::PlayTest()
     NoteOn.append((char) 100);
 
     offMessage.clear();
-    MidiOutput::sendCommand(offMessage);
 
-    MidiOutput::sendCommand(cevent);
-    MidiOutput::sendCommand(pevent);
-    MidiOutput::sendCommand(NoteOn);
+    int track_index = MidiOutput::file->track(NewNoteTool::editTrack())->device_index();
+    MidiOutput::sendCommand(offMessage, track_index);
+
+    MidiOutput::sendCommand(cevent, track_index);
+    MidiOutput::sendCommand(pevent, track_index);
+    MidiOutput::sendCommand(NoteOn, track_index);
     QThread::msleep(50);
 
 }
@@ -190,12 +219,12 @@ void InstrumentChooser::setInstrument(int index)
 
 void InstrumentChooser::setBank(int index)
 {
-    if(index < 128 && _channel < 16 && _channel!=9){
+    if(index < 128 && _channel < 16 && (flag_usebank || _channel!=9)){
 
         (!_mode) ? _bank = index: _bank= index;
         _box->clear();
         for (int i = 0; i < 128; i++) {
-           if(_channel!=9) _box->addItem(MidiFile::instrumentName( _bank, i));
+           if((flag_usebank || _channel!=9)) _box->addItem(MidiFile::instrumentName( _bank, i));
            else _box->addItem(MidiFile::drumName(i));
         }
         _box->setCurrentIndex(_instrument);
@@ -206,19 +235,26 @@ void InstrumentChooser::setBank(int index)
 void InstrumentChooser::accept()
 {
     if(!_file) {
-        Bank_MIDI[_channel] = _bank;
-        Prog_MIDI[_channel] = _instrument;
+
+        MidiFile *file = _file ? _file : MidiOutput::file;
+
+        file->Bank_MIDI[_channel + 4 * (_track_index != 0) + 16 * _track_index] = _bank;
+        file->Prog_MIDI[_channel + 4 * (_track_index != 0) + 16 * _track_index] = _instrument;
+
         hide();
         return;
     }
 
     int program = _box->currentIndex();
     bool removeOthers = _removeOthers->isChecked();
-    MidiTrack* track = 0;
+    MidiTrack* track = _track;
 
     if(!_mode) {
-        Bank_MIDI[_channel] = _bank;
-        Prog_MIDI[_channel] = _instrument;
+
+        MidiFile *file = _file ? _file : MidiOutput::file;
+
+        file->Bank_MIDI[_channel + 4 * (_track_index != 0) + 16 * _track_index] = _bank;
+        file->Prog_MIDI[_channel + 4 * (_track_index != 0) + 16 * _track_index] = _instrument;
     }
 
     // get events
@@ -232,16 +268,19 @@ void InstrumentChooser::accept()
         ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
 
         if (ctrl && ctrl->control()==0) {
-            events2.append(ctrl);
+            if(!_file->MultitrackMode)
+                events2.append(ctrl);
+            else if(track == ctrl->track())
+                events2.append(ctrl);
         }
         if (prg) {
-            events.append(prg);
-            track = prg->track();
+            if(!_file->MultitrackMode)
+                events.append(prg);
+            else if(track == prg->track())
+                events.append(prg);
         }
     }
-    if (!track) {
-        track = _file->track(0);
-    }
+
 
     _file->protocol()->startNewAction("Edited instrument for channel");
 
@@ -250,12 +289,18 @@ void InstrumentChooser::accept()
 
             foreach (ProgChangeEvent* toRemove, events) {
                 if (toRemove) {
-                    _file->channel(_channel)->removeEvent(toRemove);
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(toRemove);
+                    else if(toRemove->track() == track)
+                        _file->channel(_channel)->removeEvent(toRemove);
                 }
             }
             foreach (ControlChangeEvent* toRemove, events2) {
                 if (toRemove) {
-                    _file->channel(_channel)->removeEvent(toRemove);
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(toRemove);
+                    else if(toRemove->track() == track)
+                        _file->channel(_channel)->removeEvent(toRemove);
                 }
             }
         } else {
@@ -264,14 +309,20 @@ void InstrumentChooser::accept()
                 ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event3);
                 if (toRemove && event3->channel()==_channel
                         && toRemove->control()==0x0) {
-                    _file->channel(_channel)->removeEvent(toRemove);
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(toRemove);
+                    else if(toRemove->track() == track)
+                        _file->channel(_channel)->removeEvent(toRemove);
                 }
             }
             // deletes upcoming repeating events
             foreach (MidiEvent* event3, *(_file->eventsBetween(_current_tick-10, _current_tick+10))) {
                 ProgChangeEvent* toRemove = dynamic_cast<ProgChangeEvent*>(event3);
                 if (toRemove && event3->channel()==_channel) {
-                    _file->channel(_channel)->removeEvent(toRemove);
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(toRemove);
+                    else if(toRemove->track() == track)
+                        _file->channel(_channel)->removeEvent(toRemove);
                 }
             }
             _file->protocol()->endAction();
@@ -324,14 +375,20 @@ void InstrumentChooser::accept()
                 ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event3);
                 if (toRemove && event3->channel()==_channel
                         && toRemove->control()==0x0) {
-                    _file->channel(_channel)->removeEvent(toRemove);
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(toRemove);
+                    else if(toRemove->track() == track)
+                        _file->channel(_channel)->removeEvent(toRemove);
                 }
             }
             // deletes upcoming repeating events
             foreach (MidiEvent* event3, *(_file->eventsBetween(ticks2-10, ticks2+10))) {
                 ProgChangeEvent* toRemove = dynamic_cast<ProgChangeEvent*>(event3);
                 if (toRemove && event3->channel()==_channel) {
-                    _file->channel(_channel)->removeEvent(toRemove);
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(toRemove);
+                    else if(toRemove->track() == track)
+                        _file->channel(_channel)->removeEvent(toRemove);
                 }
             }
 
@@ -363,7 +420,10 @@ void InstrumentChooser::accept()
                     && toRemove->control()==0x0 /*&& toRemove != cevent*/) {
                 //if(toRemove->value() != _bank)
                 old_bank=toRemove->value();
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
 
@@ -371,7 +431,10 @@ void InstrumentChooser::accept()
         foreach (MidiEvent* event2, *(_file->eventsBetween(ticks-10, ticks+10))) {
             ProgChangeEvent* toRemove = dynamic_cast<ProgChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
 
@@ -421,7 +484,10 @@ void InstrumentChooser::accept()
                         ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event3);
                         if (toRemove && event3->channel()==_channel
                                 && toRemove->control()==0x0) {
-                            _file->channel(_channel)->removeEvent(toRemove);
+                            if(!_file->MultitrackMode)
+                                _file->channel(_channel)->removeEvent(toRemove);
+                            else if(toRemove->track() == track)
+                                _file->channel(_channel)->removeEvent(toRemove);
                         }
                     }
 
@@ -429,7 +495,10 @@ void InstrumentChooser::accept()
                     foreach (MidiEvent* event3, *(_file->eventsBetween(ticks2-10, ticks2+10))) {
                         ProgChangeEvent* toRemove = dynamic_cast<ProgChangeEvent*>(event3);
                         if (toRemove && event3->channel()==_channel && toRemove->program() == program) {
-                            _file->channel(_channel)->removeEvent(toRemove);
+                            if(!_file->MultitrackMode)
+                                _file->channel(_channel)->removeEvent(toRemove);
+                            else if(toRemove->track() == track)
+                                _file->channel(_channel)->removeEvent(toRemove);
                         }
                     }
 
@@ -452,7 +521,13 @@ void InstrumentChooser::accept()
 
             ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
             if (ctrl && ctrl->control()==0) {
-                if(bank == ctrl->value()) _file->channel(_channel)->removeEvent(ctrl);
+                if(bank == ctrl->value()) {
+
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(ctrl);
+                    else if(ctrl->track() == track)
+                        _file->channel(_channel)->removeEvent(ctrl);
+                }
                 else bank = ctrl->value();
             }
         }

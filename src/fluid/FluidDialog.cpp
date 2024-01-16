@@ -22,6 +22,8 @@
 #ifdef USE_FLUIDSYNTH
 
 #include "FluidDialog.h"
+#include "../gui/MainWindow.h"
+#include "../VST/VST.h"
 
 FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenuHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint) {
 
@@ -41,10 +43,12 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
     channel_selected= 0;
     preset_selected = 0;
 
+    int expX = 250;
+
     if (FluidDialog->objectName().isEmpty())
         FluidDialog->setObjectName(QString::fromUtf8("FluidDialog"));
-    FluidDialog->resize(753 + 125, buttons_y);
-    FluidDialog->setFixedSize(753 + 125, buttons_y);
+    FluidDialog->resize(753 + 125 + expX, buttons_y);
+    FluidDialog->setFixedSize(753 + 125 + expX, buttons_y);
 
     QPalette palette;
     QBrush brush(QColor(255, 255, 255, 255));
@@ -66,8 +70,8 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
     FluidDialog->setFont(font);
 
     tabWidget = new QTabWidget(FluidDialog);
-    tabWidget->setObjectName(QString::fromUtf8("tabWidget"));
-    tabWidget->setGeometry(QRect(-2, 0, 720 + 90 + 125, buttons_y));
+    tabWidget->setObjectName(QString::fromUtf8("Fluid_tabWidget"));
+    tabWidget->setGeometry(QRect(-2, 0, 720 + 90 + 125 + expX, buttons_y));
 
     tabWidget->setFocusPolicy(Qt::NoFocus);
     tabWidget->setAutoFillBackground(true);
@@ -84,8 +88,9 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
     }
 
 
-    tabConfig = new QWidget();
+    tabConfig = new QWidgetE(this, true);
     tabConfig->setObjectName(QString::fromUtf8("tabConfig"));
+
     tab_Config(FluidDialog);
     tabWidget->addTab(tabConfig, QString());
 
@@ -95,12 +100,12 @@ FluidDialog::FluidDialog(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
     tabWidget->setCurrentIndex(0);
     tabWidget->update();
 
-    time_updat= new QTimer(this);
-    time_updat->setSingleShot(false);
+    time_update= new QTimer(this);
+    time_update->setSingleShot(false);
 
-    connect(time_updat, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
-    time_updat->setSingleShot(false);
-    time_updat->start(50);
+    connect(time_update, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
+    time_update->setSingleShot(false);
+    time_update->start(50);
 
     connect(fluid_output, SIGNAL(changeVolBalanceGain(int , int , int , int)), this, SLOT(changeVolBalanceGain(int , int , int , int)), Qt::QueuedConnection);
     connect(fluid_output, SIGNAL(changeMainVolume(int)), this, SLOT(changeMainVolume(int)), Qt::QueuedConnection);
@@ -119,8 +124,8 @@ void FluidDialog::dis() {
 }
 
 void FluidDialog::reject() {
-    time_updat->stop();
-    delete time_updat;
+    time_update->stop();
+    delete time_update;
     if(fluid_output->fluid_settings->value("mp3_artist").toString() != "")
         fluid_output->fluid_settings->setValue("mp3_artist", MP3_lineEdit_artist->text());
     hide();
@@ -128,33 +133,35 @@ void FluidDialog::reject() {
 }
 
 void FluidDialog::changeVolBalanceGain(int index, int vol, int balance, int gain) {
-    int fl = (index >> 4) & 3;
+    int fl = (index >> 6) & 3;
+
+    index &= 63;
 
     if(fl == 0 || fl == 1) {
-        emit ChanVol[index & 15]->valueChanged(vol);
-        ChanVol[index & 15]->setValue(vol);
+        emit ChanVol[index % SYNTH_CHANS]->valueChanged(vol);
+        ChanVol[index % SYNTH_CHANS]->setValue(vol);
     }
 
     if(fl == 0 || fl == 2) {
-        emit BalanceSlider[index & 15]->valueChanged(balance);
-        BalanceSlider[index & 15]->setValue(balance);
+        emit BalanceSlider[index % SYNTH_CHANS]->valueChanged(balance);
+        BalanceSlider[index % SYNTH_CHANS]->setValue(balance);
     }
 
     if(fl == 0 || fl == 3) {
-        emit chanGain[index & 15]->valueChanged(gain);
-        chanGain[index & 15]->setValue(gain);
+        emit chanGain[index % SYNTH_CHANS]->valueChanged(gain);
+        chanGain[index % SYNTH_CHANS]->setValue(gain);
     }
 
-    emit spinChan->valueChanged(15);
-    emit spinChan->valueChanged(0);
-    spinChan->setValue(0);
+    emit spinChan->valueChanged(SYNTH_CHANS - 1);
+    emit spinChan->valueChanged((index/16)*16);
+    spinChan->setValue((index/16)*16);
     update();
 }
 
 void FluidDialog::changeMainVolume(int vol) {
 
     MainVol->setValue(vol);
-    emit spinChan->valueChanged(15);
+    emit spinChan->valueChanged(SYNTH_CHANS - 1);
     emit spinChan->valueChanged(0);
     spinChan->setValue(0);
     update();

@@ -22,6 +22,7 @@
 
 #include "../midi/MidiFile.h"
 #include "../tool/EventTool.h"
+#include "../tool/NewNoteTool.h"
 #include "ProtocolItem.h"
 #include "ProtocolStep.h"
 
@@ -31,6 +32,9 @@ Protocol::Protocol(MidiFile* f)
 {
 
     _currentStep = 0;
+    number = 1;
+    number_saved = 0;
+    currentTrackDeleted = false;
 
     _file = f;
 
@@ -42,6 +46,7 @@ Protocol::Protocol(MidiFile* f)
 void Protocol::clean(bool forced) {
 
     _currentStep = 0;
+    currentTrackDeleted = false;
 
     for(int n = 0; n < _undoSteps->count(); n++)  {
         if(_undoSteps->at(n))
@@ -78,6 +83,8 @@ void Protocol::enterUndoStep(ProtocolItem* item)
 
 void Protocol::undo(bool emitChanged)
 {
+    int ntrack = NewNoteTool::editTrack();
+    NewNoteTool::setEditTrack(0); // prevent deleted track
 
     bool file_modified = false;
     bool magnet = EventTool::magnetEnabled();
@@ -98,6 +105,7 @@ void Protocol::undo(bool emitChanged)
             if (redoAction) {
 
                 redoAction->midi_modified = file_modified;
+                number = step->number;
 
                 _redoSteps->append(redoAction);
 
@@ -113,6 +121,15 @@ void Protocol::undo(bool emitChanged)
             delete step;
         }
 
+        if(ntrack >= _file->numTracks()) {
+            currentTrackDeleted = true;
+            if(_file->numTracks() > 1)
+                NewNoteTool::setEditTrack(1);
+            else
+                NewNoteTool::setEditTrack(0);
+        } else
+            NewNoteTool::setEditTrack(ntrack);
+
         EventTool::enableMagnet(magnet);
 
         if (emitChanged) {
@@ -120,6 +137,8 @@ void Protocol::undo(bool emitChanged)
             emit actionFinished();
         }
     }
+
+
 }
 
 void Protocol::redo(bool emitChanged)
@@ -168,6 +187,14 @@ void Protocol::redo(bool emitChanged)
 
         EventTool::enableMagnet(magnet); // restore magnet flag
 
+        if(NewNoteTool::editTrack() >= _file->numTracks()) {
+            currentTrackDeleted = true;
+            if(_file->numTracks() > 1)
+                NewNoteTool::setEditTrack(1);
+            else
+                NewNoteTool::setEditTrack(0);
+        }
+
         if (emitChanged) {
             emit protocolChanged();
             emit actionFinished();
@@ -186,6 +213,8 @@ void Protocol::startNewAction(QString description, QImage* img)
 
     // create a new Step
     _currentStep = new ProtocolStep(description, img);
+    _currentStep->number = number;
+
 }
 
 void Protocol::changeDescription(QString description) {
@@ -205,12 +234,16 @@ void Protocol::endAction()
     bool file_modified = false;
     // only create the Step when it exists and its size is bigger 0
     if (_currentStep && _currentStep->items() > 0) {
-        _undoSteps->append(_currentStep);
 
         file_modified = _currentStep->midi_modified;
         if(file_modified) {
             save_description = "(+) " + _currentStep->description();
         }
+
+        number++;
+        _currentStep->number = number;
+
+        _undoSteps->append(_currentStep);
 
         step_added = true;
     }
@@ -221,9 +254,10 @@ void Protocol::endAction()
     _currentStep = 0;
 
     // the file has been changed
-    if(file_modified)
+    if(file_modified) {
+
         _file->setSaved(false);
-    else
+    } else
         _file->setSaved(true);
 
     if(_limit_undo && step_added && _undoSteps->count() > 64) {
@@ -234,7 +268,28 @@ void Protocol::endAction()
 
     emit protocolChanged();
     emit actionFinished();
+
 }
+
+bool Protocol::testFileModified() {
+
+    bool ret = false;
+
+    if(number < number_saved)
+        return true;
+
+    for(int n = 0; n < _undoSteps->count(); n++) {
+
+        if(_undoSteps->at(n)->number > number_saved && _undoSteps->at(n)->midi_modified) {
+            ret = true;
+            break;
+        }
+    }
+
+
+    return ret;
+}
+
 
 int Protocol::stepsBack()
 {
@@ -250,6 +305,7 @@ ProtocolStep* Protocol::undoStep(int i)
 {
     if(!_undoSteps || i < 0 || i >= _undoSteps->count())
         return NULL;
+
     return _undoSteps->at(i);
 }
 

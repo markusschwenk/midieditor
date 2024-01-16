@@ -24,6 +24,10 @@
 
 #include <QSettings>
 #include <QDialog>
+#include <QThread>
+#include <QMessageBox>
+#include <QQueue>
+
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QSlider>
@@ -34,25 +38,25 @@
 #include <QtWidgets/QLineEdit>
 
 #include "MatrixWidget.h"
-#include "../MidiEvent/MidiEvent.h"
-#include "../MidiEvent/ProgChangeEvent.h"
-#include "../MidiEvent/ControlChangeEvent.h"
 
+#include "../midi/MidiPlayer.h"
+#include "../midi/MidiFile.h"
+#include "../midi/MidiInput.h"
+#include "../midi/MidiChannel.h"
+#include "../midi/MidiTrack.h"
+#include "../midi/PlayerThread.h"
+#include "../midi/MidiOutput.h"
+
+#include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
 #include "../MidiEvent/TempoChangeEvent.h"
 #include "../MidiEvent/TimeSignatureEvent.h"
-#include "../midi/MidiChannel.h"
-#include "../midi/MidiFile.h"
-#include "../midi/MidiInput.h"
-#include "../midi/MidiPlayer.h"
-#include "../midi/MidiTrack.h"
-#include "../midi/PlayerThread.h"
-#include "../midi/MidiOutput.h"
+#include "../MidiEvent/ProgChangeEvent.h"
+#include "../MidiEvent/ControlChangeEvent.h"
+
 #include "../protocol/Protocol.h"
 #include "../tool/NewNoteTool.h"
-
-#include <QMessageBox>
 
 typedef struct  {
     int note;
@@ -184,7 +188,8 @@ public:
     bool loop;
     static Play_Thread * rhythmThread;
 
-    Play_Thread() {
+    Play_Thread(MidiFile * file) {
+        this->file = file;
         loop = true;
     }
    ~Play_Thread() {
@@ -194,6 +199,8 @@ public:
 
     void run() override;
     void _fun_timer();
+
+    MidiFile * file;
 
     static QList<QByteArray> rhythm_samples;
 
@@ -301,7 +308,7 @@ private:
     int is_playsync;
 
     QDialog *QD;
-    QTimer* time_updat;
+    QTimer* time_update;
     int I_NEED_TO_UPDATE;
     int _piano_timer;
     QList<data_notes*> recNotes;
@@ -313,6 +320,8 @@ private:
     void RecRhythm(int init_time);
     void push_track_rhythm(QFile *file = 0, int mode = 0);
     void pop_track_rhythm(QFile *file = 0, int mode = 0);
+
+    QQueue<QByteArray>* _DrumQueue;
 
 };
 
@@ -355,5 +364,69 @@ private:
     QListWidgetItem *_item;
     int _action;
 };
+
+
+///////////////////////////////////////////////////////
+// virtual keyboard
+///////////////////////////////////////////////////////
+
+class MyVirtualKeyboard : public QDialog {
+    Q_OBJECT
+public:
+    QSettings* settings;
+    QMGroupBox *myBox;
+    QGroupBox *groupBox;
+   // QPushButton *recordButton;
+    QSpinBox *octaveBox;
+    QLabel *octavelabel;
+    QSpinBox *transBox;
+    QLabel *translabel;
+    QLabel *recordlabel;
+    QSlider *volumeSlider;
+    QLabel *vollabel;
+
+
+    MyVirtualKeyboard(QWidget *_MAINW, MatrixWidget* MW, MidiFile* f);
+
+    static void overlap();
+
+public slots:
+    void reject() override;
+    void paintEvent(QPaintEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent*) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
+
+private:
+
+    int octave_pos;
+    int trans_pos;
+    int note_volume;
+    int chan = 0;
+    int device = DEVICE_ID;
+
+    MatrixWidget* _MW;
+    QWidget *_MAINW;
+
+    MidiFile* file;
+    int xx,yy;
+
+    //qint64 _system_time;
+    int _init_time;
+
+    QDialog *QD;
+    QTimer* time_update;
+    int I_NEED_TO_UPDATE;
+
+    int piano_keys_time[128];
+    char piano_keys_key[128];
+    int playing_piano;
+    int auto_playing_piano;
+
+};
+
+extern MyVirtualKeyboard* MyVirtualDev;
 
 #endif // MIDIEDITORINSTRUMENT_H

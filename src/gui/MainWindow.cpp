@@ -22,6 +22,8 @@
 #include "../fluid/fluidsynth_proc.h"
 #include "../fluid/FluidDialog.h"
 #include "../VST/VST.h"
+#else
+#define DELETE(x) {if(x) delete x; x= NULL;}
 #endif
 
 #include <QAction>
@@ -124,16 +126,16 @@
 #include "AutomaticUpdateDialog.h"
 #include <QtCore/qmath.h>
 
-instrument_list InstrumentList[129];
+MidiInControl *MidiIn_control = NULL;
 
-extern int Bank_MIDI[17];
+instrument_list InstrumentList[129];
 
 int itHaveInstrumentList = 0;
 int itHaveDrumList = 0;
 
 void MainWindow::addInstrumentNames()
 {
-    QString path = _settings->value("instrumentList").toString();
+    QString path = _settings->value("Main/instrumentList").toString();
 
     itHaveInstrumentList=0;
     itHaveDrumList=0;
@@ -199,6 +201,8 @@ MainWindow::~MainWindow() {
         finger_main = NULL;
     }
 
+    MidiPlayer::deinit_sequencer();
+
     MidiInControl::my_exit();
     MyInstrument::exit_and_clean_MyInstrument();
 
@@ -251,7 +255,7 @@ void MainWindow::paintEvent(QPaintEvent* event) {
         w = 1280;
     painter->drawPixmap(w - 308, 30, p2);
     painter->drawPixmap(w - 240, 20, p1);
-    painter->end();
+
     delete painter;
 #endif
 }
@@ -262,24 +266,36 @@ MainWindow::MainWindow(QString initFile)
 {
     file = 0;
 
-    _settings = new QSettings(QString("MidiEditor"), QString("NONE"));
+    MidiFile *empty = new MidiFile();
+    MidiInput::file = empty;
+    MidiOutput::file = empty;
+
+    tabMatrixWidget = NULL;
+
+    startDirectory = QDir::homePath() + "/Midieditor";
+    QDir d;
+    d.mkdir(startDirectory);
+    d.mkdir(startDirectory + "/settings");
+    //_settings = new QSettings(QString("MidiEditor"), QString("NONE"));
+    _settings = new QSettings(startDirectory + "/settings/MidiEditor.ini", QSettings::IniFormat);
 
     Notes_util(this);
-    MidiInControl::init_MidiInControl(_settings);
+    MidiInControl::init_MidiInControl(this, _settings);
 
-    finger_main = new FingerPatternDialog(NULL, _settings); // create timer loop
+    finger_main = new FingerPatternDialog(NULL, _settings, MidiInControl::cur_pairdev); // create timer loop
 
-    rightSplitterMode = _settings->value("rightSplitterMode", true).toBool();
+    rightSplitterMode = _settings->value("Main/rightSplitterMode", true).toBool();
     if(rightSplitterMode) EventSplitterTabPos = 2; else EventSplitterTabPos = 1;
 
-    shadow_selection = _settings->value("shadow_selection", true).toBool();
+    shadow_selection = _settings->value("Main/shadow_selection", true).toBool();
 
     skipVSTLoad = 0;
 
-    for (int i = 0; i < 17; i++) {
-        Bank_MIDI[i]=0;
-        Prog_MIDI[i]=0;
-        OctaveChan_MIDI[i]=0;
+    for (int i = 0; i < 516; i++) {
+        MidiOutput::file->Bank_MIDI[i]=0;
+        MidiOutput::file->Prog_MIDI[i]=0;
+        if(i < 17)
+            OctaveChan_MIDI[i]=0;
     }
 
     _moveSelectedEventsToChannelMenu = 0;
@@ -293,21 +309,21 @@ MainWindow::MainWindow(QString initFile)
 
 #ifdef ENABLE_REMOTE
     bool ok;
-    int port = _settings->value("udp_client_port", -1).toInt(&ok);
-    QString ip = _settings->value("udp_client_ip", "").toString();
+    int port = _settings->value("Main/udp_client_port", -1).toInt(&ok);
+    QString ip = _settings->value("Main/udp_client_ip", "").toString();
 #endif
-    bool alternativeStop = _settings->value("alt_stop", false).toBool();
+    bool alternativeStop = _settings->value("Main/alt_stop", false).toBool();
     MidiOutput::isAlternativePlayer = alternativeStop;
     bool ticksOK;
-    int ticksPerQuarter = _settings->value("ticks_per_quarter", 192).toInt(&ticksOK);
+    int ticksPerQuarter = _settings->value("Main/ticks_per_quarter", 192).toInt(&ticksOK);
     MidiFile::defaultTimePerQuarter = ticksPerQuarter;
-    bool magnet = _settings->value("magnet", false).toBool();
+    bool magnet = _settings->value("Main/magnet", false).toBool();
     EventTool::enableMagnet(magnet);
 
-    MidiInput::setThruEnabled(_settings->value("thru", false).toBool());
-    Metronome::setEnabled(_settings->value("metronome", false).toBool());
+    MidiInput::setThruEnabled(_settings->value("Main/thru", true).toBool());
+    Metronome::setEnabled(_settings->value("Main/metronome", false).toBool());
     bool loudnessOk;
-    Metronome::setLoudness(_settings->value("metronome_loudness", 100).toInt(&loudnessOk));
+    Metronome::setLoudness(_settings->value("Main/metronome_loudness", 100).toInt(&loudnessOk));
 
 #ifdef ENABLE_REMOTE
     _remoteServer = new RemoteServer();
@@ -336,7 +352,7 @@ MainWindow::MainWindow(QString initFile)
     UpdateManager::setAutoCheckUpdatesEnabled(_settings->value("auto_update_after_prompt", false).toBool());
     connect(UpdateManager::instance(), SIGNAL(updateDetected(Update*)), this, SLOT(updateDetected(Update*)));
 #endif
-    _quantizationGrid = _settings->value("quantization", 3).toInt();
+    _quantizationGrid = _settings->value("Main/quantization", 3).toInt();
 
     // metronome
     connect(MidiPlayer::playerThread(),
@@ -351,18 +367,18 @@ MainWindow::MainWindow(QString initFile)
         SIGNAL(playerStarted()), Metronome::instance(), SLOT(playbackStarted()));
 
     startDirectory = QDir::homePath() + "/Midieditor";
-    QDir d;
+    //QDir d;
     d.mkdir(startDirectory);
     d.mkdir(startDirectory + "/file_cache");
 
-    if (_settings->value("open_path").toString() != "") {
-        startDirectory = _settings->value("open_path").toString();
+    if (_settings->value("Main/open_path").toString() != "") {
+        startDirectory = _settings->value("Main/open_path").toString();
     } else {
-        _settings->setValue("open_path", startDirectory);
+        _settings->setValue("Main/open_path", startDirectory);
     }
 
     // read recent paths
-    _recentFilePaths = _settings->value("recent_file_list").toStringList();
+    _recentFilePaths = _settings->value("Main/recent_file_list").toStringList();
 
     EditorTool::setMainWindow(this);
 
@@ -445,12 +461,12 @@ MainWindow::MainWindow(QString initFile)
     leftSplitter->addWidget(matrixArea);
     matrixArea->setContentsMargins(0, 0, 0, 0);
     mw_matrixWidget = new MatrixWidget(matrixArea);
-    mw_matrixWidget->bpm_rhythm_ms = _settings->value("get_bpm_ms", 250).toInt();
-    mw_matrixWidget->visible_Controlflag = _settings->value("visible_Controlflag", true).toBool();
-    mw_matrixWidget->visible_PitchBendflag = _settings->value("visible_PitchBendflag", true).toBool();
-    mw_matrixWidget->visible_TimeLineArea3 = _settings->value("visible_TimeLineArea3", true).toBool();
-    mw_matrixWidget->visible_TimeLineArea4 = _settings->value("visible_TimeLineArea4", true).toBool();
-    mw_matrixWidget->visible_karaoke = _settings->value("visible_karaoke", true).toBool();
+    mw_matrixWidget->bpm_rhythm_ms = _settings->value("Main/get_bpm_ms", 250).toInt();
+    mw_matrixWidget->visible_Controlflag = _settings->value("Main/visible_Controlflag", true).toBool();
+    mw_matrixWidget->visible_PitchBendflag = _settings->value("Main/visible_PitchBendflag", true).toBool();
+    mw_matrixWidget->visible_TimeLineArea3 = _settings->value("Main/visible_TimeLineArea3", true).toBool();
+    mw_matrixWidget->visible_TimeLineArea4 = _settings->value("Main/visible_TimeLineArea4", true).toBool();
+    mw_matrixWidget->visible_karaoke = _settings->value("Main/visible_karaoke", true).toBool();
     mw_matrixWidget->shadow_selection = shadow_selection;
 
     vert = new QScrollBar(Qt::Vertical, matrixArea);
@@ -474,9 +490,9 @@ MainWindow::MainWindow(QString initFile)
     matrixAreaLayout->setColumnStretch(0, 1);
     matrixArea->setLayout(matrixAreaLayout);
 
-    bool screenLocked = _settings->value("screen_locked", false).toBool();
+    bool screenLocked = _settings->value("Main/screen_locked", false).toBool();
     mw_matrixWidget->setScreenLocked(screenLocked);
-    int div = _settings->value("div", 2).toInt();
+    int div = _settings->value("Main/div", 2).toInt();
     mw_matrixWidget->setDiv(div);
 
     // VelocityArea
@@ -487,7 +503,7 @@ MainWindow::MainWindow(QString initFile)
     QPalette paletteV = velocityArea->palette();
     paletteV.setColor(QPalette::Window, QColor(0xc0c0c0));
     paletteV.setColor(QPalette::Text, QColor(0x303030));
-    paletteV.setColor(QPalette::Base, Qt::white);;
+    paletteV.setColor(QPalette::Base, Qt::white);
     velocityArea->setPalette(paletteV);
     setBackgroundRole(QPalette::Window);
     velocityArea->setAutoFillBackground(true);
@@ -537,15 +553,238 @@ MainWindow::MainWindow(QString initFile)
     velocityAreaLayout->setRowStretch(0, 1);
     velocityArea->setLayout(velocityAreaLayout);
 
-    _miscWidget = new MiscWidget(mw_matrixWidget, velocityArea);
+    tabMatrixWidget = new QTabWidget(mw_matrixWidget);
+
+    tabMatrixWidget->setObjectName(QString::fromUtf8("tabMatrixWidget"));
+    tabMatrixWidget->setContentsMargins(1, 1, 1, 1);
+
+    QString style = QString::fromUtf8(
+                "QTabWidget::pane { border-top: 2px solid #C2C7CB;}\n"
+                "QTabWidget::tab-bar {left: 5px; }\n"
+                "QTabBar::tab { background: qlineargradient(x1: 0, y1: 0, x2: 0.5, y2: 0.5, stop: 0 #FFD2BB, stop: 1 #f0f0c0);\n"
+                "border: 2px solid #C4C4C3; border-bottom-color: #C2C7CB;\n"
+                "min-width: 13ex; padding: 2px;}\n"
+                "QTabBar::tab:selected {color: #0000ff; min-width: 13ex;\n"
+                "border-color: #000000; border-bottom-color: #000000; \n"
+                "background: qlineargradient(x1: 0, y1: 0, x2: 0.5, y2: 0.5, stop: 0 #62FF62, stop: 1 #c0ffc0);}\n"
+                "QTabBar::tab:!selected {color: #000000; margin-top: 2px;}\n"
+
+                "QTabBar::tab:disabled {color: #c0c0c0; background: #f0f0f0; margin-top: 2px;}\n");
+
+    tabMatrixWidget->setStyleSheet(style);
+
+
+    _miscWidget = new MiscWidget(mw_matrixWidget, tabMatrixWidget/*velocityArea*/);
     _miscWidget->setContentsMargins(0, 0, 0, 0);
-    velocityAreaLayout->addWidget(_miscWidget, 0, 1, 1, 1);
+
+    QFont f = tabMatrixWidget->tabBar()->font();
+    f.setBold(true);
+    tabMatrixWidget->tabBar()->setFont(f);
+    tabMatrixWidget->addTab(_miscWidget , "Tracks");
+    tabMatrixWidget->setUsesScrollButtons(false);
+    tabMatrixWidget->setDocumentMode(true);
+    tabMatrixWidgetMode = 0;
+
+    _disableWithPlay.append(tabMatrixWidget);
+
+    for(int n = 0; n < 16; n++) {
+
+        tabMatrixWidget->tabBar()->insertTab(0, QString::number(15 - n));
+        tabMatrixWidget->tabBar()->setTabEnabled(0, false);
+
+    }
+
+    tabMatrixWidget->tabBar()->addTab("Tracks+");
+    tabMatrixWidget->tabBar()->setTabVisible(17, false);
+
+    tabMatrixWidget->setCurrentIndex(16);
+    tabMatrixWidget->tabBar()->setCurrentIndex(0);
+
+    connect(tabMatrixWidget, static_cast<void (QTabWidget::*)(int)>(&QTabWidget::currentChanged), [=](int index)
+    {
+        //qWarning("tabMatrixWidget %i %i %i", tabMatrixWidgetMode, index, file->numTracks());
+        if(tabMatrixWidgetMode != 2 && index >= file->numTracks() &&  index < 16)
+            index = file->numTracks() - 1;
+
+        if((tabMatrixWidgetMode != 2 && index >= file->numTracks()) || index >= 16) {
+
+            if(index == 16) {
+
+                if(tabMatrixWidgetMode == 0) {
+
+                    tabMatrixWidgetMode = 2;
+                    tabMatrixWidget->tabBar()->setTabText(16, "Channels");
+                    upperTabWidget->setCurrentIndex(1);
+
+                } else if(tabMatrixWidgetMode == 1) {
+
+                    tabMatrixWidgetMode = 0;
+                    tabMatrixWidget->tabBar()->setTabText(16, "Tracks");
+                    upperTabWidget->setCurrentIndex(0);
+
+                } else {
+
+                    tabMatrixWidgetMode = 0;
+                    if(NewNoteTool::editTrack() >= 16)
+                        tabMatrixWidgetMode = 1;
+
+                    tabMatrixWidget->tabBar()->setTabText(16, "Tracks");
+                    upperTabWidget->setCurrentIndex(0);
+
+                }
+
+            } else if(index == 17) {
+
+                if(tabMatrixWidgetMode == 1) {
+
+                    tabMatrixWidgetMode = 2;
+                    tabMatrixWidget->tabBar()->setTabText(16, "Channels");
+                    upperTabWidget->setCurrentIndex(1);
+
+                } else if(tabMatrixWidgetMode == 0) {
+
+                    tabMatrixWidgetMode = 1;
+                    tabMatrixWidget->tabBar()->setTabText(16, "Tracks");
+                    upperTabWidget->setCurrentIndex(0);
+
+                } else {
+
+                    tabMatrixWidgetMode = 1;
+                    tabMatrixWidget->tabBar()->setTabText(16, "Tracks");
+                    upperTabWidget->setCurrentIndex(0);
+
+                }
+            }
+
+            if(tabMatrixWidgetMode == 0) {
+
+                index = NewNoteTool::editTrack();
+
+                if(index >= 16) index = 0;
+                index &= 15;
+
+                tabMatrixWidget->setCurrentIndex(index & 15);
+
+                NewNoteTool::setEditTrack(index);
+                editTrack(index);
+                updateTabMatrixWidget();
+                msDelay(500);
+
+                return;
+
+            } else if(tabMatrixWidgetMode == 1) {
+
+                index = 16;
+                if(index >= file->numTracks()) {
+                    index = 0;
+                    tabMatrixWidgetMode = 0;
+                }
+
+                tabMatrixWidget->setCurrentIndex(index & 15);
+
+                NewNoteTool::setEditTrack(index);
+                editTrack(index);
+                updateTabMatrixWidget();
+                msDelay(500);
+
+                return;
+
+
+            } else if(tabMatrixWidgetMode == 2) {
+
+                index = NewNoteTool::editChannel();
+                tabMatrixWidget->setCurrentIndex(index);
+
+                editChannel(index, true, NewNoteTool::editTrack());
+                updateTabMatrixWidget();
+                msDelay(500);
+
+                return;
+            }
+
+            msDelay(500);
+
+            return;
+        }
+
+        if(tabMatrixWidgetMode == 0) {
+
+            if(index >= file->numTracks())
+                index = 0;
+
+            NewNoteTool::setEditTrack(index);
+            editTrack(index);
+
+        } else if(tabMatrixWidgetMode == 1) {
+
+            index = index + 16;
+
+            if(index >= file->numTracks())
+                index = 0;
+
+            NewNoteTool::setEditTrack(index);
+            editTrack(index);
+
+        } else if(tabMatrixWidgetMode == 2) {
+
+            NewNoteTool::setEditChannel(index);
+            editChannel(index, true, NewNoteTool::editTrack());
+
+        }
+
+        msDelay(500);
+
+    });
+
+    connect(upperTabWidget, static_cast<void (QTabWidget::*)(int)>(&QTabWidget::tabBarClicked), [=](int index)
+    {
+
+        if(index == 1) {
+            tabMatrixWidgetMode = 2;
+            tabMatrixWidget->tabBar()->setTabText(16, "Channels");
+            upperTabWidget->setCurrentIndex(1);
+            NewNoteTool::setEditChannel(0);
+            editChannel(0, true, NewNoteTool::editTrack());
+            tabMatrixWidget->tabBar()->setCurrentIndex(0);
+            updateTabMatrixWidget();
+
+        }
+
+    });
+
+
+    connect(tabMatrixWidget, static_cast<void (QTabWidget::*)(int)>(&QTabWidget::tabBarDoubleClicked), [=](int index)
+    {
+
+        if(tabMatrixWidgetMode == 2 && index < 16) {
+            Tool::selectCurrentChanOnly^= true;
+            NewNoteTool::setEditChannel(index);
+            editChannel(index, true, NewNoteTool::editTrack());
+        }
+
+        if(tabMatrixWidgetMode != 2 && index < 16) {
+            tabMatrixWidgetMode = 2;
+            tabMatrixWidget->tabBar()->setTabText(16, "Channels");
+            upperTabWidget->setCurrentIndex(1);
+            NewNoteTool::setEditChannel(0);
+            editChannel(0, true, NewNoteTool::editTrack());
+            tabMatrixWidget->tabBar()->setCurrentIndex(0);
+            updateTabMatrixWidget();
+
+        }
+
+        msDelay(500);
+
+    });
+
+    connect(this, SIGNAL(tabMatrixWidgetIndex(int)), tabMatrixWidget, SLOT(setCurrentIndex(int)));
+
+    velocityAreaLayout->addWidget(tabMatrixWidget, 0, 1, 1, 1);
 
     // controls for velocity widget
     _miscControlLayout = new QGridLayout(_miscWidgetControl);
     _miscControlLayout->setHorizontalSpacing(0);
-    //_miscWidgetControl->setContentsMargins(0,0,0,0);
-    //_miscControlLayout->setContentsMargins(0,0,0,0);
+
     _miscWidgetControl->setLayout(_miscControlLayout);
     _miscMode = new QComboBox(_miscBackground/*_miscWidgetControl*/);
     for (int i = 0; i < MiscModeEnd; i++) {
@@ -710,6 +949,7 @@ MainWindow::MainWindow(QString initFile)
     channelsTB->addAction(_allChannelsInvisible);
 
     channelWidget = new ChannelListWidget(channels);
+    connect(channelWidget, SIGNAL(channelChanged()), this, SLOT(updateChannel()), Qt::QueuedConnection);
     connect(channelWidget, SIGNAL(channelStateChanged()), this, SLOT(updateChannelMenu()), Qt::QueuedConnection);
     connect(channelWidget, SIGNAL(selectInstrumentClicked(int)), this, SLOT(setInstrumentForChannel(int)), Qt::QueuedConnection);
     connect(channelWidget, SIGNAL(selectSoundEffectClicked(int)), this, SLOT(setSoundEffectForChannel(int)), Qt::QueuedConnection);
@@ -722,10 +962,35 @@ MainWindow::MainWindow(QString initFile)
     upperTabWidget->addTab(channels, "Channels");
     upperTabWidget->setCurrentIndex(1);// set channels by default
 
+    QString in_ports[MAX_INPUT_DEVICES];
+
+    for(int n = 0; n < MAX_INPUT_DEVICES; n++) {
+        in_ports[n] = (n == 0) ? _settings->value("Midi/in_port", "").toString()
+                                : _settings->value("Midi/in_port" + QString::number(n), "").toString();
+        //qWarning("in_port %i %s", n, in_ports[n].toLocal8Bit().constData());
+
+    }
+
+    QString out_ports[MAX_OUTPUT_DEVICES];
+
+    for(int n = 0; n < MAX_OUTPUT_DEVICES; n++) {
+        out_ports[n] = (n == 0) ? _settings->value("Midi/out_port", "").toString()
+                                : _settings->value("Midi/out_port" + QString::number(n), "").toString();
+        //qWarning("out_port %i %s", n, out_ports[n].toLocal8Bit().constData());
+
+    }
+
+    MidiOutput::AllTracksToOne = _settings->value("Midi/AllTracksToOne", false).toBool();
+    MidiOutput::FluidSynthTracksAuto = _settings->value("Midi/FluidSynthTracksAuto", true).toBool();
+    MidiOutput::SaveMidiOutDatas = _settings->value("Midi/SaveMidiOutDatas", false).toBool();
+
+    MidiOutput::update_config();
+
     // terminal
-    Terminal::initTerminal(_settings->value("start_cmd", "").toString(),
-        _settings->value("in_port", "").toString(),
-        _settings->value("out_port", "").toString());
+    Terminal::initTerminal(_settings->value("Main/start_cmd", "").toString(),
+        in_ports,
+        out_ports);
+
     //upperTabWidget->addTab(Terminal::terminal()->console(), "Terminal");
 
     // Protocollist
@@ -837,7 +1102,7 @@ MainWindow::MainWindow(QString initFile)
     centralLayout->setRowStretch(1, 1);
     central->setLayout(centralLayout);
 
-    if (_settings->value("colors_from_channel", true).toBool()) {
+    if (_settings->value("Main/colors_from_channel", true).toBool()) {
         colorsByChannel();
     } else {
         colorsByTrack();
@@ -856,7 +1121,7 @@ MainWindow::MainWindow(QString initFile)
 
     // display dialogs, depending on number of starts of the software
     bool ok;
-    int numStart = _settings->value("numStart_v3.5", -1).toInt(&ok);
+    int numStart = _settings->value("Main/numStart_v3.5", -1).toInt(&ok);
     if (numStart == 15) {
         QTimer::singleShot(300, this, SLOT(donate()));
     }
@@ -865,6 +1130,13 @@ MainWindow::MainWindow(QString initFile)
     }
 #endif
 
+
+}
+
+
+void MainWindow::updateChannel()
+{
+    MainWindow::editChannel(NewNoteTool::editChannel());
 
 }
 
@@ -887,36 +1159,39 @@ void MainWindow::loadInitFile()
     bool restore_step = false;
     bool restore_load = false;
     msDelay(250);
-    QFile c(QDir::homePath() + "/Midieditor/file_cache/_anti_crash_");
-    if(c.exists()) {
-        if(QMessageBox::question(this, "MidiEditor", "Midieditor closed unexpectedly the last time.\nDo you want to recover the last copied file?") == QMessageBox::Yes) {
-            hori->setVisible(true);
-            vert->setVisible(true);
-            velocityArea->setVisible(true);
-#ifdef CUSTOM_MIDIEDITOR_GUI
-            // Estwald Color Changes   
-            QPalette paletteM = matrixArea->palette();
-            //paletteM.setColor(QPalette::Window, QColor(0x303030));
-            paletteM.setBrush(QPalette::Window, background3);
-            matrixArea->setPalette(paletteM);
-            matrixArea->setBackgroundRole(QPalette::Window);
-            matrixArea->setAutoFillBackground(true);
 
-            QPalette paletteV = velocityArea->palette();
-            //paletteV.setColor(QPalette::Window, QColor(0x303030));
-            paletteV.setBrush(QPalette::Window, background3);
-            paletteV.setColor(QPalette::Text, QColor(0x303030));
-            paletteV.setColor(QPalette::Base, Qt::white);
-            velocityArea->setPalette(paletteV);
-            velocityArea->setBackgroundRole(QPalette::Window);
-            velocityArea->setAutoFillBackground(true);
-            restore_step = true;
+    if(MidieditorMaster) {
+        QFile c(QDir::homePath() + "/Midieditor/file_cache/_anti_crash_");
+        if(c.exists()) {
+            if(QMessageBox::question(this, "MidiEditor", "Midieditor closed unexpectedly the last time.\nDo you want to recover the last copied file?") == QMessageBox::Yes) {
+                hori->setVisible(true);
+                vert->setVisible(true);
+                velocityArea->setVisible(true);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+                // Estwald Color Changes
+                QPalette paletteM = matrixArea->palette();
+                //paletteM.setColor(QPalette::Window, QColor(0x303030));
+                paletteM.setBrush(QPalette::Window, background3);
+                matrixArea->setPalette(paletteM);
+                matrixArea->setBackgroundRole(QPalette::Window);
+                matrixArea->setAutoFillBackground(true);
+
+                QPalette paletteV = velocityArea->palette();
+                //paletteV.setColor(QPalette::Window, QColor(0x303030));
+                paletteV.setBrush(QPalette::Window, background3);
+                paletteV.setColor(QPalette::Text, QColor(0x303030));
+                paletteV.setColor(QPalette::Base, Qt::white);
+                velocityArea->setPalette(paletteV);
+                velocityArea->setBackgroundRole(QPalette::Window);
+                velocityArea->setAutoFillBackground(true);
+                restore_step = true;
 
 #endif
 
-            if(restore_backup(1))
-                restore_load = true;
+                if(restore_backup(1))
+                    restore_load = true;
 
+            }
         }
 
     }
@@ -994,6 +1269,21 @@ void MainWindow::setFile(MidiFile* file)
 {
     MidiFile* old_file = this->file;
 
+    // don?t paste destroyed old MidiFile...
+    EventTool::copiedEvents->clear();
+
+    tabMatrixWidgetMode = 0;
+    updateTabMatrixWidget();
+
+#ifdef USE_FLUIDSYNTH
+    if(fluid_output) {
+        fluid_output->_file = file;
+        MidiOutput::forceDrum(file->DrumUseCh9);
+
+    }
+
+#endif
+
     EventTool::clearSelection();
     stdTool->buttonClick();
 
@@ -1028,11 +1318,11 @@ void MainWindow::setFile(MidiFile* file)
     protocolWidget->setFile(file);
     channelWidget->setFile(file);
     _trackWidget->setFile(file);
+
 #ifdef ENABLE_REMOTE
     _remoteServer->setFile(file);
 #endif
     eventWidget()->setFile(file);
-
 
     Tool::setFile(file);
     this->file = file;
@@ -1125,6 +1415,13 @@ void MainWindow::setFile(MidiFile* file)
 
     emit channelWidget->WidgeUpdate(); // update octave for channel displayed
 
+    tabMatrixWidgetMode = 0;
+    updateTabMatrixWidget();
+
+    emit tabMatrixWidgetIndex(NewNoteTool::editTrack());
+
+    file->calcMaxTime();
+
 }
 
 MidiFile* MainWindow::getFile()
@@ -1150,11 +1447,51 @@ void MainWindow::matrixSizeChanged(int maxScrollTime, int maxScrollLine,
 
 void MainWindow::playStop()
 {
-    if (MidiPlayer::isPlaying()) {
-        stop();
-    } else {
-        play();
+    static int one = 1;
+
+    if(one) {
+
+        one = 0;
+
+        if (MidiPlayer::isPlaying()) {
+            stop();
+        } else {
+            play();
+        }
+
+        msDelay(100);
+
+        one = 1;
     }
+}
+
+void MainWindow::recordStop(int ms)
+{
+    static int one = 0;
+    if(one)
+        return;
+
+    one = 1;
+
+    if (MidiPlayer::isPlaying() || MidiInput::recording()) {
+
+        stop();
+        msDelay(500);
+
+    } else {
+
+        if(ms >= 0) {
+            MidiInput::setTime(ms);
+            file->setCursorTick(file->tick(ms));
+        } else {
+            MidiInput::setTime(file->msOfTick(file->cursorTick()));
+        }
+
+        msDelay(50); // very important
+        record();
+    }
+
+    one = 0;
 }
 
 void MainWindow::play()
@@ -1166,6 +1503,8 @@ void MainWindow::play()
         delete d;
         return;
     }
+
+    MidiOutput::is_playing = 1;
 
 #ifdef USE_FLUIDSYNTH
 
@@ -1235,13 +1574,13 @@ void MainWindow::record()
 #ifdef USE_FLUIDSYNTH
     for(int n = 0; n <= PRE_CHAN; n++) {
 
-            VST_proc::VST_show(n, false);
+        VST_proc::VST_show(n, false);
     }
 #endif
 
 
-    if (!MidiOutput::isConnected() || !MidiInput::isConnected()) {
-        CompleteMidiSetupDialog* d = new CompleteMidiSetupDialog(this, !MidiInput::isConnected(), !MidiOutput::isConnected());
+    if (!MidiOutput::isConnected() || !MidiInput::isConnected(-1)) {
+        CompleteMidiSetupDialog* d = new CompleteMidiSetupDialog(this, !MidiInput::isConnected(0), !MidiOutput::isConnected());
         d->setModal(true);
         d->exec();
         delete d;
@@ -1339,13 +1678,19 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
         mw_matrixWidget->update();
         channelWidget->update();
     }
+
     if (!MidiInput::recording() && MidiPlayer::isPlaying()) {
+        MidiPlayer::stop();
+
+#ifdef ENABLE_REMOTE
+        _remoteServer->stop();
+#endif
         foreach (QWidget* w, _disableWithPlay) {
             if(w)
                 w->setEnabled(true);
 
         }
-        MidiPlayer::stop();
+
 #ifdef USE_FLUIDSYNTH
 
         FluidActionExportWav->setEnabled(true);
@@ -1362,17 +1707,15 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
         mw_matrixWidget->timeMsChanged(MidiPlayer::timeMs(), true);
         _trackWidget->setEnabled(true);
         channelWidget->update();
-#ifdef ENABLE_REMOTE
-        _remoteServer->stop();
-#endif
+
         panic();
         ProgChangeEvent* pevent = 0;
         ControlChangeEvent* cevent = 0;
-        pevent = new ProgChangeEvent(NewNoteTool::editChannel(), Prog_MIDI[NewNoteTool::editChannel()], 0);
-        cevent = new ControlChangeEvent(NewNoteTool::editChannel(), 0x0, Bank_MIDI[NewNoteTool::editChannel()], 0);
+        pevent = new ProgChangeEvent(NewNoteTool::editChannel(), getFile()->Prog_MIDI[NewNoteTool::editChannel()], 0);
+        cevent = new ControlChangeEvent(NewNoteTool::editChannel(), 0x0, getFile()->Bank_MIDI[NewNoteTool::editChannel()], 0);
 
-        MidiOutput::sendCommand2(cevent);
-        MidiOutput::sendCommand2(pevent);
+        MidiOutput::sendCommandDelete(cevent, getFile()->track(NewNoteTool::editTrack())->device_index());
+        MidiOutput::sendCommandDelete(pevent, getFile()->track(NewNoteTool::editTrack())->device_index());
 
         #ifdef USE_FLUIDSYNTH
 
@@ -1404,14 +1747,38 @@ void MainWindow::stop(bool autoConfirmRecord, bool addEvents, bool resetPause)
 
     if (MidiInput::recording()) {
         MidiPlayer::stop();
+
+        foreach (QWidget* w, _disableWithPlay) {
+            if(w)
+                w->setEnabled(true);
+
+        }
+
+#ifdef USE_FLUIDSYNTH
+
+        FluidActionExportWav->setEnabled(true);
+        FluidActionExportMp3->setEnabled(true);
+        FluidActionExportFlac->setEnabled(true);
+
+#endif
+        _miscWidget->setEnabled(true);
+        channelWidget->setEnabled(true);
+        _trackWidget->setEnabled(true);
+        protocolWidget->setEnabled(true);
+        mw_matrixWidget->setEnabled(true);
+        eventWidget()->setEnabled(true);
+        mw_matrixWidget->timeMsChanged(MidiPlayer::timeMs(), true);
+        _trackWidget->setEnabled(true);
+        channelWidget->update();
+
         panic();
         ProgChangeEvent* pevent = 0;
         ControlChangeEvent* cevent = 0;
-        pevent = new ProgChangeEvent(NewNoteTool::editChannel(), Prog_MIDI[NewNoteTool::editChannel()], 0);
-        cevent = new ControlChangeEvent(NewNoteTool::editChannel(), 0x0, Bank_MIDI[NewNoteTool::editChannel()], 0);
+        pevent = new ProgChangeEvent(NewNoteTool::editChannel(), MidiOutput::file->Prog_MIDI[NewNoteTool::editChannel()], 0);
+        cevent = new ControlChangeEvent(NewNoteTool::editChannel(), 0x0, MidiOutput::file->Bank_MIDI[NewNoteTool::editChannel()], 0);
 
-        MidiOutput::sendCommand2(cevent);
-        MidiOutput::sendCommand2(pevent);
+        MidiOutput::sendCommandDelete(cevent, getFile()->track(NewNoteTool::editTrack())->device_index());
+        MidiOutput::sendCommandDelete(pevent, getFile()->track(NewNoteTool::editTrack())->device_index());
 #ifdef USE_FLUIDSYNTH
         FluidActionExportWav->setEnabled(true);
         FluidActionExportMp3->setEnabled(true);
@@ -1590,6 +1957,8 @@ void MainWindow::save()
     if (!file)
         return;
 
+    MidiOutput::saveTrackDevices();
+
     if (QFile(file->path()).exists()) {
 
         bool printMuteWarning = false;
@@ -1608,42 +1977,47 @@ void MainWindow::save()
 
         if (printMuteWarning) {
             QMessageBox::information(this, "Channels/Tracks mute",
-                "One or more channels/tracks are not audible. They will be audible in the saved file.",
-                "Save file", 0, 0);
+                                     "One or more channels/tracks are not audible. They will be audible in the saved file.",
+                                     "Save file", 0, 0);
         }
 
         if (!file->save(file->path())) {
             QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
         } else {
-            QFile fname(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
-            QFile fmidi(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1");
 
-            if(fname.exists() && fmidi.exists()) {
+            if(MidieditorMaster) {
+                file->protocol()->number_saved = file->protocol()->number;
+                QFile fname(QDir::homePath() + "/Midieditor/file_cache/_copy_path.1");
+                QFile fmidi(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1");
 
-                bool error = false;
-                QByteArray file_path;
+                if(fname.exists() && fmidi.exists()) {
 
-                if(fname.open(QIODevice::ReadOnly)) {
+                    bool error = false;
+                    QByteArray file_path;
 
-                    file_path = fname.read(1024);
-                    fname.close();
+                    if(fname.open(QIODevice::ReadOnly)) {
 
-                    if(file_path.isEmpty())
+                        file_path = fname.read(1024);
+                        fname.close();
+
+                        if(file_path.isEmpty())
+                            error = true;
+
+                    } else
                         error = true;
 
-                } else
-                    error = true;
+                    if(!error) {
 
-                if(!error) {
-                    if (!file->save(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1")) {
-                        fname.remove();
-                        fmidi.remove();
+                        if (!file->save(QDir::homePath() + "/Midieditor/file_cache/_copy_midi.1")) {
+                            fname.remove();
+                            fmidi.remove();
+
+                        }
 
                     }
-
                 }
+                setWindowModified(false);
             }
-            setWindowModified(false);
         }
     } else {
         saveas();
@@ -1671,7 +2045,7 @@ void MainWindow::saveas()
 
 
     // automatically add '.mid' extension
-    if (!newPath.endsWith(".kar", Qt::CaseInsensitive) && !newPath.endsWith(".mid", Qt::CaseInsensitive) && !newPath.endsWith(".midi", Qt::CaseInsensitive)) {
+    if (!newPath.endsWith(".mseq", Qt::CaseInsensitive) && !newPath.endsWith(".kar", Qt::CaseInsensitive) && !newPath.endsWith(".mid", Qt::CaseInsensitive) && !newPath.endsWith(".midi", Qt::CaseInsensitive)) {
         newPath.append(".mid");
     }
 
@@ -1697,6 +2071,8 @@ void MainWindow::saveas()
                 "Save file", 0, 0);
         }
 
+        file->protocol()->number_saved = file->protocol()->number;
+
         file->setPath(newPath);
         setWindowTitle(QApplication::applicationName() + " - " + file->path() + "[*]");
         updateRecentPathsList();
@@ -1711,29 +2087,29 @@ void MainWindow::load()
     QString oldPath = startDirectory;
     if (file) {
         oldPath = file->path();
-        if (!file->saved()) {
+        if (file->protocol()->testFileModified()) {
             switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before closing?", "Save", "Close without saving", "Cancel", 0, 2)) {
-            case 0: {
-                // save
-                if (QFile(file->path()).exists()) {
-                    if(file->save(file->path())) {
-                        setWindowModified(false);
+                case 0: {
+                    // save
+                    if (QFile(file->path()).exists()) {
+                        if(file->save(file->path())) {
+                            setWindowModified(false);
+                        } else {
+                            QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                        }
                     } else {
-                        QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+                        saveas();
                     }
-                } else {
-                    saveas();
+                    break;
                 }
-                break;
-            }
-            case 1: {
-                // close
-                break;
-            }
-            case 2: {
-                // break
-                return;
-            }
+                case 1: {
+                    // close
+                    break;
+                }
+                case 2: {
+                    // break
+                    return;
+                }
             }
         }
     }
@@ -1744,7 +2120,7 @@ void MainWindow::load()
         QFileInfo(*f).dir().path();
     }
     QString newPath = QFileDialog::getOpenFileName(this, "Open file",
-        dir, "MIDI Files(*.mid *.midi *.kar);;All Files(*)");
+        dir, "MIDI Files(*.mid *.midi *.kar *.mseq);;All Files(*)");
 
     if (!newPath.isEmpty()) {
         openFile(newPath);
@@ -1756,7 +2132,7 @@ void MainWindow::loadFile(QString nfile)
     QString oldPath = startDirectory;
     if (file) {
         oldPath = file->path();
-        if (!file->saved()) {
+        if (file->protocol()->testFileModified()) {
             switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before closing?", "Save", "Close without saving", "Cancel", 0, 2)) {
             case 0: {
                 // save
@@ -1789,6 +2165,9 @@ void MainWindow::loadFile(QString nfile)
 
 bool MainWindow::restore_backup(int number)
 {
+    if(!MidieditorMaster)
+        return false;
+
     QFile fname(QDir::homePath() + "/Midieditor/file_cache/_copy_path." + QString::number(number));
     QFile fmidi(QDir::homePath() + "/Midieditor/file_cache/_copy_midi." + QString::number(number));
 
@@ -1838,6 +2217,9 @@ bool MainWindow::restore_backup(int number)
         return false;
     }
 
+    NewNoteTool::setEditChannel(0);
+    NewNoteTool::setEditTrack(1);
+
     foreach (QWidget* w, _disableLoading) {
         if(w)
             w->setEnabled(false);
@@ -1849,6 +2231,13 @@ bool MainWindow::restore_backup(int number)
     bool ok = true;
     MidiFile* mf = new MidiFile(QDir::homePath() + "/Midieditor/file_cache/_cache_midi_.mid", &ok);
     if(!mf) {
+
+        if(mf->tracks()->count() == 1)
+            NewNoteTool::setEditTrack(0);
+
+        MidiInput::file = mf;
+        MidiOutput::file = mf;
+
         mw_matrixWidget->disable_ev = false;
 
         foreach (QWidget* w, _disableLoading) {
@@ -1866,6 +2255,16 @@ bool MainWindow::restore_backup(int number)
     if (mf && ok) {
         stop();
         mf->lock_backup(true);
+
+        MidiInput::file = mf;
+        MidiOutput::file = mf;
+
+        // Load Track Devices Info
+
+        QString info;
+
+        MidiOutput::loadTrackDevices();
+
         setFile(mf);
 
         if(!filePath.isEmpty())
@@ -1875,8 +2274,6 @@ bool MainWindow::restore_backup(int number)
 
 
         setWindowModified(false);
-
-        QString info;
 
 #ifdef USE_FLUIDSYNTH
 
@@ -1906,7 +2303,11 @@ bool MainWindow::restore_backup(int number)
             fluid_output->fluid_settings->setValue("mp3_title", s);
         } else {
             QString name;
-            if(filePath.endsWith(".mid", Qt::CaseInsensitive) || filePath.endsWith(".midi", Qt::CaseInsensitive)) {
+
+            if(filePath.endsWith(".mseq", Qt::CaseInsensitive)) {
+                name =  filePath;
+                name.remove(name.lastIndexOf(".mseq", -1, Qt::CaseInsensitive), 20);
+            } else if(filePath.endsWith(".mid", Qt::CaseInsensitive) || filePath.endsWith(".midi", Qt::CaseInsensitive)) {
                 name =  filePath;
                 name.remove(name.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
             } else if(filePath.endsWith(".kar", Qt::CaseInsensitive)) {
@@ -2048,6 +2449,9 @@ void MainWindow::openFile(QString filePath)
 
     startDirectory = QFileInfo(nf).absoluteDir().path() + "/";
 
+    NewNoteTool::setEditChannel(0);
+    NewNoteTool::setEditTrack(1);
+
     foreach (QWidget* w, _disableLoading) {
         if(w)
             w->setEnabled(false);
@@ -2060,13 +2464,28 @@ void MainWindow::openFile(QString filePath)
 
     if (mf && ok) {
         stop();
+
+        if(mf->tracks()->count() == 1)
+            NewNoteTool::setEditTrack(0);
+
         mf->lock_backup(true);
+
+        MidiInput::file = mf;
+        MidiOutput::file = mf;
+
+        // Load Track Devices Info
+
+        QString info;
+
+        MidiOutput::loadTrackDevices();
+
         setFile(mf);
+
         updateRecentPathsList();
 
         setWindowModified(false);
 
-        QString info;
+        info.clear();
 
 #ifdef USE_FLUIDSYNTH
 
@@ -2096,7 +2515,11 @@ void MainWindow::openFile(QString filePath)
             fluid_output->fluid_settings->setValue("mp3_title", s);
         } else {
             QString name;
-            if(filePath.endsWith(".mid", Qt::CaseInsensitive) || filePath.endsWith(".midi", Qt::CaseInsensitive)) {
+
+            if(filePath.endsWith(".mseq", Qt::CaseInsensitive)) {
+                name =  filePath;
+                name.remove(name.lastIndexOf(".mseq", -1, Qt::CaseInsensitive), 20);
+            } else if(filePath.endsWith(".mid", Qt::CaseInsensitive) || filePath.endsWith(".midi", Qt::CaseInsensitive)) {
                 name =  filePath;
                 name.remove(name.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
             } else if(filePath.endsWith(".kar", Qt::CaseInsensitive)) {
@@ -2226,6 +2649,7 @@ void MainWindow::clean_undo_redo_list()
         file->cleanProtocol();
         channelWidget->OctaveUpdate();
     }
+
     updateTrackMenu();
 
 #ifdef USE_FLUIDSYNTH
@@ -2237,7 +2661,7 @@ void MainWindow::clean_undo_redo_list()
 void MainWindow::limit_undo_list() {
     limit_undoAction->setChecked(limit_undoAction->isChecked());
     Protocol::limitUndoAction(limit_undoAction->isChecked());
-    _settings->setValue("limit_undo_action", limit_undoAction->isChecked());
+    _settings->setValue("Main/limit_undo_action", limit_undoAction->isChecked());
 }
 
 void MainWindow::redo()
@@ -2246,6 +2670,7 @@ void MainWindow::redo()
         file->protocol()->redo(true);
         channelWidget->OctaveUpdate();
     }
+
     updateTrackMenu();
 
     if (file) {
@@ -2265,6 +2690,7 @@ void MainWindow::undo()
         file->protocol()->undo(true);
         channelWidget->OctaveUpdate();
     }
+
     updateTrackMenu();
 
     if (file) {
@@ -2288,8 +2714,13 @@ void MainWindow::muteAllChannels()
     if (!file)
         return;
     file->protocol()->startNewAction("Mute all channels");
+
+    int track_index = 0;
+    if(file->MultitrackMode)
+        track_index = file->track(NewNoteTool::editTrack())->device_index();
+
     for (int i = 0; i < 19; i++) {
-        file->channel(i)->setMute(true);
+        file->channel(i)->setMute(true, track_index);
     }
     file->protocol()->endAction();
     channelWidget->update();
@@ -2300,8 +2731,13 @@ void MainWindow::unmuteAllChannels()
     if (!file)
         return;
     file->protocol()->startNewAction("All channels audible");
+
+    int track_index = 0;
+    if(file->MultitrackMode)
+        track_index = file->track(NewNoteTool::editTrack())->device_index();
+
     for (int i = 0; i < 19; i++) {
-        file->channel(i)->setMute(false);
+        file->channel(i)->setMute(false, track_index);
     }
     file->protocol()->endAction();
     channelWidget->update();
@@ -2312,8 +2748,13 @@ void MainWindow::allChannelsVisible()
     if (!file)
         return;
     file->protocol()->startNewAction("All channels visible");
+
+    int track_index = 0;
+    if(file->MultitrackMode)
+        track_index = file->track(NewNoteTool::editTrack())->device_index();
+
     for (int i = 0; i < 19; i++) {
-        file->channel(i)->setVisible(true);
+        file->channel(i)->setVisible(true, track_index);
     }
     file->protocol()->endAction();
     channelWidget->update();
@@ -2324,8 +2765,13 @@ void MainWindow::allChannelsInvisible()
     if (!file)
         return;
     file->protocol()->startNewAction("Hide all channels");
+
+    int track_index = 0;
+    if(file->MultitrackMode)
+        track_index = file->track(NewNoteTool::editTrack())->device_index();
+
     for (int i = 0; i < 19; i++) {
-        file->channel(i)->setVisible(false);
+        file->channel(i)->setVisible(false, track_index);
     }
     file->protocol()->endAction();
     channelWidget->update();
@@ -2334,9 +2780,9 @@ void MainWindow::allChannelsInvisible()
 void MainWindow::closeEvent(QCloseEvent* event)
 {
 
-    if (file && file->saved()) {
+    if (file && !file->protocol()->testFileModified()) {
         if(QMessageBox::question(this, "MidiEditor", "Do you want to exit?") == QMessageBox::Yes) {
-            event->accept();
+
         } else {
             // break
             event->ignore();
@@ -2352,16 +2798,16 @@ void MainWindow::closeEvent(QCloseEvent* event)
                 } else {
                     QMessageBox::warning(this, "Error", QString("The file could not be saved. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
                 }
-                event->accept();
+
             } else {
                 saveas();
-                event->accept();
+
             }
             break;
         }
         case 1: {
             // close
-            event->accept();
+
             break;
         }
         case 2: {
@@ -2372,48 +2818,69 @@ void MainWindow::closeEvent(QCloseEvent* event)
         }
     }
 
-    if (MidiOutput::outputPort() != "") {
-        _settings->setValue("out_port", MidiOutput::outputPort());
+    for(int n = 0; n < MAX_OUTPUT_DEVICES; n++) {
+
+        //qWarning("out_port %i %s", n, MidiOutput::outputPort(n).toLocal8Bit().constData());
+        if(n == 0)
+            _settings->setValue("Midi/out_port", MidiOutput::outputPort(n));
+        else
+            _settings->setValue("Midi/out_port" + QString::number(n), MidiOutput::outputPort(n));
+
     }
-    if (MidiInput::inputPort() != "") {
-        _settings->setValue("in_port", MidiInput::inputPort());
+
+    _settings->setValue("Midi/AllTracksToOne", MidiOutput::AllTracksToOne);
+    _settings->setValue("Midi/FluidSynthTracksAuto", MidiOutput::FluidSynthTracksAuto);
+    _settings->setValue("Midi/SaveMidiOutDatas", MidiOutput::SaveMidiOutDatas);
+
+    for(int n = 0; n < MAX_INPUT_DEVICES; n++) {
+
+        //qWarning("in_port %i %s", n, MidiInput::inputPort(n).toLocal8Bit().constData());
+        if(n == 0)
+            _settings->setValue("Midi/in_port", MidiInput::inputPort(n));
+        else
+            _settings->setValue("Midi/in_port" + QString::number(n), MidiInput::inputPort(n));
+
     }
+
 #ifdef ENABLE_REMOTE
     if (_remoteServer->clientIp() != "") {
-        _settings->setValue("udp_client_ip", _remoteServer->clientIp());
+        _settings->setValue("Main/udp_client_ip", _remoteServer->clientIp());
     }
     if (_remoteServer->clientPort() > 0) {
-        _settings->setValue("udp_client_port", _remoteServer->clientPort());
+        _settings->setValue("Main/udp_client_port", _remoteServer->clientPort());
     }
     _remoteServer->stopServer();
 #endif
 
     bool ok;
-    int numStart = _settings->value("numStart_v3.5", -1).toInt(&ok);
-    _settings->setValue("numStart_v3.5", numStart + 1);
+    int numStart = _settings->value("Main/numStart_v3.5", -1).toInt(&ok);
+    _settings->setValue("Main/numStart_v3.5", numStart + 1);
 
     // save the current Path
-    _settings->setValue("open_path", startDirectory);
-    _settings->setValue("alt_stop", MidiOutput::isAlternativePlayer);
-    _settings->setValue("ticks_per_quarter", MidiFile::defaultTimePerQuarter);
-    _settings->setValue("screen_locked", mw_matrixWidget->screenLocked());
-    _settings->setValue("magnet", EventTool::magnetEnabled());
+    _settings->setValue("Main/open_path", startDirectory);
+    _settings->setValue("Main/alt_stop", MidiOutput::isAlternativePlayer);
+    _settings->setValue("Main/ticks_per_quarter", MidiFile::defaultTimePerQuarter);
+    _settings->setValue("Main/screen_locked", mw_matrixWidget->screenLocked());
+    _settings->setValue("Main/magnet", EventTool::magnetEnabled());
 
-    _settings->setValue("div", mw_matrixWidget->div());
-    _settings->setValue("colors_from_channel", mw_matrixWidget->colorsByChannel());
+    _settings->setValue("Main/div", mw_matrixWidget->div());
+    _settings->setValue("Main/colors_from_channel", mw_matrixWidget->colorsByChannel());
 
-    _settings->setValue("metronome", Metronome::enabled());
-    _settings->setValue("metronome_loudness", Metronome::loudness());
-    _settings->setValue("thru", MidiInput::thru());
-    _settings->setValue("quantization", _quantizationGrid);
+    _settings->setValue("Main/metronome", Metronome::enabled());
+    _settings->setValue("Main/metronome_loudness", Metronome::loudness());
+    _settings->setValue("Main/thru", MidiInput::thru());
+    _settings->setValue("Main/quantization", _quantizationGrid);
 #ifndef CUSTOM_MIDIEDITOR
     _settings->setValue("auto_update_after_prompt", UpdateManager::autoCheckForUpdates());
 #endif
-    _settings->setValue("has_prompted_for_updates", true); // Happens on first start
+    _settings->setValue("Main/has_prompted_for_updates", true); // Happens on first start
 
     Appearance::writeSettings(_settings);
     if(file)
         file->backup(false);
+
+
+    event->accept();
 }
 
 void MainWindow::donate()
@@ -2448,7 +2915,7 @@ void MainWindow::setStartDir(QString dir)
 void MainWindow::newFile()
 {
     if (file) {
-        if (!file->saved()) {
+        if (file->protocol()->testFileModified()) {
             switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before closing?", "Save", "Close without saving", "Cancel", 0, 2)) {
             case 0: {
                 // save
@@ -2471,6 +2938,9 @@ void MainWindow::newFile()
         }
     }
 
+    NewNoteTool::setEditChannel(0);
+    NewNoteTool::setEditTrack(1);
+
     foreach (QWidget* w, _disableLoading) {
         if(w)
             w->setEnabled(false);
@@ -2482,8 +2952,15 @@ void MainWindow::newFile()
     // create new File
     MidiFile* f = new MidiFile();
 
+    if(f->tracks()->count() == 1)
+        NewNoteTool::setEditTrack(0);
+
+    MidiInput::file = f;
+    MidiOutput::file = f;
+
     setFile(f);
-    editTrack(1);
+
+    editTrack(NewNoteTool::editTrack());
 
     setWindowTitle(QApplication::applicationName() + " - Untitled Document[*]");
 
@@ -2757,7 +3234,7 @@ void MainWindow::deleteChannel(QAction* action)
     int num = action->data().toInt();
     file->protocol()->startNewAction("Remove all events from channel " + QString::number(num));
     foreach (MidiEvent* event, file->channel(num)->eventMap()->values()) {
-        if (Selection::instance()->selectedEvents().contains(event)) {
+        if (event->track() == file->track(NewNoteTool::editTrack()) && Selection::instance()->selectedEvents().contains(event)) {
             EventTool::deselectEvent(event);
         }
     }
@@ -2793,6 +3270,8 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
     int num = action->data().toInt();
     MidiChannel* channel = file->channel(num);
 
+    int track_index = file->track(NewNoteTool::editTrack())->device_index();
+
     if (Selection::instance()->selectedEvents().size() > 0) {
         file->protocol()->startNewAction("Move selected events to channel " + QString::number(num));
         foreach (MidiEvent* ev, Selection::instance()->selectedEvents()) {
@@ -2816,14 +3295,14 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
                 int _current_tick = ev->midiTime();
 
                 // sysEx chan 0x70
-                if((c[3] & 0xF0) == 0x70 && c[0] == (char) 0x00 && c[1] == (char) 0x66 && c[2] == (char) 0x66) {
+                if((c[3] & 0xF0) == 0x70 && c[0] == (char) track_index && c[1] == (char) 0x66 && c[2] == (char) 0x66) {
                     int chan = c[3] & 0xF;
                     if(chan != num) {
                         foreach (MidiEvent* event, *(file->eventsBetween(_current_tick-10, _current_tick+10))) {
                             SysExEvent* sys2 = dynamic_cast<SysExEvent*>(event);
                             if(sys2) {
                                 QByteArray d = sys2->data();
-                                if((d[3] & 0xF0) == 0x70 && d[0] == (char) 0x0 && d[1] == (char) 0x66 && d[2] == (char) 0x66)
+                                if((d[3] & 0xF0) == 0x70 && d[0] == (char) track_index && d[1] == (char) 0x66 && d[2] == (char) 0x66)
                                     if((d[3] & 0xF) == num)
                                         file->channel(16)->removeEvent(event);
                             }
@@ -2845,13 +3324,13 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
                                 if(sys2) {
                                     QByteArray d = sys2->data();
 
-                                    chan = num | (c[0] & 0x10);
+                                    chan = num | (c[0] & 0xf0);
                                     if(c[3] == d[3] && c[3] == 'W' && chan == d[0] && c[1] == d[1] && c[2] == d[2])
                                         file->channel(16)->removeEvent(event);
                                 }
                             }
 
-                            c[0] = num | (c[0] & 0x10);
+                            c[0] = num | (c[0] & 0xf0);
 
                             sys->setData(c);
                             sys->save();
@@ -2869,7 +3348,7 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
                     PitchBendEvent* pitch2 = dynamic_cast<PitchBendEvent*>(event);
                     KeyPressureEvent* key2 = dynamic_cast<KeyPressureEvent*>(event);
                     ChannelPressureEvent* cpress2 = dynamic_cast<ChannelPressureEvent*>(event);
-                    if(event->channel()==num) {
+                    if(event->channel()==num && event->track() == file->track(NewNoteTool::editTrack())) {
                         if ((ctrl && ctrl2 && ctrl2->control()==ctrl->control()) ||
                             (prog && prog2) ||
                             (pitch && pitch2) ||
@@ -2898,7 +3377,7 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
                     OnEvent* onevent2 = dynamic_cast<OnEvent*>(event);
                     NoteOnEvent* notevent2 = dynamic_cast<NoteOnEvent*>(event);
 
-                    if(event->channel()==num) {
+                    if(event->channel()==num && event->track() == file->track(NewNoteTool::editTrack())) {
                         if (notevent2 && onevent2 && notevent->note()==notevent2->note() &&
                                 ((onevent2->midiTime() >=_ini_tick && onevent2->midiTime() <=_end_tick) ||
                                 (onevent2->offEvent()->midiTime() >=_ini_tick && onevent2->offEvent()->midiTime() <=_end_tick))) {
@@ -2910,8 +3389,10 @@ void MainWindow::moveSelectedEventsToChannel(QAction* action)
 
                 file->channel(ev->channel())->removeEvent(ev);
                 ev->setChannel(num, true);
+                ev->setTrack(file->track(NewNoteTool::editTrack()), true);
                 channel->insertEvent(onevent->offEvent(), onevent->offEvent()->midiTime());
                 onevent->offEvent()->setChannel(num);
+                onevent->offEvent()->setTrack(file->track(NewNoteTool::editTrack()));
             }
             channel->insertEvent(ev, ev->midiTime());
         }
@@ -2962,7 +3443,7 @@ void MainWindow::moveSelectedNotesToChannel(QAction* action)
                     OnEvent* onevent2 = dynamic_cast<OnEvent*>(event);
                     NoteOnEvent* notevent2 = dynamic_cast<NoteOnEvent*>(event);
 
-                    if(event->channel()==num) {
+                    if(event->channel()==num && event->track() == file->track(NewNoteTool::editTrack())) {
                         if (notevent2 && onevent2 && notevent->note()==notevent2->note() &&
                                 ((onevent2->midiTime() >=_ini_tick && onevent2->midiTime() <=_end_tick) ||
                                 (onevent2->offEvent()->midiTime() >=_ini_tick && onevent2->offEvent()->midiTime() <=_end_tick))) {
@@ -2973,9 +3454,11 @@ void MainWindow::moveSelectedNotesToChannel(QAction* action)
 
                 file->channel(ev->channel())->removeEvent(ev);
                 ev->setChannel(num, true);
+                ev->setTrack(file->track(NewNoteTool::editTrack()), true);
 
                 channel->insertEvent(onevent->offEvent(), onevent->offEvent()->midiTime());
                 onevent->offEvent()->setChannel(num);
+                onevent->offEvent()->setTrack(file->track(NewNoteTool::editTrack()));
 
                 channel->insertEvent(ev, ev->midiTime());
             }
@@ -2998,10 +3481,18 @@ void MainWindow::moveSelectedEventsToTrack(QAction* action)
     if (Selection::instance()->selectedEvents().size() > 0) {
         file->protocol()->startNewAction("Move selected events to track " + QString::number(num));
         foreach (MidiEvent* ev, Selection::instance()->selectedEvents()) {
-            ev->setTrack(track, true);
-            OnEvent* onevent = dynamic_cast<OnEvent*>(ev);
-            if (onevent) {
-                onevent->offEvent()->setTrack(track);
+            TempoChangeEvent* tcev = dynamic_cast<TempoChangeEvent*>(ev);
+            TimeSignatureEvent* tsev = dynamic_cast<TimeSignatureEvent*>(ev);
+            SysExEvent* sys = dynamic_cast<SysExEvent*>(ev);
+            UnknownEvent* unk = dynamic_cast<UnknownEvent*>(ev);
+            if(tcev || tsev || sys || unk)
+                ev->setTrack(file->track(0), true);
+            else {
+                ev->setTrack(track, true);
+                OnEvent* onevent = dynamic_cast<OnEvent*>(ev);
+                if (onevent && onevent->offEvent()) {
+                    onevent->offEvent()->setTrack(track);
+                }
             }
         }
 
@@ -3035,7 +3526,7 @@ void MainWindow::updateRecentPathsList()
 
     // save list
     QVariant list(_recentFilePaths);
-    _settings->setValue("recent_file_list", list);
+    _settings->setValue("Main/recent_file_list", list);
 
     // update menu
     _recentPathsMenu->clear();
@@ -3059,7 +3550,7 @@ void MainWindow::openRecent(QAction* action)
     if (file) {
         QString oldPath = file->path();
 
-        if (!file->saved()) {
+        if (file->protocol()->testFileModified()) {
             switch (QMessageBox::question(this, "Save file?", "Save file " + file->path() + " before closing?", "Save", "Close without saving", "Cancel", 0, 2)) {
             case 0: {
                 // save
@@ -3088,12 +3579,16 @@ void MainWindow::openRecent(QAction* action)
 void MainWindow::updateChannelMenu()
 {
 
+    int index = (file) ? (file->MultitrackMode ? file->track(NewNoteTool::editTrack())->device_index() : 0) : 0;
     // delete channel events menu
     foreach (QAction* action, _deleteChannelMenu->actions()) {
         int channel = action->data().toInt();
         if (file) {
-            if(channel!=9) action->setText(QString::number(channel) + " " + MidiFile::instrumentName(Bank_MIDI[channel], Prog_MIDI[channel]/*file->channel(channel)->progAtTick(0)*/));
-            else action->setText(QString::number(channel) + " " + MidiFile::drumName(Prog_MIDI[channel]));
+
+            if(channel!=9) action->setText(QString::number(channel) + " "
+            + MidiFile::instrumentName(file->Bank_MIDI[channel + 4 * (index != 0) + 16 * index],
+                                       file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index]));
+            else action->setText(QString::number(channel) + " " + MidiFile::drumName(MidiOutput::file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index]));
 
         }
     }
@@ -3102,8 +3597,11 @@ void MainWindow::updateChannelMenu()
     foreach (QAction* action, _moveSelectedEventsToChannelMenu->actions()) {
         int channel = action->data().toInt();
         if (file) {
-            if(channel!=9) action->setText(QString::number(channel) + " " + MidiFile::instrumentName(Bank_MIDI[channel], Prog_MIDI[channel]));
-            else action->setText(QString::number(channel) + " " + MidiFile::drumName(Prog_MIDI[channel]));
+            if(channel!=9) action->setText(QString::number(channel) + " " +
+               MidiFile::instrumentName(file->Bank_MIDI[channel + 4 * (index != 0) + 16 * index],
+                                        file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index]));
+            else action->setText(QString::number(channel) + " " +
+                                 MidiFile::drumName(file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index]));
 
         }
     }
@@ -3112,8 +3610,11 @@ void MainWindow::updateChannelMenu()
     foreach (QAction* action, _moveSelectedNotesToChannelMenu->actions()) {
         int channel = action->data().toInt();
         if (file) {
-            if(channel!=9) action->setText(QString::number(channel) + " " + MidiFile::instrumentName(Bank_MIDI[channel], Prog_MIDI[channel]));
-            else action->setText(QString::number(channel) + " " + MidiFile::drumName(Prog_MIDI[channel]));
+            if(channel!=9) action->setText(QString::number(channel) + " " +
+                           MidiFile::instrumentName(file->Bank_MIDI[channel + 4 * (index != 0) + 16 * index],
+                                                    file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index]));
+            else action->setText(QString::number(channel) + " " +
+                                 MidiFile::drumName(file->Prog_MIDI[channel + 4 * (index != 0) + 16 * index]));
 
         }
     }
@@ -3123,8 +3624,9 @@ void MainWindow::updateChannelMenu()
     foreach (QAction* action, _pasteToChannelMenu->actions()) {
         int channel = action->data().toInt();
         if (file && channel >= 0) {
-                if(channel!=9) action->setText(QString::number(channel) + " " + MidiFile::instrumentName(Bank_MIDI[channel], file->channel(channel)->progAtTick(0)));
-                else action->setText(QString::number(channel) + " " + MidiFile::drumName(file->channel(channel)->progAtTick(0)));
+                if(channel!=9) action->setText(QString::number(channel) + " " +
+                               MidiFile::instrumentName(file->Bank_MIDI[channel + 4 * (index != 0) + 16 * index], file->channel(channel)->progAtTick(0, file->track(NewNoteTool::editTrack()))));
+                else action->setText(QString::number(channel) + " " + MidiFile::drumName(file->channel(channel)->progAtTick(0, file->track(NewNoteTool::editTrack()))));
 
             }
     }
@@ -3133,8 +3635,8 @@ void MainWindow::updateChannelMenu()
     foreach (QAction* action, _selectAllFromChannelMenu->actions()) {
         int channel = action->data().toInt();
         if (file) {
-            if(channel!=9) action->setText(QString::number(channel) + " " + MidiFile::instrumentName(Bank_MIDI[channel], file->channel(channel)->progAtTick(0)));
-            else action->setText(QString::number(channel) + " " + MidiFile::drumName(file->channel(channel)->progAtTick(0)));
+            if(channel!=9) action->setText(QString::number(channel) + " " + MidiFile::instrumentName(file->Bank_MIDI[channel], file->channel(channel)->progAtTick(0, file->track(NewNoteTool::editTrack()))));
+            else action->setText(QString::number(channel) + " " + MidiFile::drumName(file->channel(channel)->progAtTick(0, file->track(NewNoteTool::editTrack()))));
         }
     }
 
@@ -3151,6 +3653,18 @@ void MainWindow::updateTrackMenu()
     if (!file) {
         return;
     }
+
+    if(file->protocol()->currentTrackDeleted || NewNoteTool::editTrack() >= file->numTracks()) {
+
+            if(file->numTracks() > 1)
+                NewNoteTool::setEditTrack(1);
+            else
+                NewNoteTool::setEditTrack(0);
+
+        tabMatrixWidgetMode = 0;
+    }
+
+    updateTabMatrixWidget();
 
     for (int i = 0; i < file->numTracks(); i++) {
         QVariant variant(i);
@@ -3170,9 +3684,25 @@ void MainWindow::updateTrackMenu()
     for (int i = 0; i < file->numTracks(); i++) {
         _chooseEditTrack->addItem("Track " + QString::number(i) + ": " + file->tracks()->at(i)->name());
     }
-    if (NewNoteTool::editTrack() >= file->numTracks()) {
-        NewNoteTool::setEditTrack(0);
+
+    if(file->protocol()->currentTrackDeleted || NewNoteTool::editTrack() >= file->numTracks()) {
+
+        file->protocol()->currentTrackDeleted = false;
+
+        if(file->numTracks() > 1)
+            NewNoteTool::setEditTrack(1);
+        else
+            NewNoteTool::setEditTrack(0);
+
+        tabMatrixWidgetMode = 0;
+
+        int ntrack = NewNoteTool::editTrack();
+
+        tabMatrixWidget->setCurrentIndex(ntrack);
+        MidiInput::track_index = ntrack;
+        FingerPatternDialog::_track_index = ntrack;
     }
+
     _chooseEditTrack->setCurrentIndex(NewNoteTool::editTrack());
 
     _pasteToTrackMenu->clear();
@@ -3285,42 +3815,6 @@ void MainWindow::updateTrackMenu()
     // ends recover file menu update
 }
 
-void MainWindow::muteChannel(QAction* action)
-{
-    int channel = action->data().toInt();
-    if (file) {
-        file->protocol()->startNewAction("Mute channel");
-        file->channel(channel)->setMute(action->isChecked());
-        updateChannelMenu();
-        channelWidget->update();
-        file->protocol()->endAction();
-    }
-}
-void MainWindow::soloChannel(QAction* action)
-{
-    int channel = action->data().toInt();
-    if (file) {
-        file->protocol()->startNewAction("Select solo channel");
-        for (int i = 0; i < 16; i++) {
-            file->channel(i)->setSolo(i == channel && action->isChecked());
-        }
-        file->protocol()->endAction();
-    }
-    channelWidget->update();
-    updateChannelMenu();
-}
-
-void MainWindow::viewChannel(QAction* action)
-{
-    int channel = action->data().toInt();
-    if (file) {
-        file->protocol()->startNewAction("Channel visibility changed");
-        file->channel(channel)->setVisible(action->isChecked());
-        updateChannelMenu();
-        channelWidget->update();
-        file->protocol()->endAction();
-    }
-}
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
@@ -3391,13 +3885,132 @@ void MainWindow::removeTrack(int tracknumber)
         QMessageBox::warning(this, "Error", QString("The selected track can\'t be removed!\n It\'s the last track of the file."));
     }
     file->protocol()->endAction();
+
+    if(NewNoteTool::editTrack() >= file->numTracks()) {
+        if(file->numTracks() > 1)
+            NewNoteTool::setEditTrack(1);
+        else
+            NewNoteTool::setEditTrack(0);
+    }
+
     updateTrackMenu();
+}
+
+void MainWindow::updateTabMatrixWidget()
+{
+
+    if(!file)
+        return;
+
+    if(file->numTracks() <= 16) {
+        tabMatrixWidget->tabBar()->setTabVisible(17, false);
+
+        if(tabMatrixWidgetMode == 1) {
+            tabMatrixWidgetMode = 0;
+        }
+    }
+
+
+    if(tabMatrixWidgetMode == 0) {
+
+        int n = 0;
+        tabMatrixWidget->tabBar()->setTabToolTip(16, "Mode Selector. Click to change to Channels");
+        tabMatrixWidget->tabBar()->setTabText(16, "Tracks");
+        tabMatrixWidget->tabBar()->setTabToolTip(17, "Mode Selector. Click to change to Tracks >= 16");
+        tabMatrixWidget->tabBar()->setTabText(17, "Tracks+");
+        upperTabWidget->setCurrentIndex(0);
+
+        for(; (n < 16) && (n < file->numTracks()); n++) {
+
+            tabMatrixWidget->tabBar()->setTabEnabled(n, true);
+            tabMatrixWidget->tabBar()->setTabIcon(n, QIcon());
+            tabMatrixWidget->tabBar()->setTabText(n, QString::number(n));
+            tabMatrixWidget->tabBar()->setTabToolTip(n, "Select Track " + QString::number(n) +
+                                                " " + file->track(n)->name() + "\n Double Click to change to Channels");
+        }
+
+        for(; n < 16; n++) {
+
+            tabMatrixWidget->tabBar()->setTabEnabled(n, false);
+            tabMatrixWidget->tabBar()->setTabIcon(n, QIcon());
+            tabMatrixWidget->tabBar()->setTabText(n, QString::number(n));
+            tabMatrixWidget->tabBar()->setTabToolTip(n, "Empty track");
+        }
+
+        if(file->numTracks() > 16)
+            tabMatrixWidget->tabBar()->setTabVisible(17, true);
+        else
+            tabMatrixWidget->tabBar()->setTabVisible(17, false);
+
+    } else if(tabMatrixWidgetMode == 1) {
+
+        int n = 0;
+
+        tabMatrixWidget->tabBar()->setTabToolTip(16, "Mode Selector. Click to change to Tracks < 16");
+        tabMatrixWidget->tabBar()->setTabText(16, "Tracks");
+        tabMatrixWidget->tabBar()->setTabToolTip(17, "Mode Selector. Click to change to Channels");
+        tabMatrixWidget->tabBar()->setTabText(17, "Tracks+");
+        upperTabWidget->setCurrentIndex(0);
+
+        for(; (n < 16) && ((n + 16) < file->numTracks()); n++) {
+
+            tabMatrixWidget->tabBar()->setTabEnabled(n, true);
+            tabMatrixWidget->tabBar()->setTabIcon(n, QIcon());
+            tabMatrixWidget->tabBar()->setTabText(n, QString::number(n + 16));
+            tabMatrixWidget->tabBar()->setTabToolTip(n, "Select Track " + QString::number(n + 16) +
+                                                " " + file->track(n + 16)->name() + "\n Click to change to Channels");
+        }
+
+        for(; n < 16; n++) {
+
+            tabMatrixWidget->tabBar()->setTabEnabled(n, false);
+            tabMatrixWidget->tabBar()->setTabIcon(n, QIcon());
+            tabMatrixWidget->tabBar()->setTabText(n, QString::number(n + 16));
+            tabMatrixWidget->tabBar()->setTabToolTip(n, "Empty track");
+        }
+
+        if(file->numTracks() > 16)
+            tabMatrixWidget->tabBar()->setTabVisible(17, true);
+
+    } else if(tabMatrixWidgetMode == 2) {
+
+        tabMatrixWidget->tabBar()->setTabToolTip(16, "Mode Selector. Click to change to Tracks");
+        tabMatrixWidget->tabBar()->setTabText(16, "Channels");
+        upperTabWidget->setCurrentIndex(1);
+
+        for(int n = 0; n < 16; n++) {
+
+            tabMatrixWidget->tabBar()->setTabEnabled(n, true);
+            QPixmap p(20, 12);
+            p.fill(QColor(0, 0, 0, 0));
+
+            QPainter pixPaint(&p);
+            pixPaint.setPen(Qt::white);
+            pixPaint.setBrush(QBrush(file->channel(n)->color()->rgb()));
+            pixPaint.drawRoundedRect(0, 0, 19, 11, 2, 2);
+
+            QIcon ico(p);
+
+            tabMatrixWidget->tabBar()->setTabIcon(n, ico);
+            tabMatrixWidget->tabBar()->setTabText(n, QString::number(n));
+            tabMatrixWidget->tabBar()->setTabToolTip(n, "Select Channel " + QString::number(n) +
+                QString(".\n Use double click to enable/disable Channel only selection"));
+        }
+
+        tabMatrixWidget->tabBar()->setTabVisible(17, false);
+    }
 }
 
 void MainWindow::addTrack()
 {
 
-    if (file) {
+    if (file && file->numTracks() < 32) { // 32 tracks supported
+/*
+for Tracks = 32
+Bank_MIDI[516]; 16 * (number of tracks) + 4
+Prog_MIDI[516];
+MAX_OUTPUT_DEVICES 31  (32 - 1) Track0 == Track1
+*/
 
         bool ok;
         QString text = QInputDialog::getText(this, "Set Track Name",
@@ -3413,6 +4026,8 @@ void MainWindow::addTrack()
             updateTrackMenu();
         }
     }
+
+    //updateTabMatrixWidget();
 }
 
 void MainWindow::muteAllTracks()
@@ -3496,12 +4111,14 @@ void MainWindow::selectAllFromChannel(QAction* action)
     int channel = action->data().toInt();
     file->protocol()->startNewAction("Select all events from channel " + QString::number(channel));
     EventTool::clearSelection();
-    file->channel(channel)->setVisible(true);
+    file->channel(channel)->setVisible(true, (!file->MultitrackMode) ? -1 : file->track(NewNoteTool::editTrack())->device_index());
     foreach (MidiEvent* e, file->channel(channel)->eventMap()->values()) {
         if (e->track()->hidden()) {
             e->track()->setHidden(false);
         }
-        EventTool::selectEvent(e, false);
+
+        if (e->track() == file->track(NewNoteTool::editTrack()))
+            EventTool::selectEvent(e, false);
     }
 
     file->protocol()->endAction();
@@ -3581,6 +4198,11 @@ void MainWindow::paste()
     EventTool::pasteAction();
 }
 
+void MainWindow::paste2()
+{
+    EventTool::pasteAction2();
+}
+
 void MainWindow::markEdited()
 {
     setWindowModified(true);
@@ -3595,6 +4217,7 @@ void MainWindow::colorsByChannel()
     mw_matrixWidget->update();
     _miscWidget->update();
 }
+
 void MainWindow::colorsByTrack()
 {
     mw_matrixWidget->setColorsByTracks();
@@ -3605,21 +4228,34 @@ void MainWindow::colorsByTrack()
     _miscWidget->update();
 }
 
-void MainWindow::editChannel(int i, bool assign)
+void MainWindow::editChannel(int i, bool assign, int ntrack)
 {
+    i &= 15;
+
     NewNoteTool::setEditChannel(i);
 
+    if(ntrack < 0)
+        ntrack = NewNoteTool::editTrack();
+    if(ntrack >= file->numTracks())
+        ntrack = 0;
+
     // assign channel to track
-    if (assign && file && file->track(NewNoteTool::editTrack())) {
-        file->track(NewNoteTool::editTrack())->assignChannel(i);
+    if (assign && file && file->track(ntrack)) {
+        file->track(ntrack)->assignChannel(i);
     }
 
     MidiOutput::setStandardChannel(i);
 
-    int prog = file->channel(i)->progAtTick(file->cursorTick());
-    MidiOutput::sendProgram(i, prog);
+    int prog = file->channel(i)->progAtTick(file->cursorTick(), file->track(ntrack));
+    MidiOutput::sendProgram(i, prog, file->MultitrackMode ? file->track(ntrack)->device_index(): 0);
+
+    if(tabMatrixWidgetMode == 2) {
+        updateTabMatrixWidget();
+        emit tabMatrixWidgetIndex(i);
+    }
 
     updateChannelMenu();
+    MainWindow::updateAll();
 }
 
 void MainWindow::editTrack(int i, bool assign)
@@ -3630,20 +4266,58 @@ void MainWindow::editTrack(int i, bool assign)
     if (assign && file && file->track(i)) {
         file->track(i)->assignChannel(NewNoteTool::editChannel());
     }
+
+    MidiInput::track_index = file->track(i)->device_index();
+    FingerPatternDialog::_track_index = file->track(i)->device_index();
+
+#ifdef USE_FLUIDSYNTH
+
+    int track_ind = file->track(i)->fluid_index() * 32;
+
+    for(int n = 0; n < 32; n++) {
+
+        bool flag = false;
+
+        if(VST_proc::VST_isLoaded(track_ind + n))
+            flag = true;
+
+        ToggleViewVST((n & 31), flag);
+    }
+#endif
+
+    if(tabMatrixWidgetMode != 2) {
+        if(i < 16)
+            tabMatrixWidgetMode = 0;
+        else
+            tabMatrixWidgetMode = 1;
+
+        updateTabMatrixWidget();
+        emit tabMatrixWidgetIndex(i & 15);
+    }
+
     updateTrackMenu();
+    updateChannelMenu();
+    MainWindow::updateAll();
 }
 
 void MainWindow::editTrackAndChannel(MidiTrack* track)
 {
     editTrack(track->number(), false);
+
     if (track->assignedChannel() > -1) {
-        editChannel(track->assignedChannel(), false);
+        editChannel(track->assignedChannel(), false, track->number());
     }
+
+    tabMatrixWidgetMode = 0;
+    if(track->number() > 15)
+        tabMatrixWidgetMode = 1;
+    updateTabMatrixWidget();
+
 }
 
 void MainWindow::setInstrumentForChannel(int i)
 {
-    InstrumentChooser* d = new InstrumentChooser(file, i, this);
+    InstrumentChooser* d = new InstrumentChooser(file, i, file->track(NewNoteTool::editTrack()), this);
     d->setModal(true);
     d->exec();
     delete d;
@@ -3675,7 +4349,8 @@ void MainWindow::setSoundEffectForChannel(int i)
 
 void MainWindow::setLoadVSTForChannel(int channel, int flag)
 {
-    VST_chan vst(this, channel, flag);
+    int index = file->track(NewNoteTool::editTrack())->fluid_index() % 3;
+    VST_chan vst(this, channel + index * 32, flag);
     if(!flag) vst.exec();
 
     updateChannelMenu();
@@ -3885,7 +4560,8 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     // recover file menu
 
-    if(1) {
+
+    if(MidieditorMaster) {
         bool recover_flag = false;
         _recover_file = new QMenu("Recover file from Backup list", fileMB);
         int i = 0;
@@ -4002,8 +4678,10 @@ QWidget* MainWindow::setupActions(QWidget* parent)
             });
 
         }
-    }
+    } else {
 
+        _recover_file = NULL;
+    }
     fileMB->addSeparator();
 
     QAction* saveAction = new QAction("Save", this);
@@ -4020,21 +4698,30 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
 #ifdef USE_FLUIDSYNTH
 
-    FluidActionExportWav = new QAction("Export to WAV file..", this);
+    FluidActionExportWav = new QAction("Export to WAV file...", this);
 
     connect(FluidActionExportWav, SIGNAL(triggered()), this, SLOT(FluidSaveAsWav()));
     fileMB->addAction(FluidActionExportWav);
 
-    FluidActionExportMp3 = new QAction("Export to MP3 file..", this);
+    FluidActionExportMp3 = new QAction("Export to MP3 file...", this);
 
     connect(FluidActionExportMp3, SIGNAL(triggered()), this, SLOT(FluidSaveAsMp3()));
     fileMB->addAction(FluidActionExportMp3);
 
-    FluidActionExportFlac = new QAction("Export to FLAC file..", this);
+    FluidActionExportFlac = new QAction("Export to FLAC file...", this);
 
     connect(FluidActionExportFlac, SIGNAL(triggered()), this, SLOT(FluidSaveAsFlac()));
     fileMB->addAction(FluidActionExportFlac);
 #endif
+
+    fileMB->addSeparator();
+
+    ActionExportMSEQ = new QAction("Export to Sequencer file (MSEQ)...", this);
+
+    connect(ActionExportMSEQ, SIGNAL(triggered()), this, SLOT(SaveAsMSEQ()));
+    fileMB->addAction(ActionExportMSEQ);
+
+    fileMB->addSeparator();
 
     QAction* ImportSF2NamesAction = new QAction("Import Instrument names from .SF2/.SF3 file", this);
     connect(ImportSF2NamesAction, SIGNAL(triggered()), this, SLOT(ImportSF2Names()));
@@ -4069,7 +4756,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     limit_undoAction = new QAction("Limit list Undo to 64 steps", this);
     limit_undoAction->setCheckable(true);
-    limit_undoAction->setChecked(_settings->value("limit_undo_action", true).toBool());
+    limit_undoAction->setChecked(_settings->value("Main/limit_undo_action", true).toBool());
     Protocol::limitUndoAction(limit_undoAction->isChecked());
 
     connect(limit_undoAction, SIGNAL(triggered()), this, SLOT(limit_undo_list()));
@@ -4143,6 +4830,13 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     _pasteAction->setIcon(QIcon(":/run_environment/graphics/tool/paste.png"));
     connect(_pasteAction, SIGNAL(triggered()), this, SLOT(paste()));
 
+    QAction *_pasteAction2 = new QAction("Paste events from last copy (external file cache)", this);
+    _pasteAction2->setToolTip("Paste events at cursor position from last copy (external file cache).\n\n"
+                              "When you use 'Copy' a file is created in the file-cache directory simultaneously.\n"
+                              "This makes it possible to copy and paste between different Midi files or between different instances of Midieditor");
+    _pasteAction2->setIcon(QIcon(":/run_environment/graphics/tool/paste_ext.png"));
+    connect(_pasteAction2, SIGNAL(triggered()), this, SLOT(paste2()));
+
     _pasteToTrackMenu = new QMenu("Paste to track...");
     _pasteToChannelMenu = new QMenu("Paste to channel...");
     QMenu* pasteOptionsMenu = new QMenu("Paste options...");
@@ -4170,6 +4864,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     }
     pasteOptionsMenu->addMenu(_pasteToTrackMenu);
     editMB->addAction(_pasteAction);
+    editMB->addAction(_pasteAction2);
     editMB->addMenu(pasteOptionsMenu);
 
     editMB->addSeparator();
@@ -4194,6 +4889,31 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     toolsToolsMenu->addAction(removeNotesAction);
 
     toolsToolsMenu->addSeparator();
+
+    QAction* selectMultiTrack = new QAction("Select Events in Multitrack mode", this);
+    selectMultiTrack->setIcon(QIcon(":/run_environment/graphics/tool/select_multitrack.png"));
+    //selectMultiTrack->setImage(":/run_environment/graphics/tool/select_box.png");
+    selectMultiTrack->setToolTip("Select Events in Multitrack mode.\n\nSelects all events from any channel and any track when it is checked.\n\n"
+                                 "Paste will work differently, ignoring channel or track paste options.");
+    selectMultiTrack->setCheckable(true);
+    selectMultiTrack->setChecked(SelectTool::selectMultiTrack);
+
+    connect(selectMultiTrack, &QAction::triggered, this, [=]() {
+
+        SelectTool::selectMultiTrack = selectMultiTrack->isChecked();
+
+        EventTool::clearSelection();
+        EventTool::copiedEvents->clear();
+        mw_matrixWidget->DeletePixmap();
+        _miscWidget->update();
+        mw_matrixWidget->update();
+        copiedEventsChanged();
+
+    });
+
+
+    toolsToolsMenu->addAction(selectMultiTrack);
+
 
     QAction* selectSingleAction = new ToolButton(new SelectTool(SELECTION_TYPE_SINGLE), QKeySequence(Qt::Key_F4), toolsToolsMenu);
     toolsToolsMenu->addAction(selectSingleAction);
@@ -4516,6 +5236,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     notesMB->addSeparator();
 
+    QAction* overlappedNotesAllTracks = new QAction("Overlapped Notes Correction for All Tracks", this);
+    _activateWithSelections.append(overlappedNotesAllTracks);
+    connect(overlappedNotesAllTracks, SIGNAL(triggered()), this, SLOT(overlappedNotesCorrectionAllTracks()));
+    notesMB->addAction(overlappedNotesAllTracks);
+
     QAction* overlappedNotes = new QAction("Overlapped Notes Correction", this);
     _activateWithSelections.append(overlappedNotes);
     connect(overlappedNotes, SIGNAL(triggered()), this, SLOT(overlappedNotesCorrection()));
@@ -4771,7 +5496,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     viewMB->addAction(_viewRightPan);
     connect(_viewRightPan, QOverload<bool>::of(&QAction::triggered), [=](bool){
         rightSplitterMode^=1;
-         _settings->setValue("rightSplitterMode", rightSplitterMode);
+         _settings->setValue("Main/rightSplitterMode", rightSplitterMode);
 
         EventTool::clearSelection();
         delete Selection::instance();
@@ -4822,7 +5547,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     viewMB->addAction(_backShadowSel);
     connect(_backShadowSel, QOverload<bool>::of(&QAction::triggered), [=](bool){
         shadow_selection^=1;
-         _settings->setValue("shadow_selection", shadow_selection);
+         _settings->setValue("Main/shadow_selection", shadow_selection);
          mw_matrixWidget->shadow_selection = shadow_selection;
          mw_matrixWidget->registerRelayout();
          mw_matrixWidget->update();
@@ -4842,7 +5567,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     textMenu->addAction(_viewKaraoke);
     connect(_viewKaraoke, QOverload<bool>::of(&QAction::triggered), [=](bool){
         mw_matrixWidget->visible_karaoke^= 1;
-        _settings->setValue("visible_karaoke", mw_matrixWidget->visible_karaoke);
+        _settings->setValue("Main/visible_karaoke", mw_matrixWidget->visible_karaoke);
         mw_matrixWidget->registerRelayout();
 
     });
@@ -4858,7 +5583,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     timMenu->addAction(_viewCtrl);
     connect(_viewCtrl, QOverload<bool>::of(&QAction::triggered), [=](bool){
         mw_matrixWidget->visible_Controlflag^= 1;
-        _settings->setValue("visible_Controlflag", mw_matrixWidget->visible_Controlflag);
+        _settings->setValue("Main/visible_Controlflag", mw_matrixWidget->visible_Controlflag);
         mw_matrixWidget->registerRelayout();
 
     });
@@ -4869,7 +5594,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     timMenu->addAction(_viewPitch);
     connect(_viewPitch, QOverload<bool>::of(&QAction::triggered), [=](bool){
         mw_matrixWidget->visible_PitchBendflag^= 1;
-        _settings->setValue("visible_PitchBendflag", mw_matrixWidget->visible_PitchBendflag);
+        _settings->setValue("Main/visible_PitchBendflag", mw_matrixWidget->visible_PitchBendflag);
         mw_matrixWidget->registerRelayout();
 
     });
@@ -4880,7 +5605,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     timMenu->addAction(_viewTim3);
     connect(_viewTim3, QOverload<bool>::of(&QAction::triggered), [=](bool){
         mw_matrixWidget->visible_TimeLineArea3^= 1;
-        _settings->setValue("visible_TimeLineArea3", mw_matrixWidget->visible_TimeLineArea3);
+        _settings->setValue("Main/visible_TimeLineArea3", mw_matrixWidget->visible_TimeLineArea3);
         mw_matrixWidget->registerRelayout();
 
     });
@@ -4891,7 +5616,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     timMenu->addAction(_viewTim4);
     connect(_viewTim4, QOverload<bool>::of(&QAction::triggered), [=](bool){
         mw_matrixWidget->visible_TimeLineArea4^= 1;
-        _settings->setValue("visible_TimeLineArea4", mw_matrixWidget->visible_TimeLineArea4);
+        _settings->setValue("Main/visible_TimeLineArea4", mw_matrixWidget->visible_TimeLineArea4);
         mw_matrixWidget->registerRelayout();
 
     });
@@ -5047,6 +5772,12 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     connect(thruAction, SIGNAL(toggled(bool)), this, SLOT(enableThru(bool)));
     midiMB->addAction(thruAction);
 
+    QAction* VirtualDevAction = new QAction("Virtual keyboard device", this);
+    VirtualDevAction->setIcon(QIcon(":/run_environment/graphics/custom/virtualkb.png"));
+    connect(VirtualDevAction, SIGNAL(triggered()), this, SLOT(VirtualKeyboard()));
+
+    midiMB->addAction(VirtualDevAction);
+
     QAction* MidiInAction = new QAction("MIDI In Control", this);
     MidiInAction->setIcon(QIcon(":/run_environment/graphics/tool/config_midiin.png"));
     connect(MidiInAction, SIGNAL(triggered()), this, SLOT(DMidiInControl()));
@@ -5097,10 +5828,11 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     connect(aboutAction, SIGNAL(triggered()), this, SLOT(about()));
     helpMB->addAction(aboutAction);
 
+#ifndef CUSTOM_MIDIEDITOR
     QAction* donateAction = new QAction("Donate", this);
     connect(donateAction, SIGNAL(triggered()), this, SLOT(donate()));
     helpMB->addAction(donateAction);
-
+#endif
     QWidget* buttonBar = new QWidget(parent);
     QGridLayout* btnLayout = new QGridLayout(buttonBar);
 
@@ -5207,6 +5939,8 @@ QWidget* MainWindow::setupActions(QWidget* parent)
 
     lowerTB->addAction(pasteActionTB);
 
+    lowerTB->addAction(_pasteAction2);
+
     lowerTB->addSeparator();
 
     lowerTB->addAction(zoomHorInAction);
@@ -5241,6 +5975,8 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     lowerTB->addAction(FluidAction);
 #endif
 
+    lowerTB->addAction(VirtualDevAction);
+
     lowerTB->addSeparator();
     lowerTB->addAction(PianoAction);
     lowerTB->addAction(DrumAction);
@@ -5252,6 +5988,7 @@ QWidget* MainWindow::setupActions(QWidget* parent)
     upperTB->addAction(textAction);
     upperTB->addAction(markerAction);
     upperTB->addSeparator();
+    upperTB->addAction(selectMultiTrack);
     upperTB->addAction(selectSingleAction);
     upperTB->addAction(selectBoxAction);
     upperTB->addAction(selectBoxAction2);
@@ -5292,7 +6029,7 @@ void MainWindow::pasteToTrack(QAction* action)
 
 void MainWindow::divChanged(QAction* action)
 {
-    _settings->setValue("get_bpm_ms", MyInstrument::get_bpm_ms());
+    _settings->setValue("Main/get_bpm_ms", MyInstrument::get_bpm_ms());
     mw_matrixWidget->bpm_rhythm_ms = MyInstrument::get_bpm_ms();
     mw_matrixWidget->setDiv(action->data().toInt());
 }
@@ -5304,13 +6041,28 @@ void MainWindow::enableMagnet(bool enable)
 
 void MainWindow::openConfig()
 {
+    if (MidiPlayer::isPlaying() || MidiInput::recording()) {
+
+        stop();
+    }
+
+    if(MidiIn_control)
+        MidiIn_control->hide();
+
 #ifdef ENABLE_REMOTE
     SettingsDialog* d = new SettingsDialog("Settings", _settings, _remoteServer, this);
 #else
     SettingsDialog* d = new SettingsDialog("Settings", _settings, 0, this);
 #endif
-    connect(d, SIGNAL(settingsChanged()), this, SLOT(updateAll()));
+    connect(d, SIGNAL(settingsChanged()), this, SLOT(updateAllTrk()));
     d->show();
+
+    int x = (this->width() - d->width())/2;
+    if(x < 0) x = 0;
+
+    d->move(x, 0);
+
+
 }
 
 void MainWindow::enableMetronome(bool enable)
@@ -5528,6 +6280,13 @@ void MainWindow::updateAll() {
 
 }
 
+void MainWindow::updateAllTrk() {
+
+    editTrack(NewNoteTool::editTrack(), false);
+    updateAll();
+
+}
+
 void MainWindow::tweakTime() {
     delete currentTweakTarget;
     currentTweakTarget = new TimeTweakTarget(this);
@@ -5605,17 +6364,7 @@ void MainWindow::message_timeout(QString title, QString message) {
     delete mb;
 }
 
-
-MidiInControl *MidiIn_control = NULL;
-
 void MainWindow::DMidiInControl() {
-
-    int fl = 0;
-
-    if (!MidiInput::isConnected()) {
-        QMessageBox::information(this, "MIDI In Control", "MIDI In port is not connected");
-        fl = 1;
-    }
 
     if(!MidiIn_control) {
         MidiIn_control = new MidiInControl((QWidget*) this);
@@ -5631,23 +6380,25 @@ void MainWindow::DMidiInControl() {
 
     MidiIn_control->MIDI_INPUT->clear();
 
-    foreach (QString name, MidiInput::inputPorts()) {
-        if(name != MidiInput::inputPort()) continue;
+    foreach (QString name, MidiInput::inputPorts(MidiInControl::cur_pairdev)) {
+        if(name != MidiInput::inputPort(MidiInControl::cur_pairdev)) continue;
         MidiIn_control->MIDI_INPUT->addItem(name);
         break;
     }
-
+/*
     if(fl)
-        MidiIn_control->setDisabled(true);
-    else
-        MidiIn_control->setDisabled(false);
+        MidiIn_control->tabMIDIin1->setDisabled(true);
+    else*/
+        MidiIn_control->tabMIDIin1->setDisabled(false);
 
     MidiIn_control->VST_reset();
+    MidiIn_control->update_win();
 
     MidiIn_control->setModal(false);
     MidiIn_control->show();
     MidiIn_control->raise();
     MidiIn_control->activateWindow();
+    MyVirtualKeyboard::overlap();
     QCoreApplication::processEvents();
 }
 

@@ -48,6 +48,8 @@
 #ifdef USE_FLUIDSYNTH
 #include "../fluid/FluidDialog.h"
 #include "../VST/VST.h"
+#else
+#define DELETE(x) {if(x) delete x; x= NULL;}
 #endif
 
 #include <QList>
@@ -83,6 +85,7 @@ MatrixWidget::MatrixWidget(QWidget* parent)
     note_mouse = 0;
     chan_mouse = 0;
     vel_mouse = 0;
+    trk_mouse = 0;
 
     paint_in_use = false;
     disable_ev = false;
@@ -532,9 +535,21 @@ void MatrixWidget::paintEvent(QPaintEvent* /*event*/)
 
         listAreaSel.clear();
 
+        // other tracks
         for (int i = 0; i < 19; i++) {
-            paintChannel(pixpainter, i);
+            paintChannel(pixpainter, i, 0);
         }
+
+        // current track
+        int ch = NewNoteTool::editChannel();
+
+        for (int i = 0; i < 19; i++) {
+            if(i != ch)
+                paintChannel(pixpainter, i, 1);
+        }
+
+        // current channel
+        paintChannel(pixpainter, ch, 2);
 
         // draw shadow background areas
         pixpainter->setPen(Qt::NoPen);
@@ -806,8 +821,12 @@ void MatrixWidget::paintEvent(QPaintEvent* /*event*/)
 
         static QString note[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
-        QString text = "(" + note[note_mouse %12] + " " + QString::number(note_mouse/12 - 1) + ") " +
-                "ch: " + QString::number(chan_mouse) + " vel: " + QString::number(vel_mouse);
+        QString text;
+
+        if(note_mouse < 128)
+            text = "(" + note[note_mouse %12] + " " + QString::number(note_mouse/12 - 1) + ") " +
+                    "ch: " + QString::number(chan_mouse) + " vel: " + QString::number(vel_mouse) + " track: " + QString::number(trk_mouse);
+        else text = "(event) ch: " + QString::number(chan_mouse)  + " track: " + QString::number(trk_mouse);
         int textlength = QFontMetrics(f2).horizontalAdvance(text);
 
         painter->drawLine(x_mouse, y_mouse, x_mouse, y_mouse - 24);
@@ -829,19 +848,21 @@ void MatrixWidget::paintEvent(QPaintEvent* /*event*/)
     paint_in_use = false;
 }
 
-void MatrixWidget::paintChannel(QPainter* painter, int channel)
+void MatrixWidget::paintChannel(QPainter* painter, int channel, int view)
 {
     // Estwald Visible
     bool chan16hide = false;
     if(!file)
         return;
 
-    if (!file->channel(channel)->visible()) {
-        if(channel != 16)
-            return;
-        else
-            chan16hide = true;
+    if(!file->MultitrackMode && view != 0) // ignore view 1-2
+        return;
+
+    if (channel >= 16 && !file->channel(channel)->visible()) {
+       chan16hide = true;
     }
+
+    int track_index = file->track(NewNoteTool::editTrack())->device_index();
 
     QColor cC = *file->channel(channel)->color();
 
@@ -855,6 +876,20 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
 
         while (it != map->end() && it.key() <= endTick) {
             MidiEvent* event = it.value();
+
+            if (!file->channel(channel)->visible(file->MultitrackMode ? event->track()->device_index() : 0)) {
+                if(channel != 16) {
+                    it++;
+                    continue;
+                }
+            }
+
+            if((!file->MultitrackMode && view != 0) ||
+                    (file->MultitrackMode && ((view == 0 && event->track()->number() == NewNoteTool::editTrack()) ||
+                                              (view != 0 && event->track()->number() != NewNoteTool::editTrack())))) {
+                it++;
+                continue;
+            }
 
             OnEvent* onEvent = dynamic_cast<OnEvent*>(event);
             if(onEvent) {
@@ -952,10 +987,26 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
     // filter events
     QMultiMap<int, MidiEvent*>* map = file->channelEvents(channel);
 
+
     QMap<int, MidiEvent*>::iterator it = map->lowerBound(0/*startTick*/);
     while (it != map->end() && it.key() <= endTick) {
         MidiEvent* event = it.value();
         SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+        if (!file->channel(channel)->visible(file->MultitrackMode ? event->track()->device_index() : 0)) {
+            if(channel != 16) {
+                it++;
+                continue;
+            }
+
+        }
+
+        if((!file->MultitrackMode && view != 0) ||
+                (file->MultitrackMode && ((view == 0 && (event->track()->number() == NewNoteTool::editTrack() || channel == 16)) ||
+                                          (view == 1 && channel != 16 && event->track()->number() != NewNoteTool::editTrack())))) {
+            it++;
+            continue;
+        }
 
         if(sys) {
             QByteArray c = sys->data();
@@ -965,7 +1016,7 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
                 it++; continue;
 #endif
             } else if(chan16hide && c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='W') {
-                if(!file->channel(c[0] & 15)->visible()) {
+                if(!file->channel(c[0] & 15)->visible((c[0]/32) % 3)) {
                     it++; continue;
                 }
             } else if(chan16hide && c[1]== (char) 0x66 && c[2]==(char) 0x66 && (c[3] & 0x70) == 0x70) {
@@ -999,70 +1050,52 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
         }
 
         if(!(event->track()->hidden())) {// draw ctrl lines
-            ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
-            ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
-            PitchBendEvent* pitch = dynamic_cast<PitchBendEvent*>(event);
-            SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
-            TextEvent* text = dynamic_cast<TextEvent*>(event);
 
-            if(chan16hide && !sys) {
-                it++; continue;
-            }
+            if(event->channel() == 16 || !file->MultitrackMode || (file->MultitrackMode
+                                         && (event->track()->number() == NewNoteTool::editTrack()))) {
+
+                ProgChangeEvent* prg = dynamic_cast<ProgChangeEvent*>(event);
+                ControlChangeEvent* ctrl = dynamic_cast<ControlChangeEvent*>(event);
+                PitchBendEvent* pitch = dynamic_cast<PitchBendEvent*>(event);
+                SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+                TextEvent* text = dynamic_cast<TextEvent*>(event);
+
+                if(chan16hide && !sys) {
+                    it++; continue;
+                }
 
 
-            if(!visible_Controlflag) ctrl = NULL;
-            if(!visible_PitchBendflag) pitch = NULL;
-            if(!visible_TimeLineArea3) {prg = NULL; sys = NULL;}
-            if(!visible_TimeLineArea4) text = NULL;
+                if(!visible_Controlflag) ctrl = NULL;
+                if(!visible_PitchBendflag) pitch = NULL;
+                if(!visible_TimeLineArea3) {prg = NULL; sys = NULL;}
+                if(!visible_TimeLineArea4) text = NULL;
 
-            if(text && (text->type() == TextEvent::TEXT ||
-                        text->type() == TextEvent::MARKER ||
-                        text->type() == TextEvent::LYRIK ||
-                        text->type() == TextEvent::TRACKNAME)){
-                int x = xPosOfMs(msOfTick(text->midiTime()));
-                int wd = 16;
-
-                painter->setPen(QPen(QColor(0xf08080), 1, Qt::DashLine));
-                painter->setClipping(false);
-                painter->drawLine(x, 50-24, x, yPosOfLine(event->line()));
-                painter->setPen(Qt::SolidLine);
-
-                if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
-                else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
-
-                painter->setPen(0x804040);
-                painter->setBrush(QColor(0x60C08080));
-                painter->drawRect(x, 50-24, wd, 8);
-                painter->setClipping(true);
-            }
-
-            if(prg){
-                int x = xPosOfMs(msOfTick(prg->midiTime()));
-                int wd = 16;
-
-                painter->setPen(QPen(QColor(0xf08080), 1, Qt::DashLine));
-                painter->setClipping(false);
-                painter->drawLine(x, 50-16, x, yPosOfLine(event->line()));
-                painter->setPen(Qt::SolidLine);
-
-                if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
-                else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
-
-                painter->setPen(0x804040);
-                painter->setBrush(QColor(0xf08080));
-                painter->drawRect(x, 50-16, wd, 8);
-                painter->setClipping(true);
-            }
-
-            if(sys){
-                QByteArray d= sys->data();
-                if((d[0]==(char) 0 || (d[0]==(char) 0x10 && d[3]=='R'))
-                        && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
-                  (d[3]=='R' || (d[3] & 0xF0)==0x70)) {
-                    int x = xPosOfMs(msOfTick(sys->midiTime()));
+                if(text && (text->type() == TextEvent::TEXT ||
+                            text->type() == TextEvent::MARKER ||
+                            text->type() == TextEvent::LYRIK ||
+                            text->type() == TextEvent::TRACKNAME)){
+                    int x = xPosOfMs(msOfTick(text->midiTime()));
                     int wd = 16;
 
-                    painter->setPen(QPen(QColor(0x908090), 1, Qt::DashLine));
+                    painter->setPen(QPen(QColor(0xf08080), 1, Qt::DashLine));
+                    painter->setClipping(false);
+                    painter->drawLine(x, 50-24, x, yPosOfLine(event->line()));
+                    painter->setPen(Qt::SolidLine);
+
+                    if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
+                    else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
+
+                    painter->setPen(0x804040);
+                    painter->setBrush(QColor(0x60C08080));
+                    painter->drawRect(x, 50-24, wd, 8);
+                    painter->setClipping(true);
+                }
+
+                if(prg){
+                    int x = xPosOfMs(msOfTick(prg->midiTime()));
+                    int wd = 16;
+
+                    painter->setPen(QPen(QColor(0xf08080), 1, Qt::DashLine));
                     painter->setClipping(false);
                     painter->drawLine(x, 50-16, x, yPosOfLine(event->line()));
                     painter->setPen(Qt::SolidLine);
@@ -1070,63 +1103,87 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
                     if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
                     else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
 
-                    painter->setPen(0x504050);
-                    painter->setBrush(QColor(0x908090));
+                    painter->setPen(0x804040);
+                    painter->setBrush(QColor(0xf08080));
                     painter->drawRect(x, 50-16, wd, 8);
                     painter->setClipping(true);
-                } else if(d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
-                      d[3]=='W') {
-                      int x = xPosOfMs(msOfTick(sys->midiTime()));
-                      int wd = 16;
+                }
 
-                      painter->setPen(QPen(QColor(0x908090), 1, Qt::DashLine));
-                      painter->setClipping(false);
-                      painter->drawLine(x, 50-16, x, yPosOfLine(event->line()));
-                      painter->setPen(Qt::SolidLine);
+                if(sys){
+                    QByteArray d= sys->data();
 
-                      if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
-                      else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
+                    if(((d[0]==(char) track_index && (d[3] & 0xF0)==0x70) || (d[0]==(char) 0x10 && d[3]=='R'))
+                            && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
+                            (d[3]=='R' || (d[3] & 0xF0)==0x70)) {
+                        int x = xPosOfMs(msOfTick(sys->midiTime()));
+                        int wd = 16;
 
-                      painter->setPen(0x504050);
-                      painter->setBrush(QColor(0x90c0c0));
-                      painter->drawRect(x, 50-16, wd, 8);
-                      painter->setClipping(true);
-                  }
-            }
+                        painter->setPen(QPen(QColor(0x908090), 1, Qt::DashLine));
+                        painter->setClipping(false);
+                        painter->drawLine(x, 50-16, x, yPosOfLine(event->line()));
+                        painter->setPen(Qt::SolidLine);
 
-            if(ctrl && ctrl->control() != 0 && ctrl->control() != 3){
-                int x = xPosOfMs(msOfTick(ctrl->midiTime()));
-                int wd = 16;
+                        if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
+                        else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
 
-                painter->setPen(QPen(QColor(0xff69b4), 1, Qt::DashLine));
-                painter->drawLine(x, 50, x, yPosOfLine(event->line()));
-                painter->setClipping(false);
-                painter->setPen(Qt::SolidLine);
+                        painter->setPen(0x504050);
+                        painter->setBrush(QColor(0x908090));
+                        painter->drawRect(x, 50-16, wd, 8);
+                        painter->setClipping(true);
+                    } else if(d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
+                              d[3]=='W') {
+                        int x = xPosOfMs(msOfTick(sys->midiTime()));
+                        int wd = 16;
 
-                if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
-                else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
-               // painter->fillRect(x, 50-8, wd, 8 , 0xff69b4);
-                painter->setPen(0x803050);
-                painter->setBrush(QColor(0xff69b4));
-                painter->drawRect(x, 50-8, wd, 8);
-                painter->setClipping(true);
-            }
+                        painter->setPen(QPen(QColor(0x908090), 1, Qt::DashLine));
+                        painter->setClipping(false);
+                        painter->drawLine(x, 50-16, x, yPosOfLine(event->line()));
+                        painter->setPen(Qt::SolidLine);
+
+                        if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
+                        else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
+
+                        painter->setPen(0x504050);
+                        painter->setBrush(QColor(0x90c0c0));
+                        painter->drawRect(x, 50-16, wd, 8);
+                        painter->setClipping(true);
+                    }
+                }
+
+                if(ctrl && ctrl->control() != 0 && ctrl->control() != 3){
+                    int x = xPosOfMs(msOfTick(ctrl->midiTime()));
+                    int wd = 16;
+
+                    painter->setPen(QPen(QColor(0xff69b4), 1, Qt::DashLine));
+                    painter->drawLine(x, 50, x, yPosOfLine(event->line()));
+                    painter->setClipping(false);
+                    painter->setPen(Qt::SolidLine);
+
+                    if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
+                    else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
+                    // painter->fillRect(x, 50-8, wd, 8 , 0xff69b4);
+                    painter->setPen(0x803050);
+                    painter->setBrush(QColor(0xff69b4));
+                    painter->drawRect(x, 50-8, wd, 8);
+                    painter->setClipping(true);
+                }
 
 
-            if(pitch){
-                int x = xPosOfMs(msOfTick(pitch->midiTime()));
-                int wd = 16;
+                if(pitch){
+                    int x = xPosOfMs(msOfTick(pitch->midiTime()));
+                    int wd = 16;
 
-                painter->setPen(QPen(QColor(0xff69b4), 1, Qt::DashLine));
-                painter->drawLine(x, 50, x, yPosOfLine(event->line()));
-                painter->setClipping(false);
-                painter->setPen(Qt::SolidLine);
-                if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
-                else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
-                painter->setPen(0x803050);
-                painter->setBrush(QColor(0xff69b4));
-                painter->drawRect(x, 50-8, wd, 8);
-                painter->setClipping(true);
+                    painter->setPen(QPen(QColor(0xff69b4), 1, Qt::DashLine));
+                    painter->drawLine(x, 50, x, yPosOfLine(event->line()));
+                    painter->setClipping(false);
+                    painter->setPen(Qt::SolidLine);
+                    if((x)<lineNameWidth) {wd+=(x)-lineNameWidth;x=lineNameWidth;}
+                    else if((x+8)>this->width()) {wd-=(x+8)-this->width();}
+                    painter->setPen(0x803050);
+                    painter->setBrush(QColor(0xff69b4));
+                    painter->drawRect(x, 50-8, wd, 8);
+                    painter->setClipping(true);
+                }
             }
         }
 
@@ -1150,13 +1207,20 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
             if (onEvent || offEvent) {
 
                 // visual octave correction for notes
-                if(chan_mouse >= 0 && chan_mouse < 16 && OctaveChan_MIDI[channel]) {
-                    line = (127 - line) + OctaveChan_MIDI[channel] * 12;
-                    if(line < 0) line = 0;
-                    if(line > 127) line = 127;
-                    line = 127 - line;
-                    y = yPosOfLine(line);
-                    displaced = 1;
+                if(channel >= 0 && channel < 16 && OctaveChan_MIDI[channel]) {
+                    if((channel == 9 && event->track()->fluid_index() == 0) ||
+                            ((channel == 9 && event->track()->fluid_index() != 0
+                        && MidiOutput::isFluidsynthConnected(event->track()->device_index()) && event->file()->DrumUseCh9))) {
+                        //OctaveChan_MIDI[channel] = 0;
+                        line = event->line();
+                    } else {
+                        line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+                        if(line < 0) line = 0;
+                        if(line > 127) line = 127;
+                        line = 127 - line;
+                        y = yPosOfLine(line);
+                        displaced = 1;
+                    }
                 }
 
                 if (onEvent) {
@@ -1185,17 +1249,31 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
 
 
             if (!(event->track()->hidden())) {
-                if (!_colorsByChannels) {
-                    cC = *event->track()->color();
+
+                if(/*channel == 16 || */!file->MultitrackMode ||
+                        (file->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())) {
+                    // disabled from CUSTOM 11
+                    if (0 && !_colorsByChannels) {
+                        cC = *event->track()->color();
+                    } else
+                        cC = *file->channel(event->channel())->color();
+
+                    cC.setAlpha(255);
+
+                } else {
+                    cC = QColor(0xb0b0b0);
+                    cC.setAlpha(32);
                 }
 
                 if(displaced)
-                    event->draw2(painter, cC, Qt::Dense1Pattern);
+                    event->draw2(painter, cC, Qt::Dense1Pattern, (view == 2));
                 else
-                    event->draw(painter, cC);
+                    event->draw(painter, cC, (view == 2));
 
                 if (Selection::instance()->selectedEvents().contains(event)) {
-                    painter->setPen(Qt::gray);
+                    QColor cs(Qt::gray);
+                    cs.setAlpha(cC.alpha());
+                    painter->setPen(cs);
                     painter->drawLine(lineNameWidth, y, this->width(), y);
                     painter->drawLine(lineNameWidth, y + height, this->width(), y + height);
                     painter->setPen(Qt::black);
@@ -1218,6 +1296,7 @@ void MatrixWidget::paintChannel(QPainter* painter, int channel)
 
 
     }
+
 
 }
 
@@ -1431,6 +1510,7 @@ void MatrixWidget::setFile(MidiFile* f)
     note_mouse = 0;
     chan_mouse = 0;
     vel_mouse = 0;
+    trk_mouse = 0;
 
     startTimeX = 0;
     // Roughly vertically center on Middle C.
@@ -1514,11 +1594,11 @@ void MatrixWidget::mouseMoveEvent(QMouseEvent* event)
         return;
     }
 
-    if (!MidiPlayer::isPlaying() && Tool::currentTool()) {
+    if (!MidiPlayer::isPlaying() && !MidiInput::recording() && Tool::currentTool()) {
         Tool::currentTool()->move(event->x(), event->y());
     }
 
-    if (!MidiPlayer::isPlaying()) {
+    if (!MidiPlayer::isPlaying() && !MidiInput::recording()) {
 
         // get current note to display it
         x_mouse = -1;
@@ -1537,9 +1617,22 @@ void MatrixWidget::mouseMoveEvent(QMouseEvent* event)
                     note_mouse = on->note();
                     chan_mouse = ev->channel();
                     vel_mouse = on->velocity();
+                    trk_mouse = on->track()->number();
                 }
 
-            }
+            } else if(ev->line() > 127 && mouseX >= ev->x() - 2 && mouseX < ev->x() + ev->width() + 2 &&
+                      mouseY >= ev->y() && mouseY <= ev->y() + ev->height()) {
+
+                  if(1) {
+                      x_mouse = ev->x() + ev->width() / 2;
+                      y_mouse = ev->y();
+                      note_mouse = ev->line();
+                      chan_mouse = ev->channel();
+                      vel_mouse = 0;
+                      trk_mouse = ev->track()->number();
+                  }
+
+              }
         }
 
         repaint();
@@ -1618,7 +1711,7 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
     static int _locked = 0;
 
     PaintWidget::mousePressEvent(event);
-    if (!MidiPlayer::isPlaying() && Tool::currentTool() && mouseInRect(ToolArea)) {
+    if (!MidiPlayer::isPlaying() && !MidiInput::recording() && Tool::currentTool() && mouseInRect(ToolArea)) {
         if((event->buttons() == Qt::LeftButton)) {
             if(!clicked) {
                 MatrixWidget::stop_remote_click();
@@ -1706,7 +1799,7 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
         }
     }
 
-    if (enabled && (!MidiPlayer::isPlaying()) && (mouseInRect(PianoArea))) {
+    if (enabled && (!MidiPlayer::isPlaying() && !MidiInput::recording()) && (mouseInRect(PianoArea))) {
         foreach (int key, pianoKeys.keys()) {
             bool inRect = mouseInRect(pianoKeys.value(key));
             if (inRect) {
@@ -1720,15 +1813,20 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
 
 
         }
-    } else if (enabled && (!MidiPlayer::isPlaying()) && mouseInRect(TimeLineArea2)
+    } else if (enabled && (!MidiPlayer::isPlaying() && !MidiInput::recording()) && mouseInRect(TimeLineArea2)
                && event->buttons() == Qt::LeftButton) {
         int tick = file->tick(msOfXPos(mouseX));
         int dtick= file->tick(150); // range
 
         for(int chan = 0; chan < 16; chan++) {
 
-            if(file->channel(chan)->visible())
-                foreach (MidiEvent* event2, file->channel(chan)->eventMap()->values()) {
+            //if(file->channel(chan)->visible())
+            foreach (MidiEvent* event2, file->channel(chan)->eventMap()->values()) {
+                int track_index = file->MultitrackMode ? event2->track()->device_index() : 0;
+
+                if(file->channel(chan)->visible(track_index) && (!file->MultitrackMode || (file->MultitrackMode
+                        && (event2->track()->number() == NewNoteTool::editTrack()))))
+
                     if(event2->midiTime() >= tick - dtick && event2->midiTime() < tick + dtick) {
 
 
@@ -1760,29 +1858,36 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
 
                     }
 
-                }
+            }
         }
 
         if (enabled) {
             update();
         }
         mouseX = mouseY = 0;
-    } else if (enabled && (!MidiPlayer::isPlaying()) && visible_TimeLineArea3 && mouseInRect(TimeLineArea3)
+    } else if (enabled && (!MidiPlayer::isPlaying() && !MidiInput::recording()) && visible_TimeLineArea3 && mouseInRect(TimeLineArea3)
               && event->buttons() == Qt::LeftButton) {
        int tick = file->tick(msOfXPos(mouseX));
        int wtick = file->tick(msOfXPos(mouseX+16))-tick;
        int dtick= file->tick(150);
+
+       int track_index2 = file->track(NewNoteTool::editTrack())->device_index();
 
        foreach (MidiEvent* event2, *(file->eventsBetween(tick-dtick, tick+dtick))) {
 // Estwald Visible
            bool show = true;
            int chan = event2->channel();
 
+            int track_index = file->MultitrackMode ? event2->track()->device_index() : 0;
+            if(!(chan == 16 || !file->MultitrackMode || (file->MultitrackMode
+                                    && (event2->track()->number() == NewNoteTool::editTrack()))))
+                continue;
+
 #ifdef USE_FLUIDSYNTH
-           if(!file->channel(chan)->visible() && chan != 16)
+           if(!file->channel(chan)->visible(track_index) && chan != 16)
                show = false;
 #else
-           if(!file->channel(chan)->visible())
+           if(!file->channel(chan)->visible(track_index))
                show = false;
 #endif
            if(tick>=event2->midiTime() && tick<=(event2->midiTime()+wtick) && show) {
@@ -1804,14 +1909,11 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                                 continue;
                             }
                         } else if(d[1]== (char) 0x66 && d[2]==(char) 0x66 && (d[3] & 0x70) == 0x70) {
-                            if(!file->channel(d[3] & 15)->visible()) {
+                            if(!file->channel(d[3] & 15)->visible(d[0] % 3)) {
                                 continue;
                             }
                         }
                     }
-
-
-                    //
 
 
                     if(d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
@@ -1820,7 +1922,8 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                         VST_proc::VST_LoadParameterStream(sys->save());
                         VST_chan vst(main_widget, d[0], 1);
                        // vst.exec();
-                    } else if((d[0]==(char) 0 || (d[0]==(char) 0x10 && d[3]=='R'))
+                    } else if((((d[0]==(char) track_index2) && (d[3] & 0xF0)==(char) 0x70)
+                               || (d[0]==(char) 0x10 && d[3]=='R'))
                             && d[1]==(char) 0x66 && d[2]==(char) 0x66 &&
                       (d[3]=='R' || (d[3] & 0xF0)==(char) 0x70)) {
 
@@ -1858,7 +1961,7 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
                        }
                    }
                    _cur_edit = event2->midiTime();
-                   InstrumentChooser* d = new InstrumentChooser(file, event2->channel(), this, 1, event2->midiTime(), prg->program(), bank);
+                   InstrumentChooser* d = new InstrumentChooser(file, event2->channel(), event2->track(), this, 1, event2->midiTime(), prg->program(), bank);
                    d->setModal(true);
                    d->exec();
                    delete d;
@@ -1874,7 +1977,7 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
        }
        mouseX = mouseY = 0;
    }
-   if (enabled && (!MidiPlayer::isPlaying()) && visible_TimeLineArea4 && mouseInRect(TimeLineArea4)
+   if (enabled && (!MidiPlayer::isPlaying() && !MidiInput::recording()) && visible_TimeLineArea4 && mouseInRect(TimeLineArea4)
               && event->buttons() == Qt::LeftButton) {
        int tick = file->tick(msOfXPos(mouseX));
        int wtick = file->tick(msOfXPos(mouseX+16))-tick;
@@ -1882,8 +1985,13 @@ void MatrixWidget::mousePressEvent(QMouseEvent* event)
 
        foreach (MidiEvent* event2, *(file->eventsBetween(tick-dtick, tick+dtick))) {
 
+           int track_index = file->MultitrackMode ? event2->track()->device_index() : 0;
+           if(!(!file->MultitrackMode || (file->MultitrackMode
+                                   && (event2->track()->number() == NewNoteTool::editTrack()))))
+               continue;
+
            if(tick>=event2->midiTime() && tick<=(event2->midiTime()+wtick)
-                   && file->channel(event2->channel())->visible()) {
+                   && file->channel(event2->channel())->visible(track_index)) {
 
                TextEvent* text = dynamic_cast<TextEvent*>(event2);
 
@@ -1936,13 +2044,13 @@ void MatrixWidget::mouseReleaseEvent(QMouseEvent* event)
 
     PaintWidget::mouseReleaseEvent(event);
 
-    if (!MidiPlayer::isPlaying() && Tool::currentTool() && mouseInRect(ToolArea)) {
+    if (!MidiPlayer::isPlaying() && !MidiInput::recording() && Tool::currentTool() && mouseInRect(ToolArea)) {
         if (Tool::currentTool()->release()) {
             if (enabled) {
                 update();
             }
         }
-    } else if (!MidiPlayer::isPlaying() && Tool::currentTool()) {
+    } else if (!MidiPlayer::isPlaying() && !MidiInput::recording() && Tool::currentTool()) {
         if (Tool::currentTool()->releaseOnly()) {
             if (enabled) {
                 update();
@@ -2020,10 +2128,16 @@ bool MatrixWidget::eventInWidget(MidiEvent* event)
 
         // visual octave correction for notes
         if(channel >= 0 && channel < 16 && OctaveChan_MIDI[channel]) {
-            line = (127 - line) + OctaveChan_MIDI[channel] * 12;
-            if(line < 0) line = 0;
-            if(line > 127) line = 127;
-            line = 127 - line;
+            if((channel == 9 && event->track()->fluid_index() == 0) ||
+                    ((channel == 9 && event->track()->fluid_index() != 0
+                && MidiOutput::isFluidsynthConnected(event->track()->device_index()) && event->file()->DrumUseCh9))) {
+                line = event->line();
+            } else {
+                line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+                if(line < 0) line = 0;
+                if(line > 127) line = 127;
+                line = 127 - line;
+            }
         }
 
 
@@ -2033,11 +2147,18 @@ bool MatrixWidget::eventInWidget(MidiEvent* event)
         line = on->line();
 
         // visual octave correction for notes
-        if(channel >= 0 && channel < 16  && OctaveChan_MIDI[channel]) {
-            line = (127 - line) + OctaveChan_MIDI[channel] * 12;
-            if(line < 0) line = 0;
-            if(line > 127) line = 127;
-            line = 127 - line;
+        // visual octave correction for notes
+        if(channel >= 0 && channel < 16 && OctaveChan_MIDI[channel]) {
+            if((channel == 9 && event->track()->fluid_index() == 0) ||
+                    ((channel == 9 && event->track()->fluid_index() != 0
+                && MidiOutput::isFluidsynthConnected(event->track()->device_index()) && event->file()->DrumUseCh9))) {
+                line = event->line();
+            } else {
+                line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+                if(line < 0) line = 0;
+                if(line > 127) line = 127;
+                line = 127 - line;
+            }
         }
 
         bool onIn = line >= startLineY && line <= endLineY &&

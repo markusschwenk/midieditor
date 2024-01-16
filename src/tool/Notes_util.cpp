@@ -45,12 +45,12 @@
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
-#include "../MidiEvent/TextEvent.h"
 #include "../MidiEvent/PitchBendEvent.h"
 #include "../MidiEvent/SysExEvent.h"
 
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
+#include "../midi/MidiInControl.h"
 #include "../midi/MidiOutput.h"
 
 #include "../gui/MidiEditorInstrument.h"
@@ -59,6 +59,7 @@
 #ifdef USE_FLUIDSYNTH
 #include "../fluid/fluidsynth_proc.h"
 #include "../fluid/FluidDialog.h"
+#include "../VST/VST.h"
 #endif
 
 extern int _piano_insert_mode;
@@ -180,9 +181,9 @@ void MainWindow::Notes_util(QWidget * _MW) {
 
     MW = _MW;
 
-    pnote3 = _settings->value("pnote3v", 14).toInt();
-    pnote5 = _settings->value("pnote5v", 15).toInt();
-    pnote7 = _settings->value("pnote7v", 16).toInt();
+    pnote3 = _settings->value("Main/pnote3v", 14).toInt();
+    pnote5 = _settings->value("Main/pnote5v", 15).toInt();
+    pnote7 = _settings->value("Main/pnote7v", 16).toInt();
 
 }
 
@@ -197,9 +198,9 @@ void MainWindow::setChordVelocityProp() {
         pnote5 = d->Slider5->value();
         pnote7 = d->Slider7->value();
 
-        _settings->setValue("pnote3v", pnote3);
-        _settings->setValue("pnote5v", pnote5);
-        _settings->setValue("pnote7v", pnote7);
+        _settings->setValue("Main/pnote3v", pnote3);
+        _settings->setValue("Main/pnote5v", pnote5);
+        _settings->setValue("Main/pnote7v", pnote7);
     }
 
     delete d;
@@ -295,34 +296,34 @@ void MainWindow::velocityScale() {
 }
 
 
+#define REM_OVERLAPPEDNOTESCORRECTIONALLTRACKS 0x09
+#define REM_LONGNOTESCORRECTION                0x10
+#define REM_OVERLAPPEDNOTESCORRECTION          0x11
+#define REM_STRETCHNOTES                       0x12
+#define REM_BUILDPOWERCHORD                    0x20
+#define REM_BUILDPOWERCHORDINV                 0x21
+#define REM_BUILDPOWERPOWERCHORD               0x22
 
-#define REM_LONGNOTESCORRECTION        0x10
-#define REM_OVERLAPPEDNOTESCORRECTION  0x11
-#define REM_STRETCHNOTES               0x12
-#define REM_BUILDPOWERCHORD            0x20
-#define REM_BUILDPOWERCHORDINV         0x21
-#define REM_BUILDPOWERPOWERCHORD       0x22
+#define REM_BUILDCMAJORPROG                    0x30
+#define REM_BUILDCMINORPROG                    0x31
+#define REM_BUILDCMAJORINV1PROG                0x32
+#define REM_BUILDCMINORINV1PROG                0x33
+#define REM_BUILDCMAJORINV2PROG                0x34
+#define REM_BUILDCMINORINV2PROG                0x35
 
-#define REM_BUILDCMAJORPROG            0x30
-#define REM_BUILDCMINORPROG            0x31
-#define REM_BUILDCMAJORINV1PROG        0x32
-#define REM_BUILDCMINORINV1PROG        0x33
-#define REM_BUILDCMAJORINV2PROG        0x34
-#define REM_BUILDCMINORINV2PROG        0x35
-
-#define REM_BUILDMAJOR                 0x40
-#define REM_BUILDMINOR                 0x41
-#define REM_BUILDAUG                   0x42
-#define REM_BUILDIS                    0x43
-#define REM_BUILDSEVENTH               0x44
-#define REM_BUILDMAJORSEVENTH          0x45
-#define REM_BUILDMINORSEVENTH          0x46
-#define REM_BUILDMINORSEVENTHMAJOR     0x47
-#define REM_PITCHBEND_EFFECT1          0x60
-#define REM_VOLUMEOFF_EFFECT           0x61
-#define REM_CHOPPY_AUDIO_EFFECT        0x62
-#define REM_MUTE_AUDIO_EFFECT          0x63
-#define REM_CONV_PATTERN_NOTE          0x64
+#define REM_BUILDMAJOR                         0x40
+#define REM_BUILDMINOR                         0x41
+#define REM_BUILDAUG                           0x42
+#define REM_BUILDIS                            0x43
+#define REM_BUILDSEVENTH                       0x44
+#define REM_BUILDMAJORSEVENTH                  0x45
+#define REM_BUILDMINORSEVENTH                  0x46
+#define REM_BUILDMINORSEVENTHMAJOR             0x47
+#define REM_PITCHBEND_EFFECT1                  0x60
+#define REM_VOLUMEOFF_EFFECT                   0x61
+#define REM_CHOPPY_AUDIO_EFFECT                0x62
+#define REM_MUTE_AUDIO_EFFECT                  0x63
+#define REM_CONV_PATTERN_NOTE                  0x64
 
 #define TEST_IFMULTICHAN  0x1
 #define TEST_IFMAXNOTES   0x2
@@ -330,7 +331,6 @@ void MainWindow::velocityScale() {
 
 
 #define TEST_MAX_NOTES    1000
-
 
 #define M_MainThreadProgressDialog(a, b, c) {\
     MainThreadProgressDialog bar(this, QString(a), b, c);\
@@ -343,6 +343,14 @@ void MainWindow::longNotesCorrection() {
                            REM_LONGNOTESCORRECTION, 0);
 
     //NotesCorrection(2);
+}
+
+void MainWindow::overlappedNotesCorrectionAllTracks() {
+
+    M_MainThreadProgressDialog(QString("Overlapped Notes Correction Progress..."),
+                             REM_OVERLAPPEDNOTESCORRECTIONALLTRACKS, 0);
+
+    //NotesCorrection(1);
 }
 
 void MainWindow::overlappedNotesCorrection() {
@@ -591,7 +599,7 @@ MainThreadProgressDialog::MainThreadProgressDialog(MainWindow *parent, QString t
 
     label = new QLabel(PBar);
     label->setObjectName(QString::fromUtf8("label"));
-    label->setGeometry(QRect(100, 50, 221, 21));
+    label->setGeometry(QRect(100, 50, 281, 21));
     label->setAlignment(Qt::AlignCenter);
     label->setText(text);
 
@@ -659,7 +667,7 @@ MainThreadProgressDialog::MainThreadProgressDialog(MainWindow *parent, QString t
 
     mt->index = index;
 
-    connect(mt, SIGNAL(setBar(int)), this, SLOT(setBar(int)));
+    connect(mt, SIGNAL(setBar(int, QString)), this, SLOT(setBar(int, QString)));
     connect(mt, SIGNAL(endBar()), this, SLOT(hide()));
 
     mt->start(QThread::TimeCriticalPriority);
@@ -670,7 +678,7 @@ MainThreadProgressDialog::MainThreadProgressDialog(MainWindow *parent, QString t
 MainThreadProgressDialog::~MainThreadProgressDialog() {
     if(mt) {
 
-        disconnect(mt, SIGNAL(setBar(int)), this, SLOT(setBar(int)));
+        disconnect(mt, SIGNAL(setBar(int, QString)), this, SLOT(setBar(int, QString)));
         disconnect(mt, SIGNAL(endBar()), this, SLOT(hide()));
 
         while(!mt->isFinished()) QThread::msleep(5);
@@ -681,10 +689,12 @@ MainThreadProgressDialog::~MainThreadProgressDialog() {
 
 }
 
-void MainThreadProgressDialog::setBar(int num) {
+void MainThreadProgressDialog::setBar(int num, QString st) {
 
    if(progressBar) {
        progressBar->setValue(num);
+       if(st != "") label->setText(st);
+       //MainWindow::msDelay(1);
    }
 }
 
@@ -692,7 +702,7 @@ void MainThreadProgressDialog::reject() {
 
     if(mt) {
 
-        disconnect(mt, SIGNAL(setBar(int)), this, SLOT(setBar(int)));
+        disconnect(mt, SIGNAL(setBar(int, QString)), this, SLOT(setBar(int, QString)));
         disconnect(mt, SIGNAL(endBar()), this, SLOT(hide()));
 
         while(!mt->isFinished()) QThread::msleep(5);
@@ -724,6 +734,9 @@ void Main_Thread::run()
     switch(index) {
         case -2:
 
+            break;
+        case REM_OVERLAPPEDNOTESCORRECTIONALLTRACKS:
+            NotesCorrection(255);
             break;
         case REM_LONGNOTESCORRECTION:
             NotesCorrection(2);
@@ -841,6 +854,8 @@ void Main_Thread::pitchbend_effect1() {
         return;
     }
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if (Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
@@ -849,7 +864,8 @@ void Main_Thread::pitchbend_effect1() {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
             if(on) {
                 int chan = e->channel();
-                if(chan >= 0 && chan < 16 && chan != 9) {
+                if(chan >= 0 && chan < 16 && chan != 9 && (!MultitrackMode ||
+                                                           (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                     events.append(e);
                 }
             }
@@ -872,7 +888,8 @@ void Main_Thread::pitchbend_effect1() {
         foreach (MidiEvent* e, events) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
-            if (on) {
+            if (on && (!MultitrackMode ||
+                       (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int note = on->note();
                 MidiEvent* off =(MidiEvent* ) on->offEvent();
                 on->setNote(note);
@@ -888,7 +905,8 @@ void Main_Thread::pitchbend_effect1() {
                     // borra eventos repetidos proximos
                     foreach (MidiEvent* event2, *(file->eventsBetween(on->midiTime()-10, off->midiTime()+10))) {
                         PitchBendEvent* toRemove = dynamic_cast<PitchBendEvent*>(event2);
-                        if (toRemove && event2->channel() == e->channel()) {
+                        if (toRemove && event2->channel() == e->channel() && (!MultitrackMode ||
+                                                                              (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                             file->channel(e->channel())->removeEvent(toRemove);
                         }
                     }
@@ -923,15 +941,26 @@ void Main_Thread::volumeoff_effect() {
         return;
     }
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if (Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
 
+        int min_time = 0x7fffffff;
+        int max_time = -0x7fffffff;
+
         foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-            if(on) {
+            if(on /*&& (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))*/) {
                 int chan = e->channel();
                 if(chan >= 0 && chan < 16) {
+                    if(e->midiTime() < min_time)
+                        min_time = e->midiTime();
+                    if(e->midiTime() > max_time)
+                        max_time = e->midiTime();
+
                     events.append(e);
                 }
             }
@@ -949,89 +978,96 @@ void Main_Thread::volumeoff_effect() {
 
         file->protocol()->startNewAction("Volume Off Effect", 0);
 
-        int tick_1 = 999999999, tick_2 = -1;
+        for(int t = 1; t < file->numTracks(); t ++) {
+            int tick_1 = 999999999, tick_2 = -1;
 
-        int chan[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-        MidiTrack* track[16];
+            int chan[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+            MidiTrack* track[32];
 
-        int counter = 0;
-        foreach (MidiEvent* e, events) {
-            NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
+            int counter = 0;
+            foreach (MidiEvent* e,
+                     *(file->eventsBetween(min_time, max_time))) {
+            //foreach (MidiEvent* e, events) {
+                NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
-            if (on) {
-                int note = on->note();
-                MidiEvent* off =(MidiEvent* ) on->offEvent();
-                on->setNote(note);
+                if (on && (!MultitrackMode ||
+                           (MultitrackMode && on->track()->number() == /*NewNoteTool::editTrack()*/t))) {
+                    int note = on->note();
+                    MidiEvent* off =(MidiEvent* ) on->offEvent();
+                    on->setNote(note);
 
-                if((counter % modcount) == 0) {
-                    emit setBar(100 * counter /  max_counter);
-                }
+                    if((counter % modcount) == 0) {
+                        emit setBar(100 * counter /  max_counter);
+                    }
 
-                counter++;
+                    counter++;
 
-                if(on->midiTime() < tick_1) tick_1 = on->midiTime();
+                    if(on->midiTime() < tick_1) tick_1 = on->midiTime();
 
-                int c = on->channel();
-                if(c >= 0 && c < 16) {
-                    chan[c] = 1;
-                    track[c] = e->track();
-                }
+                    int c = on->channel();
+                    if(c >= 0 && c < 16) {
+                        chan[c] = 1;
+                        track[c] = e->track();
+                    }
 
-                if(off){
+                    if(off){
 
-                    if(off->midiTime() > tick_2) tick_2 = off->midiTime();
+                        if(off->midiTime() > tick_2) tick_2 = off->midiTime();
 
+                    }
                 }
             }
-        }
 
-        if(tick_1 != 999999999 && tick_2 != -1) {
+            if(tick_1 != 999999999 && tick_2 != -1) {
 
-            for(int n = 0; n < 16; n++) {
+                for(int n = 0; n < 16; n++) {
 
-                if(chan[n]) {
+                    if(chan[n]) {
 
-                    // remove channel volume events from this interval...
-                    foreach (MidiEvent* event2, *(file->eventsBetween(tick_1-10, tick_2+10))) {
-                        ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
-                        if (toRemove && event2->channel()==n && toRemove->control() == 7) {
-                            file->channel(n)->removeEvent(toRemove);
+                        // remove channel volume events from this interval...
+                        foreach (MidiEvent* event2, *(file->eventsBetween(tick_1-10, tick_2+10))) {
+                            ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
+                            if (toRemove && event2->channel()==n && toRemove->control() == 7 && (!MultitrackMode ||
+                                                                                                 (MultitrackMode && toRemove->track()->number() == t/*NewNoteTool::editTrack()*/))) {
+                                file->channel(n)->removeEvent(toRemove);
+                            }
                         }
-                    }
 
 
-                    // get last value for channel volume
-                    int old_vol = 100;
-                    foreach (MidiEvent* event2, *(file->eventsBetween(0, tick_2+10))) {
-                        ControlChangeEvent* chanVol = dynamic_cast<ControlChangeEvent*>(event2);
-                        if (chanVol && event2->channel()==n && chanVol->control() == 7) {
-                            old_vol = chanVol->value();
+                        // get last value for channel volume
+                        int old_vol = 100;
+                        foreach (MidiEvent* event2, *(file->eventsBetween(0, tick_2+10))) {
+                            ControlChangeEvent* chanVol = dynamic_cast<ControlChangeEvent*>(event2);
+                            if (chanVol && event2->channel()==n && chanVol->control() == 7 && (!MultitrackMode ||
+                                                                                               (MultitrackMode && event2->track()->number() == t/*NewNoteTool::editTrack()*/))) {
+                                old_vol = chanVol->value();
 
+                            }
                         }
+
+                        // progressive decay channel volume
+                        int clicks, nclicks, vol, volstep;
+
+                        nclicks = (tick_2-tick_1)/8;
+                        if(nclicks < 1) nclicks = 1;
+                        volstep = old_vol/8;
+                        if(volstep < 0) volstep = 1;
+
+                        vol = old_vol;
+
+                        for(clicks = tick_1; clicks < tick_2; clicks+= nclicks) {
+
+                            ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, vol, track[n]);
+                            file->channel(n)->insertEvent(Pevent, clicks);
+                            vol -= volstep; if(vol < 0) break;
+                        }
+
+                        // restore channel volume
+
+                        ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, old_vol, track[n]);
+                        file->channel(n)->insertEvent(Pevent, tick_2 + 25);
+
                     }
-
-                    // progressive decay channel volume
-                    int clicks, nclicks, vol, volstep;
-
-                    nclicks = (tick_2-tick_1)/8;
-                    if(nclicks < 1) nclicks = 1;
-                    volstep = old_vol/8;
-                    if(volstep < 0) volstep = 1;
-
-                    vol = old_vol;
-
-                    for(clicks = tick_1; clicks < tick_2; clicks+= nclicks) {
-
-                        ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, vol, track[n]);
-                        file->channel(n)->insertEvent(Pevent, clicks);
-                        vol -= volstep; if(vol < 0) break;
-                    }
-
-                    // restore channel volume
-
-                    ControlChangeEvent* Pevent = new ControlChangeEvent(n, 7, old_vol, track[n]);
-                    file->channel(n)->insertEvent(Pevent, tick_2 + 25);
-
                 }
             }
         }
@@ -1050,13 +1086,16 @@ void Main_Thread::choppy_audio_effect() {
         return;
     }
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if (Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
 
         foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-            if(on) {
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int chan = e->channel();
                 if(chan >= 0 && chan < 16 && chan != 9) {
                     events.append(e);
@@ -1079,13 +1118,14 @@ void Main_Thread::choppy_audio_effect() {
         int tick_1 = 999999999, tick_2 = -1;
 
         int chan[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-        MidiTrack* track[16];
+        MidiTrack* track[32];
 
         int counter = 0;
         foreach (MidiEvent* e, events) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
-            if (on) {
+            if (on && (!MultitrackMode ||
+                       (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int note = on->note();
                 MidiEvent* off =(MidiEvent* ) on->offEvent();
                 on->setNote(note);
@@ -1121,7 +1161,8 @@ void Main_Thread::choppy_audio_effect() {
                     // remove channel volume events from this interval...
                     foreach (MidiEvent* event2, *(file->eventsBetween(tick_1-10, tick_2+10))) {
                         ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
-                        if (toRemove && event2->channel()==n && toRemove->control() == 7) {
+                        if (toRemove && event2->channel()==n && toRemove->control() == 7 && (!MultitrackMode ||
+                                                                                             (MultitrackMode && event2->track()->number() == NewNoteTool::editTrack()))) {
                             file->channel(n)->removeEvent(toRemove);
                         }
                     }
@@ -1131,7 +1172,8 @@ void Main_Thread::choppy_audio_effect() {
                     int old_vol = 100;
                     foreach (MidiEvent* event2, *(file->eventsBetween(0, tick_2+10))) {
                         ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
-                        if (toRemove && event2->channel()==n && toRemove->control() == 7) {
+                        if (toRemove && event2->channel()==n && toRemove->control() == 7 && (!MultitrackMode ||
+                                                                                             (MultitrackMode && event2->track()->number() == NewNoteTool::editTrack()))) {
                             old_vol = toRemove->value();
 
                         }
@@ -1171,13 +1213,16 @@ void Main_Thread::mute_audio_effect() {
         return;
     }
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if (Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
 
         foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-            if(on) {
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int chan = e->channel();
                 if(chan >= 0 && chan < 16 && chan != 9) {
                     events.append(e);
@@ -1201,7 +1246,8 @@ void Main_Thread::mute_audio_effect() {
         foreach (MidiEvent* e, events) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
-            if (on) {
+            if (on && (!MultitrackMode ||
+                       (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int note = on->note();
                 MidiEvent* off =(MidiEvent* ) on->offEvent();
                 on->setNote(note);
@@ -1223,7 +1269,8 @@ void Main_Thread::mute_audio_effect() {
                         int old_vol = 100;
                         foreach (MidiEvent* event2, *(file->eventsBetween(0, tick_1))) {
                             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
-                            if (toRemove && event2->channel() == e->channel() && toRemove->control() == 7) {
+                            if (toRemove && event2->channel() == e->channel() && toRemove->control() == 7 && (!MultitrackMode ||
+                                                                                                              (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                                 if(toRemove->value() != 0) old_vol = toRemove->value();
 
                             }
@@ -1232,7 +1279,8 @@ void Main_Thread::mute_audio_effect() {
                         // remove channel volume events from this interval...
                         foreach (MidiEvent* event2, *(file->eventsBetween(tick_1, tick_2))) {
                             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
-                            if (toRemove && event2->channel()== e->channel() && toRemove->control() == 7) {
+                            if (toRemove && event2->channel()== e->channel() && toRemove->control() == 7 && (!MultitrackMode ||
+                                                                                                             (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                                 file->channel(e->channel())->removeEvent(toRemove);
                             }
                         }
@@ -1265,13 +1313,16 @@ void Main_Thread::conv_pattern_note() {
         return;
     }
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if (Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
 
         foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-            if(on) {
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int chan = e->channel();
                 if(chan >= 0 && chan < 16 && chan != 9) {
                     events.append(e);
@@ -1297,7 +1348,8 @@ void Main_Thread::conv_pattern_note() {
         foreach (MidiEvent* e, events) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
-            if (on) {
+            if (on && (!MultitrackMode ||
+                       (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int note = on->note();
                 MidiEvent* off =(MidiEvent* ) on->offEvent();
                 on->setNote(note);
@@ -1344,11 +1396,19 @@ void Main_Thread::conv_pattern_note() {
 
 void Main_Thread::NotesCorrection(int mode) {
 
+    bool multitrack = false;
+
+    if(mode == 255) {
+        mode = 1;
+        multitrack = true;
+    }
 
     if(mode != 0 && !(Selection::instance()->selectedEvents().size() > 0 && file)) {
         emit endBar();
         return;
     }
+
+    bool MultitrackMode = file->MultitrackMode;
 
     int max_counter = (mode == 0) ? (file->eventsBetween(0, file->endTick()))->count()
                               : Selection::instance()->selectedEvents().count();
@@ -1368,81 +1428,110 @@ void Main_Thread::NotesCorrection(int mode) {
 
     max_counter = 0;
 
-    foreach(MidiEvent* e, (mode == 0) ? *(file->eventsBetween(0, file->endTick())) : Selection::instance()->selectedEvents()) {
-        NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-        if(on) {
-            int chan = e->channel();
-            if(chan >= 0 && chan < 16 && (((mode == 3) && chan != 9) || !((mode == 3) && chan != 9))) { // only notes chans
-                max_counter++;
-                notesListChan[chan].append(e);
+    bool protocol = false;
+
+    for(int t = 0; t < file->numTracks(); t++) {
+
+        for(int n = 0; n < 16; n++)
+            notesListChan[n].clear();
+
+        if((!MultitrackMode || !multitrack) && t != 0)
+            break;
+
+        if(multitrack) {
+
+            max_counter = 0;
+            emit setBar(0, QString::asprintf("Overlapped Notes Correction Progress for Track #%i...", t));
+        }
+
+        foreach(MidiEvent* e, (mode == 0) ? *(file->eventsBetween(0, file->endTick())) : Selection::instance()->selectedEvents()) {
+            NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == (multitrack ? t : NewNoteTool::editTrack())))) {
+                int chan = e->channel();
+                if(chan >= 0 && chan < 16 && (((mode == 3) && chan != 9) || !((mode == 3) && chan != 9))) { // only notes chans
+                    max_counter++;
+                    notesListChan[chan].append(e);
+                }
+            }
+
+            if(!max_counter) {
+                continue;
+                /*emit endBar();
+            return;*/
+            }
+        }
+
+        // qWarning("num. notes %i", max_counter);
+
+        if(!protocol) {
+            if(mode == 3) {
+                protocol = true;
+                file->protocol()->startNewAction("Strech Correction", 0);
+            } else if(mode == 2) {
+                protocol = true;
+                file->protocol()->startNewAction("Long Notes Correction", 0);
+            } else if(mode != 0) {
+                protocol = true;
+                file->protocol()->startNewAction("Overlapped Correction", 0);
+            }
+        }
+
+        int modcount = max_counter / 100;
+        if(modcount < 1) modcount = 1;
+
+        // correction notes in channel
+
+        for(int chan = 0; chan < 16; chan++) {
+            foreach(MidiEvent* e, notesListChan[chan]) {
+                NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
+                if(mode != 0 && (counter % modcount) == 0) {
+                    emit setBar(100 * counter /  max_counter);
+                }
+
+                counter++;
+
+                if (on) {
+                    int offtime = on->offEvent() ? on->offEvent()->midiTime() : on->midiTime();
+                    if(mode == 3) offtime = file->endTick();
+
+                    foreach (MidiEvent* e2, file->channel(chan)->eventMap()->values()) {
+                        NoteOnEvent *on2 = dynamic_cast<NoteOnEvent*>(e2);
+                        if(on && on2 && on != on2 && e->channel() == e2->channel() &&
+                                ((mode != 2 && mode != 3) ? on->note() == on2->note() : 1 == 1)) {
+                            if(MultitrackMode && on->track()->device_index() != on2->track()->device_index())
+                                continue;
+
+                            if(on2->midiTime() >= on->midiTime()
+                                    && on2->midiTime() <= offtime
+                                    && (on2->midiTime() - on->midiTime()) > 2) {
+
+                                if(mode < 2 || ((mode == 2 || mode == 3) && on->note() == on2->note()) ||
+                                        ((mode == 2 || mode == 3) && on->note() != on2->note() &&
+                                         on2->midiTime() > (on->midiTime() + 10) &&
+                                         offtime > on2->midiTime())) {
+
+                                    on->offEvent()->setMidiTime(on2->midiTime() - 2);
+
+                                    offtime = on->offEvent()->midiTime();
+                                }
+
+                            } else if(!Selection::instance()->selectedEvents().contains(on2) &&
+                                      on->note() == on2->note() && // unselected note long overlapped case
+                                      on->midiTime() > on2->midiTime() &&
+                                      on->midiTime() <= on2->offEvent()->midiTime() &&
+                                      (on->midiTime() - on2->midiTime()) > 2) {
+
+                                on2->offEvent()->setMidiTime(on->midiTime() - 2);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
-    if(!max_counter) {
-        emit endBar();
-        return;
-    }
-
-    // qWarning("num. notes %i", max_counter);
-
-    if(mode == 3) file->protocol()->startNewAction("Strech Correction", 0);
-    else if(mode == 2) file->protocol()->startNewAction("Long Notes Correction", 0);
-    else if(mode != 0) file->protocol()->startNewAction("Overlapped Correction", 0);
-
-    int modcount = max_counter / 100;
-    if(modcount < 1) modcount = 1;
-
-    // correction notes in channel
-
-    for(int chan = 0; chan < 16; chan++) {
-        foreach(MidiEvent* e, notesListChan[chan]) {
-             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-             if(mode != 0 && (counter % modcount) == 0) {
-                 emit setBar(100 * counter /  max_counter);
-             }
-
-             counter++;
-
-             if (on) {
-                 int offtime = on->offEvent() ? on->offEvent()->midiTime() : on->midiTime();
-                 if(mode == 3) offtime = file->endTick();
-
-                 foreach (MidiEvent* e2, file->channel(chan)->eventMap()->values()) {
-                     NoteOnEvent *on2 = dynamic_cast<NoteOnEvent*>(e2);
-                     if(on && on2 && on != on2 && e->channel() == e2->channel() &&
-                             ((mode != 2 && mode != 3) ? on->note() == on2->note() : 1 == 1)) {
-
-                         if(on2->midiTime() >= on->midiTime()
-                         && on2->midiTime() <= offtime
-                         && (on2->midiTime() - on->midiTime()) > 2) {
-
-                             if(mode < 2 || ((mode == 2 || mode == 3) && on->note() == on2->note()) ||
-                                     ((mode == 2 || mode == 3) && on->note() != on2->note() &&
-                                      on2->midiTime() > (on->midiTime() + 10) &&
-                                      offtime > on2->midiTime())) {
-
-                                 on->offEvent()->setMidiTime(on2->midiTime() - 2);
-
-                                 offtime = on->offEvent()->midiTime();
-                             }
-
-                         } else if(!Selection::instance()->selectedEvents().contains(on2) &&
-                                   on->note() == on2->note() && // unselected note long overlapped case
-                                   on->midiTime() > on2->midiTime() &&
-                                   on->midiTime() <= on2->offEvent()->midiTime() &&
-                                   (on->midiTime() - on2->midiTime()) > 2) {
-
-                                 on2->offEvent()->setMidiTime(on->midiTime() - 2);
-                         }
-                     }
-                 }
-             }
-        }
-    }
-
-
-    if(mode != 0) {
+    if(protocol) {
         file->protocol()->endAction();
     }
 
@@ -1460,15 +1549,19 @@ void Main_Thread::builddichord(int d3, int d5, int d7) {
         return;
     }
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if(Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
 
         foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-            if(on) {
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int chan = e->channel();
-                if(chan >= 0 && chan < 16 && chan != 9) { // only notes chans
+                if(chan >= 0 && chan < 16 && chan != 9 && (!MultitrackMode ||
+                    (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) { // only notes chans
 
                     events.append(e);
                 }
@@ -1489,7 +1582,6 @@ void Main_Thread::builddichord(int d3, int d5, int d7) {
         int modcount = max_counter / 100;
         if(modcount < 1) modcount = 1;
 
-
         foreach(MidiEvent* e, events) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
@@ -1499,7 +1591,8 @@ void Main_Thread::builddichord(int d3, int d5, int d7) {
 
             counter++;
 
-            if(on) {
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
 
                 int note = on->note();
                 MidiEvent* off =(MidiEvent* ) on->offEvent();
@@ -1552,15 +1645,19 @@ void Main_Thread::buildCMajorProg(int d3, int d5, int d7) {
 
     if (!(Selection::instance()->selectedEvents().size() > 0 && file)) return;
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if (Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
 
         foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-            if(on) {
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int chan = e->channel();
-                if(chan >= 0 && chan < 16 && chan != 9) { // only notes chans
+                if(chan >= 0 && chan < 16 && chan != 9 && (!MultitrackMode ||
+                                                       (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) { // only notes chans
 
                     events.append(e);
                 }
@@ -1572,7 +1669,8 @@ void Main_Thread::buildCMajorProg(int d3, int d5, int d7) {
         foreach (MidiEvent* e, events) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
-            if (on) {
+            if (on && (!MultitrackMode ||
+                       (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int note = on->note();
 
                 MidiEvent* off =(MidiEvent* ) on->offEvent();
@@ -1632,15 +1730,19 @@ void Main_Thread::buildCMinorProg(int d3, int d5, int d7) {
 
     if (!(Selection::instance()->selectedEvents().size() > 0 && file)) return;
 
+    bool MultitrackMode = file->MultitrackMode;
+
     if (Selection::instance()->selectedEvents().size() > 0 && file) {
 
         QList<MidiEvent*> events;
 
         foreach (MidiEvent* e, Selection::instance()->selectedEvents()) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
-            if(on) {
+            if(on && (!MultitrackMode ||
+                      (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int chan = e->channel();
-                if(chan >= 0 && chan < 16 && chan != 9) { // only notes chans
+                if(chan >= 0 && chan < 16 && chan != 9 && (!MultitrackMode ||
+                                                           (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) { // only notes chans
 
                     events.append(e);
                 }
@@ -1652,7 +1754,8 @@ void Main_Thread::buildCMinorProg(int d3, int d5, int d7) {
         foreach (MidiEvent* e, events) {
             NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
 
-            if (on) {
+            if (on && (!MultitrackMode ||
+                       (MultitrackMode && on->track()->number() == NewNoteTool::editTrack()))) {
                 int note = on->note();
                 MidiEvent* off = (MidiEvent* ) on->offEvent();
                 int note1= note / 12 * 12 + chord_notem((note % 12), 1);
@@ -1721,7 +1824,14 @@ void MainWindow::FluidControl(){
         return;
     }
 
-    if(MidiOutput::outputPort()!=FLUID_SYNTH_NAME) {
+    bool is_connected = false;
+
+    for (int n = 0; n < MAX_OUTPUT_DEVICES ; n++)
+        if(MidiOutput::FluidDevice(MidiOutput::outputPort(n)) >= 0) {
+            is_connected = true;
+            break;
+        }
+    if(!is_connected) {
         QMessageBox::information(MW, "Fluid Synth Control", "MIDI port is not Fluid Synth\n(Try MIDI/Settings)");
         return;
     }
@@ -1737,6 +1847,11 @@ void MainWindow::FluidControl(){
     fluid_control->show();
     fluid_control->raise();
     fluid_control->activateWindow();
+
+    if(MidiOutput::file) {
+        emit fluid_control->spinChan->valueChanged(MidiOutput::file->track(NewNoteTool::editTrack())->fluid_index()*16);
+    }
+
     QCoreApplication::processEvents();
 
 }
@@ -1745,7 +1860,7 @@ void MainWindow::FluidSaveAsWav() {
 
     if (!file)
         return;
-    if (MidiPlayer::isPlaying()) return;
+    if (MidiPlayer::isPlaying() || MidiInput::recording()) return;
 
     foreach (QWidget* w, _disableLoading) {
         if(w)
@@ -1793,7 +1908,12 @@ void MainWindow::FluidSaveAsWav() {
     QString oldPath = file->path();
 
     QString path;
-    if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
+
+    if(oldPath.endsWith(".mseq", Qt::CaseInsensitive)) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".mseq", -1, Qt::CaseInsensitive), 20);
+        path +=".mseq";
+    } else if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
         path =  oldPath;
         path.remove(path.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
         path+=".wav";
@@ -1840,7 +1960,7 @@ void MainWindow::FluidSaveAsMp3() {
     if (!file)
         return;
 
-    if (MidiPlayer::isPlaying()) return;
+    if (MidiPlayer::isPlaying() || MidiInput::recording()) return;
 
     foreach (QWidget* w, _disableLoading) {
         if(w)
@@ -1888,7 +2008,12 @@ void MainWindow::FluidSaveAsMp3() {
     QString oldPath = file->path();
 
     QString path;
-    if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
+
+    if(oldPath.endsWith(".mseq", Qt::CaseInsensitive)) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".mseq", -1, Qt::CaseInsensitive), 20);
+        path +=".mseq";
+    } else if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
         path =  oldPath;
         path.remove(path.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
         path+=".mp3";
@@ -2020,7 +2145,7 @@ void MainWindow::FluidSaveAsFlac() {
     if (!file)
         return;
 
-    if (MidiPlayer::isPlaying()) return;
+    if (MidiPlayer::isPlaying() || MidiInput::recording()) return;
 
     foreach (QWidget* w, _disableLoading) {
         if(w)
@@ -2068,7 +2193,12 @@ void MainWindow::FluidSaveAsFlac() {
     QString oldPath = file->path();
 
     QString path;
-    if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
+
+    if(oldPath.endsWith(".mseq", Qt::CaseInsensitive)) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".mseq", -1, Qt::CaseInsensitive), 20);
+        path +=".mseq";
+    } else if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
         path =  oldPath;
         path.remove(path.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
         path+=".flac";
@@ -2174,6 +2304,122 @@ void MainWindow::FluidSaveAsFlac() {
 }
 #endif
 
+void MainWindow::SaveAsMSEQ() {
+
+    if (!file)
+        return;
+
+    if (MidiPlayer::isPlaying() || MidiInput::recording()) return;
+
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(false);
+
+    }
+
+    QString oldPath = file->path();
+
+    int last = oldPath.lastIndexOf("/", -1);
+    int last1 = oldPath.lastIndexOf("\\", -1);
+
+    if(last1 > last)
+        last = last1;
+
+    QSettings *settings = new QSettings(QDir::homePath() + "/Midieditor/settings/sequencer.ini", QSettings::IniFormat);
+
+    QString seqDir = QDir::homePath() + "/Midieditor";
+
+    if(settings) {
+
+        if (settings->value("sequencer_path").toString() != "") {
+            seqDir = settings->value("sequencer_path").toString();
+        }
+    }
+
+    QString seqDirectory = QFileInfo(seqDir).absoluteDir().path() + "/";
+
+    oldPath = oldPath.mid(last + 1);
+
+    QString path;
+    if(oldPath.endsWith(".mseq", Qt::CaseInsensitive)) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".mseq", -1, Qt::CaseInsensitive), 20);
+        path +=".mseq";
+    } else if(oldPath.endsWith(".mid", Qt::CaseInsensitive) || oldPath.endsWith(".midi", Qt::CaseInsensitive)) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".mid", -1, Qt::CaseInsensitive), 20);
+        path +=".mseq";
+    } else if(oldPath.endsWith(".kar", Qt::CaseInsensitive)) {
+        path =  oldPath;
+        path.remove(path.lastIndexOf(".kar", -1, Qt::CaseInsensitive), 20);
+        path+=".mseq";
+    } else path = "default.mseq";
+
+    path = seqDirectory + path;
+
+    bool onlych0 = true;
+
+    QString blabla = "WARNING: The exporting to MSEQ causes the loss of information\n"
+                     "due to compacting the MIDI file. So it is recommended don't export\n"
+                     "directly from an MSEQ file and use a MIDI as source instead. Read below:\n\n"
+                     "MSEQ is a special MIDI ready to be used as an sequencer file.\n\n"
+                     "- Note C3 is the reference note for the sequencer.\n"
+                     "- Only tracks 0 and 1 are used and the rest are ignored.\n"
+                     "- Notes and events are referenced to time tick 0 to avoid time gaps.\n"
+                     "- SysEx and Unknown events are ignored.\n"
+                     "- In 'Only Channel 0' only channel 0 events are exported.\n"
+                     "- In 'Auto Rythm' only channels 0, 1, 2, 3 and 9 (DRUM) are\n"
+                     "exported, which will later be played on channels 12, 13, 14, 15\n"
+                     "and 9 of the device, as a fixed rhythm.\n\n";
+
+    switch (QMessageBox::question(this, "Export to MSEQ file", blabla + "How do you want to export the file " + oldPath + "?", "Basic Sequencer: Only the Channel 0", "'Auto Rythm' Sequencer: Channels 0 to 3 and 9 (DRUM)", "Abort, I don't want to export", 0, 2)) {
+        case 0: {
+            onlych0 = true;
+            break;
+        }
+        case 1: {
+            onlych0 = false;
+            break;
+        }
+        case 2: {
+            // break
+            foreach (QWidget* w, _disableLoading) {
+                if(w)
+                    w->setEnabled(true);
+            }
+            return;
+        }
+    }
+
+    QString savePath = QFileDialog::getSaveFileName(this, "Export MSEQ file",
+                                                    path, "MSEQ Files (*.mseq)");
+    if(savePath.isEmpty()) {
+        foreach (QWidget* w, _disableLoading) {
+            if(w)
+                w->setEnabled(true);
+
+        }
+        return; // canceled
+    }
+
+    seqDirectory = QFileInfo(savePath).absoluteDir().path() + "/";
+    if(settings)
+        settings->setValue("sequencer_path", seqDirectory);
+
+    if(file->saveMSEQ(savePath, onlych0)) {
+
+    } else {
+        QMessageBox::warning(this, "Error", QString("The file could not be exported. Please make sure that the destination directory exists and that you have the correct access rights to write into this directory."));
+    }
+
+    foreach (QWidget* w, _disableLoading) {
+        if(w)
+            w->setEnabled(true);
+
+    }
+}
+
+
 void MainWindow::ImportSF2Names() {
 
 
@@ -2185,10 +2431,10 @@ void MainWindow::ImportSF2Names() {
 
     QString sf2Dir = QDir::rootPath();
 
-    if (_settings->value("sf2_path").toString() != "") {
-        sf2Dir = _settings->value("sf2_path").toString();
+    if (_settings->value("Main/sf2_path").toString() != "") {
+        sf2Dir = _settings->value("Main/sf2_path").toString();
     } else {
-        _settings->setValue("sf2_path", sf2Dir);
+        _settings->setValue("Main/sf2_path", sf2Dir);
     }
 
     QString newPath = QFileDialog::getOpenFileName(this, "Import names from  SF2/SF3 file",
@@ -2207,7 +2453,7 @@ void MainWindow::ImportSF2Names() {
             for(m = 0; m < 128; m++)
                 InstrumentList[n].name[m]="undefined";
         channelWidget->update();
-        _settings->setValue("instrumentList", "");
+        _settings->setValue("Main/instrumentList", "");
 
         return;
     }
@@ -2222,7 +2468,7 @@ void MainWindow::ImportSF2Names() {
         return; // file not found
     }
 
-    _settings->setValue("sf2_path", sf2Dir.toUtf8());
+    _settings->setValue("Main/sf2_path", sf2Dir.toUtf8());
 
 
     itHaveInstrumentList = 0;
@@ -2425,7 +2671,7 @@ save_instrument_list:
         }
     f->close();
 
-    _settings->setValue("instrumentList", newPath);
+    _settings->setValue("Main/instrumentList", newPath);
 
     channelWidget->update();
 
@@ -2433,6 +2679,26 @@ save_instrument_list:
 
 }
 
+void MainWindow::VirtualKeyboard()
+{
+    if(!MyVirtualDev) {
+        MyVirtualDev = new MyVirtualKeyboard(MW, mw_matrixWidget, file);
+    }
+
+    if(!MyVirtualDev) return;
+
+    int x = (this->width() - MyVirtualDev->width())/2;
+    if(x < 0) x = 0;
+
+    MyVirtualDev->move(x, 200);
+
+    MyVirtualDev->setModal(false);
+    MyVirtualDev->show();
+    MyVirtualDev->raise();
+    MyVirtualDev->activateWindow();
+    QCoreApplication::processEvents();
+
+}
 
 void MainWindow::PianoPlay()
 {
@@ -2460,7 +2726,7 @@ void MainWindow::DrumPlay()
 void MainWindow::DrumRhythmBox()
 {
     if(!Play_Thread::rhythmThread) { // create thread to play from rhythm box
-        Play_Thread::rhythmThread = new Play_Thread();
+        Play_Thread::rhythmThread = new Play_Thread(getFile());
         if(!Play_Thread::rhythmThread) return;
         Play_Thread::rhythmThread->start(QThread::HighPriority); // TimeCriticalPriority
     }
@@ -2507,15 +2773,24 @@ void MainWindow::midi_marker_edit() {
 
 void MainWindow::finger_pattern() {
 
-    FingerPatternDialog* d = new FingerPatternDialog(this, _settings);
+    if(FingerPatternWin)
+        delete FingerPatternWin;
 
-    d->exec();
-    delete d;
+    FingerPatternWin =  new FingerPatternDialog(this, _settings, MidiInControl::cur_pairdev);
+
+    FingerPatternWin->setModal(false);
+    FingerPatternWin->show();
+    FingerPatternWin->raise();
+    FingerPatternWin->activateWindow();
+    MyVirtualKeyboard::overlap();
+    QCoreApplication::processEvents();
+
 }
 
 void MainWindow::check_overlapped_notes() {
 
     bool use_protocol = false;
+    bool MultitrackMode = file->MultitrackMode;
 
     foreach(MidiEvent* e, *(file->eventsBetween(0, file->endTick()))) {
         NoteOnEvent *on = dynamic_cast<NoteOnEvent*>(e);
@@ -2527,9 +2802,11 @@ void MainWindow::check_overlapped_notes() {
             if(chan >= 0 && chan < 16) { // only notes chans
                 int offtime = on->offEvent() ? on->offEvent()->midiTime() : on->midiTime();
                 foreach(MidiEvent* e2, *file->channel(chan)->eventMap()) {
-                    NoteOnEvent *on2 = dynamic_cast<NoteOnEvent*>(e2);
+                    NoteOnEvent *on2 = dynamic_cast<NoteOnEvent*>(e2);    
 
                     if(on && on2 && on != on2) {
+                        if(MultitrackMode && on->track()->device_index() != on2->track()->device_index())
+                            continue;
                         if(on2->midiTime() >= on->midiTime()
                                 && on2->midiTime() <= offtime
                                 && (on2->midiTime() - on->midiTime()) > 2
@@ -2559,7 +2836,7 @@ void MainWindow::check_overlapped_notes() {
         switch (QMessageBox::question(this, "MidiEditor", "Midieditor has detected overlapping notes in the file\nthat affects the currently selected notes\nOverlapped Notes Correction?", "Apply correction", "Don't do anything", QString(), 0, 1)) {
 
             case 0: {
-                overlappedNotesCorrection();
+                overlappedNotesCorrectionAllTracks();
                 break;
             }
             case 1: {
@@ -2776,25 +3053,25 @@ void MainWindow::sysExChecker(MidiFile* mf) {
 
     // preset datas
     float synth_gain;
-    int synth_chanvolume[16];
-    int audio_changain[16];
-    int audio_chanbalance[16];
+    int synth_chanvolume[SYNTH_CHANS];
+    int audio_changain[SYNTH_CHANS];
+    int audio_chanbalance[SYNTH_CHANS];
 
-    bool filter_dist_on[16];
-    float filter_dist_gain[16];
+    bool filter_dist_on[SYNTH_CHANS];
+    float filter_dist_gain[SYNTH_CHANS];
 
-    bool filter_locut_on[16];
-    float filter_locut_freq[16];
-    float filter_locut_gain[16];
-    float filter_locut_res[16];
+    bool filter_locut_on[SYNTH_CHANS];
+    float filter_locut_freq[SYNTH_CHANS];
+    float filter_locut_gain[SYNTH_CHANS];
+    float filter_locut_res[SYNTH_CHANS];
 
-    bool filter_hicut_on[16];
-    float filter_hicut_freq[16];
-    float filter_hicut_gain[16];
-    float filter_hicut_res[16];
+    bool filter_hicut_on[SYNTH_CHANS];
+    float filter_hicut_freq[SYNTH_CHANS];
+    float filter_hicut_gain[SYNTH_CHANS];
+    float filter_hicut_res[SYNTH_CHANS];
 
-    float level_WaveModulator[16];
-    float freq_WaveModulator[16];
+    float level_WaveModulator[SYNTH_CHANS];
+    float freq_WaveModulator[SYNTH_CHANS];
 
     // deletes old sysEx methods
     foreach (MidiEvent* event, mf->channel(16)->eventMap()->values()) {
@@ -2804,7 +3081,7 @@ void MainWindow::sysExChecker(MidiFile* mf) {
             synth_gain = 1.0;
 
             // initialize values
-            for(int n = 0; n < 16; n++) {
+            for(int n = 0; n < SYNTH_CHANS; n++) {
                 synth_chanvolume[n] = 127; // initialize expresion
                 audio_chanbalance[n] = 0;
                 audio_changain[n] = 0;

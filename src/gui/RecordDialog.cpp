@@ -69,7 +69,7 @@ RecordDialog::RecordDialog(MidiFile* file, QMultiMap<int, MidiEvent*> data, QSet
         _trackBox->addItem("Track " + QString::number(i) + ": " + _file->track(i)->name());
     }
     layout->addWidget(_trackBox, 1, 1, 1, 3);
-    int oldTrack = _settings->value("record_track_index", 0).toInt();
+    int oldTrack = _settings->value("Main/record_track_index", 0).toInt();
     if (oldTrack >= file->numTracks() + 1) {
         oldTrack = 0;
     }
@@ -85,10 +85,17 @@ RecordDialog::RecordDialog(MidiFile* file, QMultiMap<int, MidiEvent*> data, QSet
         _channelBox->addItem("Channel " + QString::number(i));
     }
 
-    if(MidiInControl::split_enable())
+    bool split = false;
+
+    for(int pairdev = 0; pairdev < MAX_INPUT_PAIR; pairdev++) {
+        if(MidiInControl::split_enable(pairdev))
+            split = true;
+    }
+
+    if(split)
         _channelBox->setCurrentIndex(1);
     else
-        _channelBox->setCurrentIndex(_settings->value("record_channel_index", 0).toInt());
+        _channelBox->setCurrentIndex(_settings->value("Main/record_channel_index", 0).toInt());
 
     layout->addWidget(_channelBox, 2, 1, 1, 3);
 
@@ -146,8 +153,8 @@ void RecordDialog::enter()
     if (!track) {
         track = _file->tracks()->last();
     }
-    _settings->setValue("record_channel_index", _channelBox->currentIndex());
-    _settings->setValue("record_track_index", _trackBox->currentIndex());
+    _settings->setValue("Main/record_channel_index", _channelBox->currentIndex());
+    _settings->setValue("Main/record_track_index", _trackBox->currentIndex());
 
     // ignore events
     QList<int> ignoredLines;

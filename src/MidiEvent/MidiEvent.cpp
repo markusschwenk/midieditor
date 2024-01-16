@@ -59,6 +59,7 @@ MidiEvent::MidiEvent(MidiEvent& other)
     numChannel = other.numChannel;
     timePos = other.timePos;
     midiFile = other.midiFile;
+    midi_modified = other.midi_modified;
 }
 
 MidiEvent::~MidiEvent() {
@@ -629,20 +630,60 @@ int MidiEvent::line()
     return 0;
 }
 
-void MidiEvent::draw(QPainter* p, QColor c)
+void MidiEvent::draw(QPainter* p, QColor c, int mode)
 {
-    p->setPen(Qt::gray);
+    if(mode & 1)
+        p->setPen(QPen(Qt::black, 2, Qt::SolidLine));
+    else
+        p->setPen(Qt::gray);
+
     p->setBrush(c);
-    p->drawRoundedRect(x(), y(), width(), height(), 1, 1);
+    p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+
+    if(c.alpha() == 255) {
+
+        QLinearGradient linearGrad(QPointF(x(), y()), QPointF(x() + width(), y() + height()));
+        linearGrad.setColorAt(0, QColor(80, 80, 80, 0x40));
+        linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+        linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+
+        QBrush d(linearGrad);
+        p->setBrush(d);
+        p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+    }
+
+
 }
 
-
-void MidiEvent::draw2(QPainter* p, QColor c, Qt::BrushStyle bs)
+void MidiEvent::draw2(QPainter* p, QColor c, Qt::BrushStyle bs, int mode)
 {
-    p->setPen(Qt::gray);
+    if(mode & 1)
+        p->setPen(QPen(Qt::black, 2, Qt::SolidLine));
+    else
+        p->setPen(Qt::gray);
+
     QBrush d(c, bs);
+
+    if(c.alpha() == 255) {
+        p->setBrush(QColor(0, 0, 0, c.alpha()));
+        p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+    }
+
     p->setBrush(d);
-    p->drawRoundedRect(x(), y(), width(), height(), 1, 1);
+    p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+
+    if(c.alpha() == 255) {
+
+        QLinearGradient linearGrad(QPointF(x(), y()), QPointF(x() + width(), y() + height()));
+        linearGrad.setColorAt(0, QColor(80, 80, 80, 0x40));
+        linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+        linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+
+        QBrush d(linearGrad);
+        p->setBrush(d);
+        p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+    }
+
 }
 
 ProtocolEntry* MidiEvent::copy()
@@ -670,6 +711,7 @@ void MidiEvent::reloadState(ProtocolEntry* entry)
     else
         file()->channelEvents(numChannel)->insert(timePos, this);
     midiFile = other->midiFile;
+    midi_modified = other->midi_modified;
 
 }
 

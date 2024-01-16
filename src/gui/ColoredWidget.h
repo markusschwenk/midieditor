@@ -4,6 +4,9 @@
 #include <QWidget>
 #include <QColor>
 
+#undef CUSTOM_MIDIEDITOR_GUI
+#define CUSTOM_MIDIEDITOR_GUI "By Estwald"
+
 class ColoredWidget : public QWidget {
 
     Q_OBJECT

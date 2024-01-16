@@ -73,8 +73,8 @@ public:
     virtual int line();
     virtual QString toMessage();
     virtual QByteArray save();
-    virtual void draw(QPainter* p, QColor c);
-    virtual void draw2(QPainter* p, QColor c, Qt::BrushStyle bs);
+    virtual void draw(QPainter* p, QColor c, int mode = 0);
+    virtual void draw2(QPainter* p, QColor c, Qt::BrushStyle bs, int mode = 0);
     virtual ProtocolEntry* copy();
     virtual void reloadState(ProtocolEntry* entry);
 
@@ -88,6 +88,7 @@ public:
     int temporaryRecordID();
 
     virtual void moveToChannel(int channel);
+    int temp_track_index;
 
 protected:
     int numChannel, timePos;

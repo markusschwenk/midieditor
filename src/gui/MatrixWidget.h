@@ -34,8 +34,11 @@
 #include <QTextCodec>
 #include "../tool/EventMoveTool.h"
 
-#ifndef CUSTOM_MIDIEDITOR_GUI
+#undef CUSTOM_MIDIEDITOR_GUI
+#define CUSTOM_MIDIEDITOR_GUI "By Estwald"
 
+#ifndef CUSTOM_MIDIEDITOR_GUI
+#undef COLOR_BACKGROUND
 #define COLOR_BACKGROUND   QApplication::palette().window()
 #define COLOR_PIANO_LINES1 QColor(194, 230, 255)
 #define COLOR_PIANO_LINES2 QColor(234, 246, 255)
@@ -51,6 +54,7 @@
 #define COLOR_PIANO_LINES1 QColor(0xe0f0d0)
 #define COLOR_PIANO_LINES2 QColor(234, 246, 255)
 #define COLOR_PIANO_NOTE   QColor(0xffffe0)
+#undef COLOR_BACKGROUND
 #define COLOR_BACKGROUND   background3 //QColor(0xf03030)
 #define COLOR_VEL_RASTER   Qt::darkGray
 #define COLOR_BACK_RASTER  QColor(0xe0e0f0)
@@ -109,6 +113,13 @@ public:
 
     bool disable_ev;
 
+    void DeletePixmap() {
+
+        delete pixmap;
+        pixmap = NULL;
+
+    }
+
 public slots:
     void remote_click();
     void scrollXChanged(int scrollPositionX);
@@ -148,7 +159,7 @@ protected:
 
 private:
     bool paint_in_use;
-    void paintChannel(QPainter* painter, int channel);
+    void paintChannel(QPainter* painter, int channel, int view = 0);
     void paintPianoKey(QPainter* painter, int number, int x, int y,
         int width, int height);
 
@@ -167,6 +178,7 @@ private:
     int note_mouse;
     int chan_mouse;
     int vel_mouse;
+    int trk_mouse;
 
 
     // pixmap is the painted widget (without tools and cursorLines).

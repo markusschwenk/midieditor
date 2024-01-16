@@ -27,6 +27,7 @@ OnEvent::OnEvent(int ch, MidiTrack* track)
     : MidiEvent(ch, track)
 {
     _offEvent = 0;
+    midi_modified = false;
 
     return;
 }
@@ -35,6 +36,7 @@ OnEvent::OnEvent(OnEvent& other)
     : MidiEvent(other)
 {
     _offEvent = other._offEvent;
+    midi_modified = other.midi_modified;
     return;
 }
 
@@ -62,6 +64,7 @@ void OnEvent::reloadState(ProtocolEntry* entry)
     }
     MidiEvent::reloadState(entry);
     _offEvent = other->_offEvent;
+    midi_modified = other->midi_modified;
 }
 
 QByteArray OnEvent::saveOffEvent()

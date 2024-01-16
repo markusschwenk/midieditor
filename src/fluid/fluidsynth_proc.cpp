@@ -20,17 +20,15 @@
  */
 
 #ifdef USE_FLUIDSYNTH
-
 #include "fluidsynth_proc.h"
 #include "../VST/VST.h"
-//#include "../fluid/FluidDialog.h"
-#include "../MidiEvent/TempoChangeEvent.h"
-#include "../MidiEvent/TimeSignatureEvent.h"
 #include "../MidiEvent/SysExEvent.h"
 #include "../MidiEvent/OffEvent.h"
-#include "../midi/MidiChannel.h"
-#include "../midi/MidiInControl.h"
+#include "../MidiEvent/ProgChangeEvent.h"
+#include "../MidiEvent/ControlChangeEvent.h"
 #include "../midi/MidiOutput.h"
+#include "../midi/MidiTrack.h"
+#include "../midi/MidiPlayer.h"
 
 #include "math.h"
 
@@ -111,6 +109,20 @@ static int handle_midi_event(void* /*data*/, fluid_midi_event_t* event)
 
 int addInstrumentNamesFromSF2(const char *filename);
 
+MidiFile* fluidsynth_proc::_file = NULL;
+
+void fluidsynth_proc::forceDrum(bool force) {
+
+    if(force) {
+        fluid_synth_set_channel_type(synth, 16 + 9, CHANNEL_TYPE_DRUM);
+        fluid_synth_set_channel_type(synth, 32 + 9, CHANNEL_TYPE_DRUM);
+    } else {
+        fluid_synth_set_channel_type(synth, 16 + 9, CHANNEL_TYPE_MELODIC);
+        fluid_synth_set_channel_type(synth, 32 + 9, CHANNEL_TYPE_MELODIC);
+    }
+
+}
+
 int fluidsynth_proc::change_synth(int freq, int flag) {
 
     int disabled = 0;
@@ -125,7 +137,7 @@ int fluidsynth_proc::change_synth(int freq, int flag) {
 
     if(id >= 0 && synth) {
         //fluid_synth_program_reset(synth);
-        for(int n = 0; n < 16; n++)
+        for(int n = 0; n < 48; n++)
             fluid_synth_unset_program(synth, n);
 
         MSG_OUT("unloading the soundfont %i\n", id);
@@ -145,9 +157,10 @@ int fluidsynth_proc::change_synth(int freq, int flag) {
     settings = new_fluid_settings();
     if(settings) {
         fluid_settings_setnum(settings, "synth.gain", synth_gain);
-        fluid_settings_setint(settings, "synth.audio-channels", 16);
-        fluid_settings_setint(settings, "synth.audio-groups", 16);
-        fluid_settings_setint(settings, "synth.effects-groups", 16);
+        fluid_settings_setint(settings, "synth.audio-channels", SYNTH_CHANS);
+        fluid_settings_setint(settings, "synth.audio-groups", SYNTH_CHANS);
+        fluid_settings_setint(settings, "synth.effects-groups", SYNTH_CHANS);
+        fluid_settings_setint(settings, "synth.midi-channels", SYNTH_CHANS);
         fluid_settings_setint(settings, "synth.chorus.active", 1);
         fluid_settings_setint(settings, "synth.reverb.active", 1);
         fluid_settings_setnum(settings, "synth.sample-rate", freq);
@@ -193,10 +206,10 @@ int fluidsynth_proc::change_synth(int freq, int flag) {
         status_fluid_err = 1; disabled = 1;
         set_error(666, "FATAL ERROR: error in new_fluid_settings()");
     }
-
+//sasa
     if(!disabled && flag == 1) {
         //qWarning("send volume...\n");
-        for(int n=0; n < 16; n++) {
+        for(int n=0; n < SYNTH_CHANS; n++) {
             fluid_synth_cc(synth, n , 11, synth_chanvolume[n]);
         }
     }
@@ -239,7 +252,6 @@ fluidsynth_proc::fluidsynth_proc()
     settings = NULL;
     synth = NULL;
     adriver =  NULL;
-    use_fluidsynt = true;
     _bar = NULL;
     sf2_id = -1;
     mdriver = NULL;
@@ -256,8 +268,9 @@ fluidsynth_proc::fluidsynth_proc()
 
     fluid_set_log_function(FLUID_WARN, 	(fluid_log_function_t )fluid_log_function, NULL);
 
-    fluid_settings = new QSettings(QString("Fluid_MidiEditor"), QString("NONE"));
-
+    //fluid_settings = new QSettings(QString("Fluid_MidiEditor"), QString("NONE"));
+    fluid_settings = new QSettings(QDir::homePath() + "/Midieditor/settings/FluidMidiEditor.ini", QSettings::IniFormat);
+    //qWarning("home %s", QDir::homePath().toLocal8Bit().constData());
     fluid_settings->setValue("mp3_title", "");
     //fluid_settings->setValue("mp3_artist", "");
     fluid_settings->setValue("mp3_album", "");
@@ -284,7 +297,7 @@ fluidsynth_proc::fluidsynth_proc()
 
     synth_gain = 1.0;
 
-    for(int n = 0; n < 16; n++) {
+    for(int n = 0; n < SYNTH_CHANS; n++) {
         synth_chanvolume[n] = 127; // initialize expresion
         audio_chanbalance[n] = 0;
         audio_changain[n] = 0;
@@ -411,7 +424,7 @@ fluidsynth_proc::fluidsynth_proc()
     if(!disabled) {
         status_fluid_err = 0;
 
-        for(int n = 0; n < 16; n++) {
+        for(int n = 0; n < SYNTH_CHANS; n++) {
             if(!disabled) fluid_synth_cc(synth, n , 11, synth_chanvolume[n]);         
         }
 
@@ -452,6 +465,7 @@ fluidsynth_proc::fluidsynth_proc()
        // status_fluid_err = 1;
        // set_error(666, "FATAL ERROR: error in new_fluid_settings()"); return;
     }
+
 }
 
 int fluidsynth_proc::MIDIconnect(int on) {
@@ -471,7 +485,7 @@ void fluidsynth_proc::MidiClean()
     a.clear();
     a.append((char) 0);
     a.append((char) 0);
-    SendMIDIEvent(a);
+    SendMIDIEvent(a, 0);
 }
 
 fluidsynth_proc::~fluidsynth_proc()
@@ -543,11 +557,13 @@ void fluidsynth_proc::set_error(int level, const char * err) {
 }
 
 int strange = 0;
-
-int fluidsynth_proc::SendMIDIEvent(QByteArray array)
+//sasa
+int fluidsynth_proc::SendMIDIEvent(QByteArray array, int track)
 {
     int type= array[0] & 0xf0;
     int channel = array[0] & 0xf;
+    int desp_channel = track * 16;
+    int desp_channelVST = track * 32;
     int ret = 0;
 
     if(block_midi_events)
@@ -561,42 +577,77 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
         case 0x90: // note on
 
-            isNoteOn[channel] = 4;
+            isNoteOn[channel + desp_channel] = 4;
             ret = 0;
-
+#ifdef ONLY9
+            if(channel == 9 && _file->DrumUseCh9) { // drum for fluidsynth
+                desp_channel = 0;
+                desp_channelVST = 0;
+            }
+#endif
             if(strange) array[1] = array[1]/3 * 3 + 3 - (array[1] % 3);
 
-            if(VST_proc::VST_isMIDI(channel) && mixer) VST_proc::VST_MIDIcmd(channel,
-                                                            ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) / 1000
-                                                            , array);
 
-            ret = fluid_synth_noteon(synth, channel, array[1], array[2]);
+            if(VST_proc::VST_isMIDI(channel + desp_channelVST) && mixer)
+                VST_proc::VST_MIDIcmd(channel + desp_channelVST,
+                                      ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) / 1000
+                                      , array);
+
+            ret = fluid_synth_noteon(synth, channel + desp_channel, array[1], array[2]);
             break;
 
         case 0x80: // note off
 
+#ifdef ONLY9
+            if(channel == 9 && _file->DrumUseCh9) {// drum for fluidsynth
+                desp_channel = 0;
+                desp_channelVST = 0;
+            }
+#endif
+
             ret = 0;
 
             if(strange) array[1] = array[1]/3 * 3 + 3 - (array[1] % 3);
 
-            if(VST_proc::VST_isMIDI(channel) && mixer) VST_proc::VST_MIDIcmd(channel,
-                                                            ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) /1000
-                                                            , array);
+            if(VST_proc::VST_isMIDI(channel + desp_channelVST) && mixer)
+                VST_proc::VST_MIDIcmd(channel + desp_channelVST,
+                                      ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) /1000
+                                      , array);
 
-            ret = fluid_synth_noteoff(synth, channel, array[1]);
+            ret = fluid_synth_noteoff(synth, channel + desp_channel, array[1]);
             break;
 
     case 0xB0: // control
+
+        if(VST_proc::VST_isMIDI(channel + desp_channelVST) && mixer) {
+
+            if((unsigned) array[1] == 3)  //ignore displace notes
+                return 0;
+            else if((unsigned) array[1] == 7) { // change volume of channel
+
+                VST_proc::VST_MIDIvol(channel + desp_channelVST, array[2]);
+                return 0;
+            } else if((unsigned) array[1] >= 20 && (unsigned) array[1] <= 31) {
+
+            } else VST_proc::VST_MIDIcmd(channel + desp_channelVST,
+                                  ((time_frame.msecsSinceStartOfDay() - frames) *  _sample_rate) / 1000
+                                  , array);
+        }
+
         if((unsigned) array[1] == 3)  //ignore displace notes
             return 0;
-        else if((unsigned) array[1] == 11)  //ignore song expresion
-            array[2]= synth_chanvolume[channel];
+        else if((unsigned) array[1] == 7) { // change volume of channel
+
+            VST_proc::VST_MIDIvol(channel + desp_channelVST, array[2]);
+
+        } else if((unsigned) array[1] == 11)  //ignore song expresion
+            array[2]= synth_chanvolume[channel + desp_channel];
 
         else if((unsigned) array[1] == 121) {
 
-            fluid_synth_cc(synth, channel, array[1], array[2]);
+            fluid_synth_cc(synth, channel + desp_channel, array[1], array[2]);
             array[1] = 11; // set expresion
-            array[2] = synth_chanvolume[channel];
+            array[2] = synth_chanvolume[channel + desp_channel];
 
         } else if((unsigned) array[1] == 124) // omni off skip
             return 0;
@@ -605,37 +656,37 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
         else if((unsigned) array[1] == 20) { // change volume of channel
 
-            synth_chanvolume[channel] = array[2];
-            setSynthChanVolume(channel, synth_chanvolume[channel]);
+            synth_chanvolume[channel + desp_channel] = array[2];
+            setSynthChanVolume(channel + desp_channel, synth_chanvolume[channel + desp_channel]);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeVolBalanceGain(channel | (1<<4), getSynthChanVolume(channel) * 100 / 127,
-                                          getAudioBalance(channel), getAudioGain(channel));
+                emit changeVolBalanceGain((channel + desp_channel) | (1<<6), getSynthChanVolume(channel + desp_channel) * 100 / 127,
+                                          getAudioBalance(channel + desp_channel), getAudioGain(channel + desp_channel));
             }
 
             return 0;
 
         } else if((unsigned) array[1] == 21) { // change balance of channel
 
-            audio_chanbalance[channel] = array[2] * 200 / 127 - 100;
+            audio_chanbalance[channel + desp_channel] = array[2] * 200 / 127 - 100;
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeVolBalanceGain(channel | (2<<4), getSynthChanVolume(channel)* 100 / 127,
-                                          getAudioBalance(channel), getAudioGain(channel));
+                emit changeVolBalanceGain((channel + desp_channel) | (2<<6), getSynthChanVolume(channel + desp_channel)* 100 / 127,
+                                          getAudioBalance(channel + desp_channel), getAudioGain(channel + desp_channel));
             }
 
             return 0;
 
         } else if((unsigned) array[1] == 22) { // change gain  of channel
 
-            audio_changain[channel] = array[2] * 2000 / 127 - 1000;
+            audio_changain[channel + desp_channel] = array[2] * 2000 / 127 - 1000;
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeVolBalanceGain(channel | (3<<4), getSynthChanVolume(channel)* 100 / 127,
-                                          getAudioBalance(channel), getAudioGain(channel));
+                emit changeVolBalanceGain((channel + desp_channel)| (3<<6), getSynthChanVolume(channel + desp_channel)* 100 / 127,
+                                          getAudioBalance(channel + desp_channel), getAudioGain(channel + desp_channel));
             }
 
             return 0;
@@ -644,11 +695,11 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
             int gain = (unsigned) array[2] * 300 / 127;
 
-            fluid_output->setAudioDistortionFilter( (gain > 0), channel, gain);
+            fluid_output->setAudioDistortionFilter( (gain > 0), channel + desp_channel, gain);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeFilterValue(0, channel);
+                emit changeFilterValue(0, channel + desp_channel);
             }
 
             return 0;
@@ -657,15 +708,15 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
             int gain = (unsigned) array[2] * 200 / 127;
 
-            //gain = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
-            int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
-            int res = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+            //gain = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_GAIN);
+            int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_FREQ);
+            int res = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_RES);
 
-            setAudioLowPassFilter((gain > 0), channel, freq, gain, res);
+            setAudioLowPassFilter((gain > 0), channel + desp_channel, freq, gain, res);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeFilterValue(1, channel);
+                emit changeFilterValue(1, channel + desp_channel);
             }
 
             return 0;
@@ -674,15 +725,15 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
             int freq = 50 + ((unsigned) array[2] * 2450 / 127);
 
-            int gain = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
-            //int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
-            int res = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+            int gain = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_GAIN);
+            //int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_FREQ);
+            int res = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_RES);
 
-            setAudioLowPassFilter(1, channel, freq, gain, res);
+            setAudioLowPassFilter(1, channel + desp_channel, freq, gain, res);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeFilterValue(1, channel);
+                emit changeFilterValue(1, channel + desp_channel);
             }
 
             return 0;
@@ -691,15 +742,15 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
             int gain = (unsigned) array[2] * 200 / 127;
 
-            //gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
-            int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
-            int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+            //gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_GAIN);
+            int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_FREQ);
+            int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_RES);
 
-            setAudioHighPassFilter((gain > 0), channel, freq, gain, res);
+            setAudioHighPassFilter((gain > 0), channel + desp_channel, freq, gain, res);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeFilterValue(2, channel);
+                emit changeFilterValue(2, channel + desp_channel);
             }
 
             return 0;
@@ -708,15 +759,15 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
             int freq = 500 + ((unsigned) array[2] )* 4500 / 127;
 
-            int gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
-            //int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
-            int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+            int gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_GAIN);
+            //int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_FREQ);
+            int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_RES);
 
-            setAudioHighPassFilter(1, channel, freq, gain, res);
+            setAudioHighPassFilter(1, channel + desp_channel, freq, gain, res);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeFilterValue(2, channel);
+                emit changeFilterValue(2, channel + desp_channel);
             }
 
             return 0;
@@ -725,15 +776,15 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
             int res = (unsigned) array[2] * 250 / 127;
 
-            int gain = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_GAIN);
-            int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_FREQ);
-            //int res = get_param_filter(PROC_FILTER_LOW_PASS, channel, GET_FILTER_RES);
+            int gain = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_GAIN);
+            int freq = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_FREQ);
+            //int res = get_param_filter(PROC_FILTER_LOW_PASS, channel + desp_channel, GET_FILTER_RES);
 
-            setAudioLowPassFilter(1, channel, freq, gain, res);
+            setAudioLowPassFilter(1, channel + desp_channel, freq, gain, res);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeFilterValue(1, channel);
+                emit changeFilterValue(1, channel + desp_channel);
             }
 
             return 0;
@@ -742,15 +793,15 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
             int res = (unsigned) array[2] * 250 / 127;
 
-            int gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_GAIN);
-            int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_FREQ);
-            //int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel, GET_FILTER_RES);
+            int gain = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_GAIN);
+            int freq = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_FREQ);
+            //int res = get_param_filter(PROC_FILTER_HIGH_PASS, channel + desp_channel, GET_FILTER_RES);
 
-            setAudioHighPassFilter(1, channel, freq, gain, res);
+            setAudioHighPassFilter(1, channel + desp_channel, freq, gain, res);
 
             if(fluid_control && !fluid_control->disable_mainmenu) {
 
-                emit changeFilterValue(2, channel);
+                emit changeFilterValue(2, channel + desp_channel);
             }
 
             return 0;
@@ -770,29 +821,33 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
 
         } else if((unsigned) array[1] == 31) { // switch effect events up/down
 
+// obsolete
+/*
             MidiInControl::set_events_to_down((unsigned) array[2] >= (unsigned) 64);
 
             emit MidiIn_set_events_to_down((unsigned) array[2] >= (unsigned) 64);
-
+*/
             return 0;
 
         }
 
-
-        return fluid_synth_cc(synth, channel, array[1], array[2]);
+        return fluid_synth_cc(synth, channel + desp_channel, array[1], array[2]);
 
     case 0xC0: // program
 
-        ret = fluid_synth_program_change(synth, channel, array[1]);
+        ret = fluid_synth_program_change(synth, channel + desp_channel, array[1]);
         break;
 
     case 0xE0: // pitch bend
 
-        ret = fluid_synth_pitch_bend(synth, channel, (array[1] & 0x7f) | (array[2]<<7));
+        ret = fluid_synth_pitch_bend(synth, channel + desp_channel, (array[1] & 0x7f) | (array[2]<<7));
         break;
 
     case 0xF0: // systemEX
     {
+
+        if(channel != 0)
+            return 0;
         char id2[4] = {0x0, 0x66, 0x66, 'R'}; // global mixer
 
         if(fluid_control) { // anti-crash!
@@ -814,7 +869,9 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
             length += array[ind];
 
             // new sysEx2 old compatibility
-            if((array[1+ind] == id2[0] || array[4+ind] == 'R') && array[2+ind] == id2[1]
+            if((((array[1+ind] == (char) 0 || array[1+ind] == (char) 1
+                 || array[1+ind] == (char) 2) && (array[4+ind] & 0xf0) == 0x70)
+                || array[4+ind] == 'R') && array[2+ind] == id2[1]
                     && array[3+ind] == id2[2] && ((array[4+ind] & 0xf0) == 0x70 || array[4+ind] == 'R')) {
 
                 int entries = 13;
@@ -838,18 +895,28 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                     return 0;
                 }
 
-                if(!((id[0] == id2[0] && (id[3] & 0xF0) == 0x70) || id[3] == 'R')) {
+                if(!(((id[0] == (char) 0 || id[0] == (char) 1 || id[0] == (char) 2)
+                      && (id[3] & 0xF0) == 0x70) || id[3] == 'R')) {
                     return 0;
                 }
 
                 int flag = 1;
                 int n = id[3] & 15;
                 int bucle = 1;
+                int index = 0;
 
                 if(id[3] == 'R') {
                     flag = 2;
-                    if(id[0] >= (char) 16) {flag = 3; bucle = 16;}
+                    if(id[0] >= (char) 16) {
+                        flag = 3;
+                        bucle = 16;
+                    }
                     else n = id[0] & 15;
+                }
+
+                if(flag == 1) { // 0x7X
+                    index = (id[0] % 3) * 16;
+                    n+= index; // chan for track index
                 }
 
 
@@ -858,9 +925,13 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
                     return 0;
                 }
 
+                if(flag == 3 && entries != 15 * SYNTH_CHANS + 1)
+                    bucle = SYNTH_CHANS;
+
                 if((flag == 1 && (entries != 13 && entries != 15)) ||
                         (flag == 2 && entries != 13 + (n == 0)) ||
-                        (flag == 3 && entries != 15 * 16 + 1)) {
+                        (flag == 3 && entries != 15 * 16 + 1 &&
+                         entries != 15 * SYNTH_CHANS + 1)) {
                     return 0;
                 }
 
@@ -942,7 +1013,7 @@ int fluidsynth_proc::SendMIDIEvent(QByteArray array)
             } else if(/*array[2] == id2[0] &&*/ array[2+ind] == id2[1]
                  && array[3+ind] == id2[2] && (array[4+ind] == 'V' || array[4+ind] == 'W')) {
 
-                    VST_proc::VST_LoadParameterStream(array);
+                   VST_proc::VST_LoadParameterStream(array);
             }
         //
 
@@ -977,6 +1048,9 @@ void fluidsynth_proc::new_sound_thread(int freq) {
     disabled = change_synth(freq, 1);
 
     if(!disabled) {
+
+        if(MidiOutput::file)
+            forceDrum(MidiOutput::file->DrumUseCh9);
 
         wait_signal = 0;
 
@@ -1088,7 +1162,7 @@ fluid_Thread::fluid_Thread(fluidsynth_proc *proc) : QThread(proc){
     buffer = NULL;
     mix_buffer = NULL;
 
-    for(int n = 0; n < 16; n++) PROC[n] = NULL;
+    for(int n = 0; n < SYNTH_CHANS; n++) PROC[n] = NULL;
 }
 
 fluid_Thread::~fluid_Thread() {
@@ -1099,7 +1173,7 @@ fluid_Thread::~fluid_Thread() {
     delete[] buffer;
     delete[] mix_buffer;
 
-    for(int n = 0; n < 16; n++) delete PROC[n];
+    for(int n = 0; n < SYNTH_CHANS; n++) delete PROC[n];
 
     qWarning("fluid_Thread() destructor");
 
@@ -1116,10 +1190,10 @@ void fluid_Thread::run()
     }
 
     int n_aud_chan = fluid_synth_count_audio_channels(_proc->synth);
-    //MSG_OUT("audio channels: %i\n", n_aud_chan);
+    MSG_OUT("audio channels: %i\n", n_aud_chan);
     int n_fx_chan = fluid_synth_count_effects_channels(_proc->synth);
     int n_fx_groups = fluid_synth_count_effects_groups(_proc->synth);
-    //MSG_OUT("effects channels: %i\n", n_fx_chan);
+    MSG_OUT("effects channels: %i\n", n_fx_chan);
     //MSG_OUT("effects groups channels: %i\n", n_fx_groups);
 
     fluid_out_samples = _proc->fluid_out_samples;
@@ -1127,6 +1201,7 @@ void fluid_Thread::run()
     MSG_OUT("fluid_Thread: fluid_out_samples: %i\n", fluid_out_samples);
 
     int szbuf = FLUID_OUT_SAMPLES * 2 * (n_aud_chan + n_fx_chan);
+
 
     if(sharedAudioBuffer)
         fbuf = (float *) sharedAudioBuffer->data();
@@ -1153,7 +1228,7 @@ void fluid_Thread::run()
         _proc->set_error(666, "FATAL ERROR: out of memory creating dry/fx"); return;
     }
 
-     // setup buffers to mix stereo audio per MIDI Channel (16 channels)
+     // setup buffers to mix stereo audio per MIDI Channel (48 channels)
 
      for(int i = 0; i < n_aud_chan * 2; i++) {
          dry[i] = &fbuf[i * fluid_out_samples];
@@ -1169,7 +1244,7 @@ void fluid_Thread::run()
 
      }
 
-     for(int n = 0; n < 16; n++) {
+     for(int n = 0; n < SYNTH_CHANS; n++) {
 
          PROC[n] = new PROC_filter(100, 2500, _proc->_sample_rate, 0.0, 0.0, 0.0);
 
@@ -1252,7 +1327,7 @@ void fluid_Thread::run()
              memset(buffer, 0, sizeof(short) * FLUID_OUT_SAMPLES * 2);
              memset(mix_buffer, 0, sizeof(float) * FLUID_OUT_SAMPLES * 2);
 
-             // setup buffers to mix stereo audio per MIDI Channel (16 channels)
+             // setup buffers to mix stereo audio per MIDI Channel (48 channels)
 
              for(int i = 0; i < n_aud_chan * 2; i++) {
                  dry[i] = &fbuf[i * fluid_out_samples];
@@ -1371,6 +1446,32 @@ void fluid_Thread::run()
 
          if(_proc->synth) {
              err = fluid_synth_process(_proc->synth, fluid_out_samples, n_fx_chan * n_fx_groups * 2, fx, n_aud_chan * 2, dry);
+ //sasa
+             if(0 && !err) {
+                 if(SYNTH_CHANS > 16) {
+                     for(int m = 0; m < (/*n_aud_chan*/OUT_CHANS * 2); m += 2) {
+                         float *left = dry[m];
+                         float *right = dry[m + 1];
+                         float *left2 = dry[m + 32];
+                         float *right2 = dry[m + 33];
+                         float *left3 = dry[m + 64];
+                         float *right3 = dry[m + 65];
+                         for(int n = 0; n <  fluid_out_samples; n++) {
+                             float v = left[n] + left2[n] + left3[n];
+                             if(v < -1.0f) v = -1.0f;
+                             else if(v > 1.0f) v = 1.0f;
+                             left[n] = v;
+
+                             v = right[n] + right2[n] + right3[n];
+                             if(v < -1.0f) v = -1.0f;
+                             else if(v > 1.0f) v = 1.0f;
+                             right[n] = v;
+                         }
+                     }
+
+
+                 }
+             }
          }
 
          _proc->mutex_fluid.unlock();
@@ -1406,17 +1507,17 @@ void fluid_Thread::run()
 
              /** WAVE MODULATOR (1) IN **/
 
-             float step_wm[16];
+             float step_wm[SYNTH_CHANS];
 
              if(WAVE_MOD) { // test if WaveModulator is unused
                  WAVE_MOD = false;
-                 for(m = 0; m < 16; m++) {
+                 for(m = 0; m < SYNTH_CHANS; m++) {
                      if(((float) _proc->level_WaveModulator[m]) > 0.0f) WAVE_MOD = true;
                  }
              }
 
              if(WAVE_MOD) {
-                 for(m = 0; m < 16; m++) {
+                 for(m = 0; m < SYNTH_CHANS; m++) {
                      step_wm[m] = (6.2831f * ((float) _proc->freq_WaveModulator[m]) / ((double) _proc->_wave_sample_rate));
                  }
              }
@@ -1424,7 +1525,7 @@ void fluid_Thread::run()
              /** WAVE MODULATOR (1) OUT **/
 
              // mix audio channels
-             for(m = 0; m < (n_aud_chan * 2); m += 2) {
+             for(m = 0; m < (n_aud_chan * 2/*OUT_CHANS */); m += 2) {
 
                  if(_proc->audio_chanmute[m >> 1]) //skip channel
                      continue;
@@ -1470,7 +1571,7 @@ void fluid_Thread::run()
 
                      /** WAVE MODULATOR (3) IN **/
 
-                     if(WAVE_MOD && m < 32 && _proc->freq_WaveModulator[m>>1] != 0 && _proc->level_WaveModulator[m>>1] != 0) {
+                     if(WAVE_MOD && m < 96 && _proc->freq_WaveModulator[m>>1] != 0 && _proc->level_WaveModulator[m>>1] != 0) {
                          float c = (sin(f) + 1.0f)/2.0f;
 
                         c = c*lev1 + lev2; // sin wave
@@ -1623,7 +1724,7 @@ void fluid_Thread::run()
 void fluid_Thread::recalculate_filters(int freq) {
 
 
-    for(int chan = 0; chan < 16; chan++) {
+    for(int chan = 0; chan < SYNTH_CHANS; chan++) {
 
         if(!PROC[chan]) continue;
 
@@ -1916,32 +2017,32 @@ void fluidsynth_proc::setSynthChanVolume(int chan, int volume) {
 
 void fluidsynth_proc::setAudioGain(int chan, int gain){
 
-    audio_changain[chan & 15] = gain;
+    audio_changain[chan % SYNTH_CHANS] = gain;
 }
 
 int fluidsynth_proc::getAudioGain(int chan){
 
-    return audio_changain[chan & 15];
+    return audio_changain[chan % SYNTH_CHANS];
 }
 
 void fluidsynth_proc::setAudioBalance(int chan, int balance){
 
-    audio_chanbalance[chan & 15] = balance;
+    audio_chanbalance[chan % SYNTH_CHANS] = balance;
 }
 
 int fluidsynth_proc::getAudioBalance(int chan){
 
-    return audio_chanbalance[chan & 15];
+    return audio_chanbalance[chan % SYNTH_CHANS];
 }
 
 void fluidsynth_proc::setAudioMute(int chan, bool mute){
 
-    audio_chanmute[chan & 15] = mute;
+    audio_chanmute[chan % SYNTH_CHANS] = mute;
 }
 
 bool fluidsynth_proc::getAudioMute(int chan){
 
-    return audio_chanmute[chan & 15];
+    return audio_chanmute[chan % SYNTH_CHANS];
 }
 
 void fluidsynth_proc::setSynthGain(int gain){
@@ -1955,7 +2056,7 @@ int fluidsynth_proc::getSynthGain(){
 
 void fluidsynth_proc::setAudioDistortionFilter(int on, int chan, int gain) {
 
-    chan &= 15;
+    chan %= SYNTH_CHANS;
 
     filter_dist_gain[chan] = ((float) gain);
 
@@ -1974,7 +2075,7 @@ void fluidsynth_proc::setAudioDistortionFilter(int on, int chan, int gain) {
 
 void fluidsynth_proc::setAudioLowPassFilter(int on, int chan, int freq, int gain, int res) {
 
-    chan &= 15;
+    chan %= SYNTH_CHANS;
 
     filter_locut_freq[chan] = (float) freq;
     filter_locut_gain[chan] = ((float) gain) / 100.0;
@@ -1999,7 +2100,7 @@ void fluidsynth_proc::setAudioLowPassFilter(int on, int chan, int freq, int gain
 
 void fluidsynth_proc::setAudioHighPassFilter(int on, int chan, int freq, int gain, int res) {
 
-    chan &= 15;
+    chan %= SYNTH_CHANS;
 
     filter_hicut_freq[chan] = (float) freq;
     filter_hicut_gain[chan] = ((float) gain) / 100.0;
@@ -2025,7 +2126,7 @@ void fluidsynth_proc::setAudioHighPassFilter(int on, int chan, int freq, int gai
 
 int fluidsynth_proc::get_param_filter(int type, int chan, int index) {
 
-    chan &= 15;
+    chan %= SYNTH_CHANS;
 
     if(type & PROC_FILTER_DISTORTION) {
 
@@ -2143,9 +2244,12 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
         wav->close();
         new_sound_thread(_sample_rate);
         stop_audio(false);
+        MidiPlayer::panic();
         fluid_output->MidiClean();
         return -1;
     }
+
+    MidiOutput::is_playing = 0;
 
     new_sound_thread(_wave_sample_rate);
 
@@ -2161,9 +2265,10 @@ int fluidsynth_proc::MIDtoWAV(QFile *wav, QWidget *parent, MidiFile* file) {
         _player_wav = NULL;
         new_sound_thread(_sample_rate);
         stop_audio(false);
+        MidiPlayer::panic();
         fluid_output->MidiClean();
-
         wav->close();
+        MidiOutput::is_playing = 1;
         return -1;
     }
 
@@ -2255,7 +2360,7 @@ finish_wav:
     _player_wav = NULL;
     new_sound_thread(_sample_rate);
     stop_audio(false);
-
+    MidiPlayer::panic();
     fluid_output->MidiClean();
 
     for(int n = 0; n < PRE_CHAN; n++) {
@@ -2267,6 +2372,7 @@ finish_wav:
 
     VST_proc::VST_MIDIend();
 
+    MidiOutput::is_playing = 1;
     return 0;
 }
 
@@ -2402,9 +2508,10 @@ int fluid_Thread_playerWAV::init_sequencer_player(){
     // reset synth
     fluid_synth_system_reset(_proc->synth);
 
-    for(int i = 0; i < 16; i++) {
+    for(int i = 0; i < SYNTH_CHANS; i++) {
         fluid_synth_all_notes_off(_proc->synth, i);
     }
+
 
     // register synth as first destination
     synthSeqID = fluid_sequencer_register_fluidsynth(sequencer, _proc->synth);
@@ -2447,98 +2554,103 @@ int fluid_Thread_playerWAV::init_sequencer_player(){
     lock_audio = false;
     _proc->wakeup_audio();
 
-    // Reset all Controllers
-    for (int i = 0; i < 16; i++) {
-        QByteArray array;
-        array.append(0xB0 | i);
-        array.append(121);
-        array.append(char(0));
-        MidiOutput::sendCommand(array);
+    if(MidiOutput::file)
+        _proc->forceDrum(MidiOutput::file->DrumUseCh9);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(123)); // all notes off
-        array.append(char(127));
+    for(int track = 0; track < (file_events->begin().value()->file()->MultitrackMode ? 3 : 1) ; track++) {
+        // Reset all Controllers
+        for (int i = 0; i < 16; i++) {
+            QByteArray array;
+            array.append(0xB0 | i);
+            array.append(121);
+            array.append(char(0));
+            MidiOutput::sendCommand(array, track);
 
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(123)); // all notes off
+            array.append(char(127));
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(0)); // bank 0
-        array.append(char(0x0));
-        MidiOutput::sendCommand(array);
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xC0 | i);
-        array.append(char(0x0)); // program
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(0)); // bank 0
+            array.append(char(0x0));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xE0 | i); //pitch bend
-        array.append(char(0xff));
-        array.append(char(0x3f));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xC0 | i);
+            array.append(char(0x0)); // program
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(1)); // MODULATION
-        array.append(char(0x0));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xE0 | i); //pitch bend
+            array.append(char(0xff));
+            array.append(char(0x3f));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(11)); // EXPRESION
-        array.append(char(127));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(1)); // MODULATION
+            array.append(char(0x0));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(7)); // VOLUME
-        array.append(char(100));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(11)); // EXPRESION
+            array.append(char(127));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(10)); // PAN
-        array.append(char(64));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(7)); // VOLUME
+            array.append(char(100));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(73)); // ATTACK
-        array.append(char(64));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(10)); // PAN
+            array.append(char(64));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(72)); // RELEASE
-        array.append(char(64));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(73)); // ATTACK
+            array.append(char(64));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(75)); // DECAY
-        array.append(char(64));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(72)); // RELEASE
+            array.append(char(64));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(91)); // REVERB
-        array.append(char(0));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(75)); // DECAY
+            array.append(char(64));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(93)); // CHORUS
-        array.append(char(0));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(91)); // REVERB
+            array.append(char(0));
+            MidiOutput::sendCommand(array, track);
 
-        array.clear();
-        array.append(0xB0 | i);
-        array.append(char(120)); // all sounds off
-        array.append(char(0));
-        MidiOutput::sendCommand(array);
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(93)); // CHORUS
+            array.append(char(0));
+            MidiOutput::sendCommand(array, track);
 
+            array.clear();
+            array.append(0xB0 | i);
+            array.append(char(120)); // all sounds off
+            array.append(char(0));
+            MidiOutput::sendCommand(array, track);
+
+        }
     }
 
     MidiOutput::playedNotes.clear();
@@ -2553,7 +2665,7 @@ int fluid_Thread_playerWAV::init_sequencer_player(){
 
 #define SEQ_FRAME 45
 
-static bool update_prg[16]; // real time prg change event
+static bool update_prg[SYNTH_CHANS]; // real time prg change event
 
 int fluid_Thread_playerWAV::sequencer_player(){
 
@@ -2596,8 +2708,9 @@ int fluid_Thread_playerWAV::sequencer_player(){
                 sysEv.append(it.value());
             } else if (ctrl) {
                 if(ctrl && ctrl->control() == 0) {
+                    int track = ctrl->file()->MultitrackMode ? ctrl->track()->fluid_index() : 0;
                     // it needs a real time prg change event
-                    update_prg[ctrl->channel()] = true;
+                    update_prg[ctrl->channel() + track * 16] = true;
                 }
                 ctrlEv.append(it.value());
             } else if (prg) {
@@ -2629,24 +2742,25 @@ int fluid_Thread_playerWAV::sequencer_player(){
         // SysEx is direct event
         foreach (MidiEvent* event, sysEv) {
 
-            MidiOutput::sendCommand(event);
+            MidiOutput::sendCommand(event, 0);
         }
 
         // CtrlEv is direct event
         foreach (MidiEvent* event, ctrlEv) {
-
-            MidiOutput::sendCommand(event);
+            int track = event->file()->MultitrackMode ? event->track()->fluid_index() : 0;
+            MidiOutput::sendCommand(event, track);
         }
 
         // PrgEv is direct event
         foreach (MidiEvent* event, prgEv) {
-
-            MidiOutput::sendCommand(event);
+            int track = event->file()->MultitrackMode ? event->track()->fluid_index() : 0;
+            MidiOutput::sendCommand(event, track);
         }
 
         // events from callback
         foreach (MidiEvent* event, offEv) {
-            sendCommand(event, sendPosition + 1);
+            int track = event->file()->MultitrackMode ? event->track()->fluid_index() : 0;
+            sendCommand(event, sendPosition + 1, track);
         }
 
         // events from callback
@@ -2655,18 +2769,18 @@ int fluid_Thread_playerWAV::sequencer_player(){
    Sending program change just before first note works */
 
             int chan = event->channel();
-
-            if(event->line() < 128 && update_prg[chan]) {
-                update_prg[chan] = false;
+            int track = event->file()->MultitrackMode ? event->track()->fluid_index() : 0;
+            if(event->line() < 128 && update_prg[chan + track * 16]) {
+                update_prg[chan + track * 16] = false;
 
                 QByteArray array;
                 array.clear();
                 array.append(0xC0 | chan); // program change
-                array.append(char(Prog_MIDI[chan]));
-                MidiOutput::sendCommand(array);
+                array.append(char(event->file()->Prog_MIDI[chan + 4 * (track!=0) + 16 * track]));
+                MidiOutput::sendCommand(array, track);
             }
 
-            sendCommand(event, sendPosition + 1);
+            sendCommand(event, sendPosition + 1, track);
         }
 
         last_time = sendPosition + 1;
@@ -2705,7 +2819,7 @@ int fluid_Thread_playerWAV::sequencer_player(){
         semaf->acquire(1); // waiting the callback...
         semaf_cnt = 0;
 
-        for(int n = 0; n < 16; n++) {
+        for(int n = 0; n < SYNTH_CHANS; n++) {
 
             int event_ticks= sequencer_tick_end + 1;
             sequence_command(fluid_event_control_change(evt, (int) n, (short) 123, (int) 127))
@@ -2738,7 +2852,7 @@ void fluid_Thread_playerWAV::run()
     _proc->total_wav_write= 0;
 
     // real time prg change event off
-    for(int n = 0; n < 16; n++)
+    for(int n = 0; n < SYNTH_CHANS; n++)
         update_prg[n] = false;
 
     fluid_output->wavDIS = false;
@@ -2830,7 +2944,7 @@ void fluid_Thread_playerWAV::run()
 
     QThread::msleep(1000);
 
-    for(int n = 0; n < 16; n++){
+    for(int n = 0; n < SYNTH_CHANS; n++){
         fluid_synth_all_sounds_off(_proc->synth, n);
         fluid_synth_all_notes_off(_proc->synth, n);
     }
@@ -2847,12 +2961,17 @@ void fluid_Thread_playerWAV::run()
 
 #define u32 unsigned int
 
-int fluid_Thread_playerWAV::sendCommand(MidiEvent*event, int ms) {
+int fluid_Thread_playerWAV::sendCommand(MidiEvent*event, int ms, int track) {
 
     QByteArray data = event->save();
 
+    if(MidiOutput::AllTracksToOne)
+        track = 0;
+
     int type = data[0] & 0xf0;
     int channel = data[0] & 0xf;
+    int desp_channel = track * 16;
+    int desp_channelVST = track * 32;
     int fluid_res;
     int event_ticks = ms;
 
@@ -2860,25 +2979,36 @@ int fluid_Thread_playerWAV::sendCommand(MidiEvent*event, int ms) {
         _proc->wakeup_audio();
 
     if(type == 0x90) { // note on
+#ifdef ONLY9
+        if(channel == 9 && event->file()->DrumUseCh9) { // drum for fluidsynth
+            desp_channel = 0;
+            desp_channelVST = 0;
+        }
+#endif
+        if(VST_proc::VST_isMIDI(channel + desp_channelVST)) {
+            VST_proc::VST_MIDIcmd(channel + desp_channelVST,((event_ticks % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000, data);
+        }
 
-        if(VST_proc::VST_isMIDI(channel))
-            VST_proc::VST_MIDIcmd(channel,((event_ticks % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000, data);
-
-        sequence_command(fluid_event_noteon(evt, (int) channel, (short) data[1], (short) data[2]))
+        sequence_command(fluid_event_noteon(evt, (int) (channel + desp_channel), (short) data[1], (short) data[2]))
         if(fluid_res < 0) return fluid_res;
         return 0;
 
     } else if(type == 0x80) { // note off
+#ifdef ONLY9
+        if(channel == 9 && event->file()->DrumUseCh9) { // drum for fluidsynth
+            desp_channel = 0;
+            desp_channelVST = 0;
+        }
+#endif
+        if(VST_proc::VST_isMIDI(channel + desp_channelVST))
+            VST_proc::VST_MIDIcmd(channel + desp_channelVST,((event_ticks % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000 , data);
 
-        if(VST_proc::VST_isMIDI(channel))
-            VST_proc::VST_MIDIcmd(channel,((event_ticks % 1000 * (_proc->fluid_out_samples / _proc->_wave_sample_rate)) * _proc->_wave_sample_rate) / 1000 , data);
-
-        sequence_command(fluid_event_noteoff(evt, (int) channel, (short) data[1]))
+        sequence_command(fluid_event_noteoff(evt, (int) (channel + desp_channel), (short) data[1]))
         if(fluid_res < 0) return fluid_res;
         return 0;
 
     } else if(type == 0xE0) { // pitch bend
-        sequence_command(fluid_event_pitch_bend(evt, (int) channel, (int) ((data[1] & 0x7f) | (data[2]<<7))))
+        sequence_command(fluid_event_pitch_bend(evt, (int) (channel + desp_channel), (int) ((data[1] & 0x7f) | (data[2]<<7))))
         if(fluid_res < 0) return fluid_res;
         return 0;
     }

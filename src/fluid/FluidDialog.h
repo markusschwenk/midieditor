@@ -49,17 +49,12 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QPainter>
+#include <QAudioDeviceInfo>
 
-#include "../gui/MainWindow.h"
+#include "../gui/MidiEditorInstrument.h"
+#include "../gui/GuiTools.h"
 
-#include "fluidsynth_proc.h"
-
-#include "../MidiEvent/MidiEvent.h"
-#include "../MidiEvent/TextEvent.h"
-#include "../midi/MidiChannel.h"
-#include "../midi/MidiFile.h"
-#include "../protocol/Protocol.h"
-#include "../VST/VST.h"
+#define SYNTH_CHANS2 48
 
 int addInstrumentNamesFromSF2(const char *filename);
 
@@ -78,16 +73,16 @@ public:
     // tab 1
     QWidget *MainVolume;
     QScrollArea *scrollArea;
-    QGroupBox *groupChan[16];
-    QSlider *ChanVol[16];
-    QSlider *BalanceSlider[16];
-    QLabel *BalanceLabel[16];
-    QLabel *Chan[16];
-    QDial *chanGain[16];
+    QGroupBox *groupChan[SYNTH_CHANS2];
+    QSlider *ChanVol[SYNTH_CHANS2];
+    QSlider *BalanceSlider[SYNTH_CHANS2];
+    QLabel *BalanceLabel[SYNTH_CHANS2];
+    QLabel *Chan[SYNTH_CHANS2];
+    QDial *chanGain[SYNTH_CHANS2];
     QLabel *label;
-    QLabel *chanGainLabel[16];
-    QVLabel *qv[16];
-    QPushButton *wicon[32];
+    QLabel *chanGainLabel[SYNTH_CHANS2];
+    QVLabel *qv[SYNTH_CHANS2];
+    QPushButton *wicon[SYNTH_CHANS2 * 2];
 
     QGroupBox *groupMainVol;
     QSlider *MainVol;
@@ -98,11 +93,13 @@ public:
     QFrame *line_r[25];
 
     QGroupBox *groupM;
-    QFrame *line[16];
+    QFrame *line[SYNTH_CHANS2];
 
     QGroupBox *groupE;
     QSpinBox *spinChan;
     QLabel *labelChan;
+    QSpinBox *spinGroupIndex;
+    QLabel *labelGroupIndex;
 
     QGroupBox *LowCutBox;
     QLabel *label_low_gain;
@@ -154,10 +151,10 @@ public:
     int channel_selected;
     int preset_selected;
 
-    QTimer *time_updat;
+    QTimer *time_update;
 
     // tab 2
-    QWidget *tabConfig;
+    QWidgetE *tabConfig;
     QComboBox *sf2Box;
     QToolButton *loadSF2Button;
     QToolButton *MIDIConnectbutton;
@@ -262,13 +259,31 @@ public slots:
     void changeVolBalanceGain(int index, int vol, int balance, int gain);
     void changeMainVolume(int vol);
     void changeFilterValue(int index, int channel);
-  protected:
+
+protected:
+
     void mousePressEvent(QMouseEvent* event);
 
-  private:
+    bool event(QEvent *event) override {
+
+        if(event->type() == QEvent::Leave) {
+
+        }
+
+        if(event->type() == QEvent::Enter) {
+
+            MyVirtualKeyboard::overlap();
+
+        }
+
+        return QDialog::event(event);
+    }
+
+private:
     int _current_tick;
     int _edit_mode;
     int _save_mode;
+    bool block_scroll;
 
     QList<QAudioDeviceInfo> dev_out;
 

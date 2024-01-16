@@ -139,9 +139,10 @@ void ProtocolWidget::update()
         protocolHasChanged = false;
 
         if(it_needs_save) {
-            qWarning("backup %s", file->protocol()->save_description.toUtf8().constData());
+            //qWarning("backup %s", file->protocol()->save_description.toUtf8().constData());
             file->backup(true);
         }
+
 
         if (!nextChangeFromList) {
             if (!firstToRedo) {

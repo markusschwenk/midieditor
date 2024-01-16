@@ -62,7 +62,7 @@ MainWindow::MainWindow(QWidget *parent, QString key)
     sharedAudioBuffer = new QSharedMemory("remoteVST_audio" + key);
     if(!sharedAudioBuffer) exit(-11);
     // try first attach (old process exit with error)
-    if(!sharedAudioBuffer->attach() && !sharedAudioBuffer->create(sizeof(float) * 2 * 32 * 2048))
+    if(!sharedAudioBuffer->attach() && !sharedAudioBuffer->create(sizeof(float) * ((PRE_CHAN + 4) * 2048 + 2048)))
         exit(-11);
 
     sys_sema_in = new QSystemSemaphore("VST_IN_SemaIn" + key);

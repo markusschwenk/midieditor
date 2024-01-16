@@ -34,6 +34,10 @@
     fluidsynth_proc *fluid_output=NULL;
 #endif
 
+bool MidieditorMaster = false;
+
+QSharedMemory *IsFirstInstance = NULL;
+
 #ifdef NO_CONSOLE_MODE
 #include <tchar.h>
 #include <windows.h>
@@ -66,10 +70,32 @@ int main(int argc, char* argv[])
 #endif
 
     QApplication a(argc, argv);
+
+    IsFirstInstance = new QSharedMemory("MidiEditor_Instance");
+
+    if(!IsFirstInstance) {
+        QMessageBox::critical(NULL, "MidiEditor", "Error creating shared memory");
+
+        return -1;
+    }
+
+    if(IsFirstInstance->attach()) {
+        IsFirstInstance->detach();
+
+        QMessageBox::critical(NULL, "MidiEditor", "Midieditor is already running.\nBackup recovery list is disabled in this instance");
+
+        MidieditorMaster = false;
+        //return -1;
+    } else
+        MidieditorMaster = true;
+
+    IsFirstInstance->create(1); // instance running
+
     bool ok = QResource::registerResource(a.applicationDirPath() + "/ressources.rcc");
     if (!ok) {
         ok = QResource::registerResource("ressources.rcc");
     }
+
 #ifndef CUSTOM_MIDIEDITOR
     UpdateManager::instance()->init();
     a.setApplicationVersion(UpdateManager::instance()->versionString());
@@ -160,9 +186,17 @@ int main(int argc, char* argv[])
     }
     else
         w = new MainWindow();
+
     w->showMaximized();
 #endif
     int ret = a.exec();
+
+    if(IsFirstInstance) {
+        IsFirstInstance->detach();
+        delete IsFirstInstance;
+    }
+
     delete w;
+
     return ret;
 }

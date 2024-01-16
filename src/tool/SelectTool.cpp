@@ -18,6 +18,9 @@
 
 #include "SelectTool.h"
 #include "Selection.h"
+#include "../tool/NewNoteTool.h"
+#include "../midi/MidiTrack.h"
+#include "../midi/MidiOutput.h"
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
@@ -26,6 +29,8 @@
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
 #include "StandardTool.h"
+
+bool SelectTool::selectMultiTrack = false;
 
 SelectTool::SelectTool(int type)
     : EventTool()
@@ -88,18 +93,17 @@ void SelectTool::draw(QPainter* painter)
 {
     paintSelectedEvents(painter);
     if (stool_type == SELECTION_TYPE_BOX && (x_rect || y_rect)) {
-        painter->setPen(Qt::gray);
-        painter->setBrush(QColor(0, 0, 0, 100));
+        painter->setPen(Qt::black);
+        painter->setBrush(QColor(0, 100, 0, 100));
         painter->drawRect(x_rect, y_rect, mouseX - x_rect, mouseY - y_rect);
     } else if ((stool_type == SELECTION_TYPE_BOX2 || stool_type == SELECTION_TYPE_BOX3) && (x_rect2 || y_rect2)) {
         if(stool_type == SELECTION_TYPE_BOX2) {
-            painter->setPen(Qt::gray);
-            painter->setBrush(QColor(0, 0, 0, 100));
+            painter->setPen(Qt::black);
+            painter->setBrush(QColor(0, 100, 0, 100));
             painter->drawRect(0, y_rect2, matrixWidget->width() - 1, mouseY - y_rect2);
         } else if (mouseIn) {
             painter->setPen(Qt::black);
-            painter->setPen(Qt::gray);
-            painter->setBrush(QColor(0, 0, 0, 100));
+            painter->setBrush(QColor(0, 100, 0, 100));
 
             int tick = file()->tick(matrixWidget->msOfXPos(mouseX));
             int xx = matrixWidget->xPosOfMs(matrixWidget->msOfTick(file()->cursorTick()));
@@ -110,8 +114,7 @@ void SelectTool::draw(QPainter* painter)
     } else if (stool_type == SELECTION_TYPE_RIGHT || stool_type == SELECTION_TYPE_LEFT || stool_type == SELECTION_TYPE_CURSOR) {
         if (mouseIn) {
             painter->setPen(Qt::black);
-            painter->setPen(Qt::gray);
-            painter->setBrush(QColor(0, 0, 0, 100));
+            painter->setBrush(QColor(0, 100, 0, 100));
             if (stool_type == SELECTION_TYPE_CURSOR) {
                 int tick = file()->tick(matrixWidget->msOfXPos(mouseX));
                 int xx = matrixWidget->xPosOfMs(matrixWidget->msOfTick(file()->cursorTick()));
@@ -126,6 +129,7 @@ void SelectTool::draw(QPainter* painter)
             }
         }
     }
+
 }
 
 bool SelectTool::press(bool leftClick)
@@ -155,13 +159,10 @@ bool SelectTool::release()
     if (!file()) {
         return false;
     }
-    file()->protocol()->startNewAction("Selection changed", image());
 
-    ProtocolEntry* toCopy = copy();
+    ProtocolEntry* toCopy = NULL;
 
-    if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
-        clearSelection();
-    }
+    int ch = NewNoteTool::editChannel();
 
     if (stool_type == SELECTION_TYPE_BOX || stool_type == SELECTION_TYPE_SINGLE) {
         int x_start, y_start, x_end, y_end;
@@ -187,8 +188,18 @@ bool SelectTool::release()
             x_end = mouseX + 1;
             y_end = mouseY + 1;
         }
+
+        // first at current channel
         foreach (MidiEvent* event, *(matrixWidget->activeEvents())) {
 
+            if(!SelectTool::selectMultiTrack) {
+
+                if(event->channel() != ch)
+                    continue;
+                if(!(!event->file()->MultitrackMode ||
+                                  (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                        continue;
+            }
 #ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
 
@@ -198,9 +209,59 @@ bool SelectTool::release()
             }
 #endif
             if (inRect(event, x_start, y_start, x_end, y_end)) {
+                if(!toCopy) {
+                    file()->protocol()->startNewAction("Selection changed", image());
+
+                    toCopy = copy();
+                    if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                        clearSelection();
+                    }
+                }
+
                 selectEvent(event, false);
+
+                if (stool_type == SELECTION_TYPE_SINGLE) { // only one
+                    ch = -1;
+                    break;
+                }
             }
         }
+
+        // others channels
+        if(ch >= 0 && !Tool::selectCurrentChanOnly)
+            foreach (MidiEvent* event, *(matrixWidget->activeEvents())) {
+                if(event->channel() == ch)
+                    continue;
+                if(!(!event->file()->MultitrackMode ||
+                     (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                    continue;
+#ifndef VISIBLE_VST_SYSEX
+                SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
+
+                if(sys) {
+                    QByteArray c = sys->data();
+                    if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
+                }
+#endif
+                if (inRect(event, x_start, y_start, x_end, y_end)) {
+                    if(!toCopy) {
+                        file()->protocol()->startNewAction("Selection changed", image());
+
+                        toCopy = copy();
+                        if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                            clearSelection();
+                        }
+                    }
+
+                    selectEvent(event, false);
+
+                    if (stool_type == SELECTION_TYPE_SINGLE) { // only one
+                        ch = -1;
+                        break;
+                    }
+                }
+            }
+
     } else if (stool_type == SELECTION_TYPE_RIGHT || stool_type == SELECTION_TYPE_LEFT || stool_type == SELECTION_TYPE_CURSOR) {
         int tick = file()->tick(matrixWidget->msOfXPos(mouseX));
         int start = 0, end = tick;
@@ -219,6 +280,15 @@ bool SelectTool::release()
             }
         }
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
+
+            if(!SelectTool::selectMultiTrack) {
+                if(Tool::selectCurrentChanOnly && event->channel() != ch)
+                    continue;
+
+                if(!(!event->file()->MultitrackMode ||
+                                  (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                        continue;
+            }
 #ifndef VISIBLE_VST_SYSEX
             SysExEvent* sys = dynamic_cast<SysExEvent*>(event);
 
@@ -227,6 +297,15 @@ bool SelectTool::release()
                 if(c[1]== (char) 0x66 && c[2]==(char) 0x66 && c[3]=='V') continue;
             }
 #endif
+            if(!toCopy) {
+                file()->protocol()->startNewAction("Selection changed", image());
+
+                toCopy = copy();
+                if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                    clearSelection();
+                }
+            }
+
             selectEvent(event, false);
         }
     } else if (stool_type == SELECTION_TYPE_BOX2 || stool_type == SELECTION_TYPE_BOX3) {
@@ -254,6 +333,15 @@ bool SelectTool::release()
 
         foreach (MidiEvent* event, *(file()->eventsBetween(start, end))) {
 
+            if(!SelectTool::selectMultiTrack) {
+                if(Tool::selectCurrentChanOnly && event->channel() != ch)
+                    continue;
+
+                if(!(!event->file()->MultitrackMode ||
+                                  (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                        continue;
+            }
+
             NoteOnEvent* on = dynamic_cast<NoteOnEvent*>(event);
             OffEvent* off = dynamic_cast<OffEvent*>(event);
 #ifndef VISIBLE_VST_SYSEX
@@ -273,19 +361,46 @@ bool SelectTool::release()
                 int line = off->line();
                 int channel = event->channel();
 
-                if(channel >= 0 && channel < 16 && OctaveChan_MIDI[channel]) { // line displacement
-                    line = (127 - line) + OctaveChan_MIDI[channel] * 12;
-                    if(line < 0) line = 0;
-                    if(line > 127) line = 127;
-                    line = 127 - line;
+                if(channel >= 0 && channel < 16 && OctaveChan_MIDI[channel]) {
+                    if((channel == 9 && event->track()->fluid_index() == 0) ||
+                            ((channel == 9 && event->track()->fluid_index() != 0
+                        && MidiOutput::isFluidsynthConnected(event->track()->device_index()) && event->file()->DrumUseCh9))) {
+
+                    } else {
+
+                        line = (127 - line) + OctaveChan_MIDI[channel] * 12;
+                        if(line < 0) line = 0;
+                        if(line > 127) line = 127;
+                        line = 127 - line;
+                    }
                 }
 
-                if(line >= l_start && line <= l_end)
+                if(line >= l_start && line <= l_end) {
+                    if(!toCopy) {
+                        file()->protocol()->startNewAction("Selection changed", image());
+
+                        toCopy = copy();
+                        if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                            clearSelection();
+                        }
+                    }
+
                     selectEvent(event, false);
+                }
             } else { // other events
 
-                if(event->line() >= l_start && event->line() <= l_end)
+                if(event->line() >= l_start && event->line() <= l_end) {
+                    if(!toCopy) {
+                        file()->protocol()->startNewAction("Selection changed", image());
+
+                        toCopy = copy();
+                        if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+                            clearSelection();
+                        }
+                    }
+
                     selectEvent(event, false);
+                }
             }
         }
 
@@ -296,14 +411,28 @@ bool SelectTool::release()
     x_rect2 = 0;
     y_rect2 = 0;
 
-
     int selected = Selection::instance()->selectedEvents().size();
-    file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
 
-    midi_modified = false;
-    protocol(toCopy, this);
+    if(!toCopy && selected) { // deselect
+        selected = 0;
+        file()->protocol()->startNewAction("Selection changed", image());
 
-    file()->protocol()->endAction();
+        toCopy = copy();
+        if (!QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+            clearSelection();
+        }
+    }
+
+    if(toCopy) {
+
+        file()->protocol()->changeDescription("Selection changed (" + QString::number(selected) + ")");
+
+        midi_modified = false;
+        protocol(toCopy, this);
+        file()->protocol()->endAction();
+    }
+
+
     if (_standardTool) {
         Tool::setCurrentTool(_standardTool);
         _standardTool->move(mouseX, mouseY);

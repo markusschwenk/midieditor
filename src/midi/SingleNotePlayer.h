@@ -32,7 +32,7 @@ class SingleNotePlayer : public QObject {
 
 public:
     SingleNotePlayer();
-    void play(NoteOnEvent* event, int ms = SINGLE_NOTE_LENGTH_MS);
+    void play(NoteOnEvent* event, int track_index, int ms = SINGLE_NOTE_LENGTH_MS);
 
 public slots:
     void timeout();
@@ -41,6 +41,7 @@ private:
     QTimer* timer;
     QByteArray offMessage;
     bool playing;
+    int _track_index;
 };
 
 #endif

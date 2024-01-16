@@ -25,6 +25,8 @@
 EditorTool* Tool::_currentTool = 0;
 MidiFile* Tool::_currentFile = 0;
 
+bool Tool::selectCurrentChanOnly = false;
+
 Tool::Tool()
 {
     _image = 0;

@@ -27,14 +27,11 @@
 #include <QObject>
 #include <QThread>
 #include <QFile>
-#include "fluidsynth.h"
 #include <QAudioDeviceInfo>
 #include <QAudioInput>
 #include <QAudioOutput>
 #include <QSettings>
-#include "FluidDialog.h"
-#include "../midi/MidiFile.h"
-#include "../midi/MidiPlayer.h"
+#include <QTime>
 
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
@@ -42,15 +39,16 @@
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QWidget>
 
-#include "../midi/MidiFile.h"
-#include "../MidiEvent/MidiEvent.h"
-#include "../MidiEvent/ProgChangeEvent.h"
-#include "../MidiEvent/ControlChangeEvent.h"
 #include <QMutex>
 #include <QWaitCondition>
 #include <QSystemSemaphore>
 #include <QProcess>
 #include <QSharedMemory>
+
+#include "fluidsynth.h"
+#include "FluidDialog.h"
+#include "../midi/MidiFile.h"
+#include "../MidiEvent/MidiEvent.h"
 
 extern QProcess *process;
 extern QSharedMemory *sharedAudioBuffer;
@@ -61,6 +59,8 @@ extern QSystemSemaphore *sys_sema_out;
 extern QSystemSemaphore *sys_sema_inW;
 
 // maximun samples loop Output buffer (minimum 512 = Input Low Latency)
+#define SYNTH_CHANS 48
+#define OUT_CHANS   16
 #define FLUID_OUT_SAMPLES  2048
 #define ECHO_MAX_SAMPLES 96000
 
@@ -121,7 +121,6 @@ public:
     ProgressDialog *_bar;
     bool wavDIS;
 
-    bool use_fluidsynt;
     int disabled;
 
     fluid_settings_t* settings;
@@ -130,7 +129,8 @@ public:
     fluid_midi_driver_t* mdriver;
 
     void MidiClean();
-    int SendMIDIEvent(QByteArray array);
+    int SendMIDIEvent(QByteArray array, int track = 0);
+    void forceDrum(bool force);
     int change_synth(int freq, int flag);
     int MIDIconnect(int on);
 
@@ -191,30 +191,30 @@ public:
     int _sample_rate;
     int _wave_sample_rate;
 
-    bool audio_chanmute[16];
-    int isNoteOn[16];
+    bool audio_chanmute[SYNTH_CHANS];
+    int isNoteOn[SYNTH_CHANS];
 
     // preset datas
     float synth_gain;
-    int synth_chanvolume[16];
-    int audio_changain[16];
-    int audio_chanbalance[16];
+    int synth_chanvolume[SYNTH_CHANS];
+    int audio_changain[SYNTH_CHANS];
+    int audio_chanbalance[SYNTH_CHANS];
 
-    bool filter_dist_on[16];
-    float filter_dist_gain[16];
+    bool filter_dist_on[SYNTH_CHANS];
+    float filter_dist_gain[SYNTH_CHANS];
 
-    bool filter_locut_on[16];
-    float filter_locut_freq[16];
-    float filter_locut_gain[16];
-    float filter_locut_res[16];
+    bool filter_locut_on[SYNTH_CHANS];
+    float filter_locut_freq[SYNTH_CHANS];
+    float filter_locut_gain[SYNTH_CHANS];
+    float filter_locut_res[SYNTH_CHANS];
 
-    bool filter_hicut_on[16];
-    float filter_hicut_freq[16];
-    float filter_hicut_gain[16];
-    float filter_hicut_res[16];
+    bool filter_hicut_on[SYNTH_CHANS];
+    float filter_hicut_freq[SYNTH_CHANS];
+    float filter_hicut_gain[SYNTH_CHANS];
+    float filter_hicut_res[SYNTH_CHANS];
 
-    float level_WaveModulator[16];
-    float freq_WaveModulator[16];
+    float level_WaveModulator[SYNTH_CHANS];
+    float freq_WaveModulator[SYNTH_CHANS];
 // end preset datas
 
     int cleft, cright;
@@ -227,7 +227,7 @@ public:
     int status_fluid_err;
     int status_audio_err;
 
-    MidiFile* _file;
+    static MidiFile* _file;
 
     QMutex lock_audio;
     QMutex mutex_fluid;
@@ -262,7 +262,7 @@ public:
 
     void run() override;
 
-    PROC_filter *PROC[16];
+    PROC_filter *PROC[SYNTH_CHANS];
 
 private:
     void write_header(QFile *f, int size, int sample_rate, int bits, int channels);
@@ -294,7 +294,7 @@ public:
 
     int init_sequencer_player();
     int sequencer_player();
-    int sendCommand(MidiEvent*event, int ms);
+    int sendCommand(MidiEvent*event, int ms, int track = 0);
 
 private:
     QMultiMap<int, MidiEvent*> * file_events;

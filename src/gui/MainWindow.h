@@ -110,16 +110,27 @@ signals:
     void ToggleViewVST(int channel, bool on);
 #endif
 signals:
-    void setBar(int num);
+    void setBar(int num, QString st = "");
     void endBar();
+    void tabMatrixWidgetIndex(int i);
+
+    void remPlayStop();
+    void remRecordStop(int ms = -1);
+    void remForward();
+    void remBack();
+    void remRecord();
+    void remStop();
 public slots:
     void setChordVelocityProp();
     void velocity_accept();
     void updateAll();
+    void updateAllTrk();
+    void updateChannel();
     void loadInitFile();
     void matrixSizeChanged(int maxScrollTime, int maxScrollLine, int vX, int vY);
     void play();
     void playStop();
+    void recordStop(int ms = -1);
     void stop(bool autoConfirmRecord = false, bool addEvents = true, bool resetPause = true);
     void pause();
     void forward();
@@ -167,9 +178,6 @@ public slots:
     void openRecent(QAction* action);
     void updateChannelMenu();
     void updateTrackMenu();
-    void muteChannel(QAction* action);
-    void soloChannel(QAction* action);
-    void viewChannel(QAction* action);
     void instrumentChannel(QAction* action);
     void SoundEffectChannel(QAction* action);
 
@@ -183,6 +191,7 @@ public slots:
     void removeTrack(int tracknumber);
 
     void velocityScale();
+    void overlappedNotesCorrectionAllTracks();
     void overlappedNotesCorrection();
     void longNotesCorrection();
     void stretchNotes();
@@ -230,7 +239,9 @@ public slots:
     void spreadSelection();
     void copy();
     void paste();
+    void paste2();
 
+    void updateTabMatrixWidget();
     void addTrack();
 
     void selectAll();
@@ -242,7 +253,7 @@ public slots:
     void colorsByChannel();
     void colorsByTrack();
 
-    void editChannel(int i, bool assign = true);
+    void editChannel(int i, bool assign = true, int ntrack = -1);
     void editTrack(int i, bool assign = true);
     void editTrackAndChannel(MidiTrack* track);
 
@@ -282,6 +293,7 @@ public slots:
 
     void ImportSF2Names();
 
+    void VirtualKeyboard();
     void PianoPlay();
     void DrumPlay();
     void DrumRhythmBox();
@@ -319,6 +331,8 @@ public slots:
     void navigateSelectionLeft();
     void navigateSelectionRight();
 
+    void SaveAsMSEQ();
+
 protected:
     void closeEvent(QCloseEvent* event) override;
     void keyPressEvent(QKeyEvent* e) override;
@@ -336,10 +350,14 @@ private:
 
 #endif
 
+    QAction* ActionExportMSEQ;
+
     QSplitter* mainSplitter;
     QSplitter* rightSplitter;
 
     MatrixWidget* mw_matrixWidget;
+    QTabWidget * tabMatrixWidget;
+    int tabMatrixWidgetMode = 0;
     QScrollBar *vert, *hori;
     StandardTool* stdTool;
     ProtocolWidget* protocolWidget;
@@ -408,7 +426,7 @@ private:
     MidiFile* file;
     bool loop;
 signals:
-    void setBar(int num);
+    void setBar(int num, QString st = "");
     void endBar();
 public slots:
 };
@@ -424,7 +442,7 @@ public:
     ~MainThreadProgressDialog();
 
 public slots:
-    void setBar(int num);
+    void setBar(int num, QString st = "");
     void reject();
 
 private:

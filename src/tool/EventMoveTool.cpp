@@ -108,6 +108,22 @@ void EventMoveTool::draw(QPainter* painter)
                 painter->setBrush(Qt::darkBlue);
                 painter->drawRoundedRect(event->x() - shiftX, event->y() - customShiftY,
                     event->width(), event->height(), 1, 1);
+
+                if(1) {
+
+                    QLinearGradient linearGrad(QPointF(event->x() - shiftX, event->y() - customShiftY),
+                                               QPointF(event->x() - shiftX + event->width(),event->y() - customShiftY + event->height()));
+
+                    linearGrad.setColorAt(0, QColor(80, 80, 80, 0x20));
+                    linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+                    linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+
+                    QBrush d(linearGrad);
+                    painter->setBrush(d);
+                    painter->drawRoundedRect(event->x() - shiftX, event->y() - customShiftY,
+                                             event->width(), event->height(), 1, 1);
+                }
+
                 painter->setPen(Qt::gray);
                 painter->drawLine(event->x() - shiftX, 0, event->x() - shiftX,
                     matrixWidget->height());
@@ -282,10 +298,6 @@ int EventMoveTool::computeRaster()
         }
     }
 
-    if(firstTick > -1) { // Estwald
-        //lastTick = -1;
-    }
-
     // compute x positions and compute raster
     bool useLast = (lastTick >= 0) && lastTick <= matrixWidget->maxVisibleMidiTime() && lastTick >= matrixWidget->minVisibleMidiTime();
     bool useFirst = (firstTick >= 0) && firstTick <= matrixWidget->maxVisibleMidiTime() && firstTick >= matrixWidget->minVisibleMidiTime();
@@ -305,6 +317,7 @@ int EventMoveTool::computeRaster()
             useFirst = false;
         }
     }
+
     if (useLast) {
         int lastXReal = matrixWidget->xPosOfMs(file()->msOfTick(lastTick)) + mouseX - startX;
         lastX = rasteredX(lastXReal);

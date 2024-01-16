@@ -41,8 +41,12 @@ class ChannelListItem : public QWidget {
 
 public:
     QSpinBox *spinOctave;
-    ChannelListItem(int channel, ChannelListWidget* parent);
+    int track_index;
+    ChannelListItem(int channel, ChannelListWidget* parent, int track_index);
     void onBeforeUpdate();
+    int getChannel() {
+        return channel;
+    }
 
 signals:
     void selectInstrumentClicked(int channel);
@@ -75,9 +79,12 @@ private:
 #ifdef USE_FLUIDSYNTH
     QPushButton *bViewVST1;
     QPushButton *bViewVST2;
+    QPushButton *loadVST1;
+    QPushButton *loadVST2;
 #endif
     QPushButton *bOctave;
     QLabel* instrumentLabel;
+    QLabel* chanLabel;
     ChannelListWidget* channelList;
     int channel;
     ColoredWidget* colored;
@@ -93,11 +100,12 @@ class ChannelListWidget : public QListWidget {
 
 public:
     ChannelListWidget(QWidget* parent = 0);
-    void setFile(MidiFile* f);
+    void setFile(MidiFile* f, bool update = true);
     MidiFile* midiFile();
 
 signals:
     void channelStateChanged();
+    void channelChanged();
     void selectInstrumentClicked(int channel);
     void selectSoundEffectClicked(int channel);
     void WidgeUpdate();
@@ -112,6 +120,7 @@ public slots:
 #ifdef USE_FLUIDSYNTH
     void ToggleViewVST(int channel, bool on);
 #endif
+    void chooseChannel(QListWidgetItem* item);
 
 private:
     MidiFile* file;

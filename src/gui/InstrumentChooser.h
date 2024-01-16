@@ -30,7 +30,7 @@ class QCheckBox;
 class InstrumentChooser : public QDialog {
     Q_OBJECT
 public:
-    InstrumentChooser(MidiFile* f, int channel, QWidget* parent = 0, int mode=0, int ticks=0, int instrument=0, int bank=0);
+    InstrumentChooser(MidiFile* f, int channel, MidiTrack* track, QWidget* parent = 0, int mode=0, int ticks=0, int instrument=0, int bank=0);
 
 public slots:
     void accept();
@@ -50,6 +50,9 @@ private:
     int _current_tick;
     int _instrument;
     int _bank;
+    int _track_index;
+    MidiTrack* _track;
+    bool flag_usebank;
 
 };
 

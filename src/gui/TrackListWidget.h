@@ -40,6 +40,9 @@ class TrackListItem : public QWidget {
 public:
     TrackListItem(MidiTrack* track, TrackListWidget* parent);
     void onBeforeUpdate();
+    MidiTrack* getTrack() {
+        return track;
+    }
 
 signals:
     void trackRenameClicked(int tracknumber);
@@ -53,6 +56,7 @@ public slots:
 
 private:
     QLabel* trackNameLabel;
+    QLabel* text_track;
     TrackListWidget* trackList;
     MidiTrack* track;
     ColoredWidget* colored;
@@ -67,7 +71,7 @@ class TrackListWidget : public QListWidget {
 
 public:
     TrackListWidget(QWidget* parent = 0);
-    void setFile(MidiFile* f);
+    void setFile(MidiFile* f, bool update = true);
     MidiFile* midiFile();
 
 signals:

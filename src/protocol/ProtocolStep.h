@@ -93,6 +93,7 @@ public:
     ProtocolStep* releaseStep();
 
     bool midi_modified = false;
+    unsigned int number;
 
 private:
     /**

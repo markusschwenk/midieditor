@@ -22,12 +22,24 @@
 #ifdef USE_FLUIDSYNTH
 
 #include "FluidDialog.h"
+
+#include "../gui/MainWindow.h"
+
+#include "../MidiEvent/MidiEvent.h"
+#include "../MidiEvent/TextEvent.h"
+#include "../midi/MidiChannel.h"
+#include "../midi/MidiFile.h"
+#include "../protocol/Protocol.h"
+#include "../VST/VST.h"
+
 #include "../MidiEvent/SysExEvent.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiChannel.h"
+#include "../midi/MidiTrack.h"
 #include "../protocol/Protocol.h"
 #include "../tool/Selection.h"
 #include "../tool/EventTool.h"
+#include "../tool/NewNoteTool.h"
 
 #include <QMessageBox>
 #include <QDataStream>
@@ -60,6 +72,7 @@ void QVLabel::paintEvent(QPaintEvent*) {
 
 void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
+    int expX = 240;
     int n;
     int area_size_y = 407;
     int buttons_y = 588;
@@ -78,7 +91,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
     scrollArea = new QScrollArea(MainVolume);
     scrollArea->setObjectName(QString::fromUtf8("scrollArea"));
-    scrollArea->setGeometry(QRect(4, 15, 554+60 + 120, area_size_y));
+    scrollArea->setGeometry(QRect(4, 15, 554+60 + 120 + expX, area_size_y));
     sizePolicy.setHeightForWidth(scrollArea->sizePolicy().hasHeightForWidth());
     scrollArea->setSizePolicy(sizePolicy);
     scrollArea->setFocusPolicy(Qt::NoFocus);
@@ -93,25 +106,32 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     QScrollBar * s=scrollArea->horizontalScrollBar();
 
     s->setMinimum(0);
-    s->setMaximum(100);
+    s->setMaximum(600);
 
     scrollArea->setStyleSheet(QString::fromUtf8("color: white; background-color: #80103040;"));
 
     groupM = new QGroupBox(scrollArea);
     groupM->setObjectName(QString::fromUtf8("groupM"));
     groupM->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
-    groupM->setGeometry(QRect(0, 0, 2000, 600));
+    groupM->setGeometry(QRect(0, 0, 3000, 600));
 
     groupE = new QGroupBox(MainVolume);
     groupE->setObjectName(QString::fromUtf8("groupE"));
-    groupE->setGeometry(QRect(0, area_size_y+20, 752 + 125, buttons_y - area_size_y-20));
+    groupE->setGeometry(QRect(0, area_size_y+20, 752 + 125 + expX, buttons_y - area_size_y-20));
     groupE->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
-
 
     QSizePolicy sizePolicy1(QSizePolicy::Preferred, QSizePolicy::Preferred);
     int x = 14;
 
-    for(n = 0; n < 16; n++) {
+    // get first track index for Fluidsynth channels
+    int track_index[3] = {-1, -1, -1};
+
+    for(int n = 0; n < MAX_OUTPUT_DEVICES; n++) {
+        int r = MidiOutput::AllTracksToOne ? MidiOutput::_midiOutFluidMAP[0] : MidiOutput::_midiOutFluidMAP[n];
+        if(r >= 0 && track_index[r % 3] < 0) track_index[r % 3] = n;
+    }
+
+    for(n = 0; n < SYNTH_CHANS; n++) {
         groupChan[n] = new QGroupBox(groupM/*scrollArea*/);
         if(n == channel_selected) {
             groupChan[n]->setStyleSheet(QString::fromUtf8("background-color: #80303060;"));
@@ -134,7 +154,6 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         groupChan[n]->setChecked(!fluid_output->getAudioMute(n));
         groupChan[n]->setToolTip("<html><head/><body><p>Mute/Unmute</p>"
                                                   "<p>the channel</p></body></html>");
-
         line[n] = new QFrame(groupChan[n]);
         line[n]->setObjectName(QString::fromUtf8("line"));
         line[n]->setGeometry(QRect(27 + 4, 2, 16, 20));
@@ -212,28 +231,30 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         chanGainLabel[n]->setToolTip("<html><head/><body><p>Output control gain</p>"
                                   "<p>of the channel</p></body></html>");
 
+        int nn = (n & 15) + 32 * (n/16);
+
         QIcon ico(":/run_environment/graphics/channelwidget/vst_effect.png");
-        wicon[n] = new QPushButton(groupM);
-        wicon[n]->setObjectName(QString::asprintf("wicon %i", n));
-        wicon[n]->setGeometry(QRect(x - 60 + 18 - 10, 374, 16, 16));
-        wicon[n]->setStyleSheet(QString::fromUtf8("background-color: white;"));
-        wicon[n]->setIcon(ico);
+        wicon[nn] = new QPushButton(groupM);
+        wicon[nn]->setObjectName(QString::asprintf("wicon %i", nn));
+        wicon[nn]->setGeometry(QRect(x - 60 + 18 - 10, 374, 16, 16));
+        wicon[nn]->setStyleSheet(QString::fromUtf8("background-color: white;"));
+        wicon[nn]->setIcon(ico);
 
-        if(VST_proc::VST_isLoaded(n))
-            wicon[n]->setVisible(true);
+        if(VST_proc::VST_isLoaded(nn))
+            wicon[nn]->setVisible(true);
         else
-            wicon[n]->setVisible(false);
+            wicon[nn]->setVisible(false);
 
-        wicon[n + 16] = new QPushButton(groupM);
-        wicon[n + 16]->setObjectName(QString::asprintf("wicon %i", n + 16));
-        wicon[n + 16]->setGeometry(QRect(x - 60 + 18 + 10, 374, 16, 16));
-        wicon[n + 16]->setStyleSheet(QString::fromUtf8("background-color: white;"));
-        wicon[n + 16]->setIcon(ico);
+        wicon[nn + 16] = new QPushButton(groupM);
+        wicon[nn + 16]->setObjectName(QString::asprintf("wicon %i", nn + 16));
+        wicon[nn + 16]->setGeometry(QRect(x - 60 + 18 + 10, 374, 16, 16));
+        wicon[nn + 16]->setStyleSheet(QString::fromUtf8("background-color: white;"));
+        wicon[nn + 16]->setIcon(ico);
 
-        if(VST_proc::VST_isLoaded(n + 16))
-            wicon[n + 16]->setVisible(true);
+        if(VST_proc::VST_isLoaded(nn + 16))
+            wicon[nn + 16]->setVisible(true);
         else
-            wicon[n + 16]->setVisible(false);
+            wicon[nn + 16]->setVisible(false);
 
         groupChan[n]->setTitle(QString());
         const QString str= "Ch "+QString::number(n);
@@ -243,27 +264,55 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         label->setText("Gain");
         chanGainLabel[n]->setText(QString().setNum(((float)(fluid_output->getAudioGain(n) / 10))/10.0, 'f', 2));
 
-        int _bank = Bank_MIDI[n];
-        int _instrument = Prog_MIDI[n];
+        int indx = track_index[n/16] >= 0 ? ((n & 15) + 4 * (track_index[n/16] > 0)
+                + 16 * track_index[n/16]) : (n & 15);
+
+
+        int _bank = MidiOutput::file->Bank_MIDI[indx];
+        int _instrument = MidiOutput::file->Prog_MIDI[indx];
 
         QString s;
-        if(n != 9) s = MidiFile::instrumentName( _bank, _instrument);
-        else s = MidiFile::drumName(_instrument);
+
+        if(track_index[n/16] >= 0) {
+
+            bool is_instrument = false;
+
+            if((n  & 15) != 9 || ((n & 15) == 9 && (n > 9) && track_index[n/16] > 0
+                          && !MidiOutput::file->DrumUseCh9))
+                is_instrument = true;
+
+            if(is_instrument)
+                s = MidiFile::instrumentName( _bank, _instrument);
+            else
+                s = MidiFile::drumName(_instrument);
+        }
 
         qv[n] = new QVLabel(s, groupChan[n]);
         qv[n]->setObjectName(QString::fromUtf8("chanInstrum")+QString::number(n));
         qv[n]->setGeometry(QRect(4, 37, 12, 160));
     }
 
-    groupMainVol = new QGroupBox(MainVolume);
+    QGroupBox *groupV = new QGroupBox(MainVolume);
+    groupV->setObjectName(QString::fromUtf8("groupV"));
+    groupV->setGeometry(QRect(590+50 + 125 + expX - 16, 15, 125, area_size_y));
+    groupV->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
+
+    groupMainVol = new QGroupBox(groupV);
     groupMainVol->setObjectName(QString::fromUtf8("groupMainVol"));
     groupMainVol->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
-    groupMainVol->setGeometry(QRect(590+50 + 125, 15, 45, 275));
+    groupMainVol->setGeometry(QRect(8, 2, 45, 275));
     groupMainVol->setLayoutDirection(Qt::LeftToRight);
     groupMainVol->setAlignment(Qt::AlignCenter);
     groupMainVol->setFlat(false);
     groupMainVol->setCheckable(true);
     groupMainVol->setTitle(QString());
+
+    QLabel * MainVolVal = new QLabel(groupMainVol);
+    MainVolVal->setObjectName(QString::fromUtf8("MainVolVal"));
+    MainVolVal->setGeometry(QRect(8, 246, 30, 16));
+    MainVolVal->setAlignment(Qt::AlignCenter);
+    MainVolVal->setStyleSheet(QString::fromUtf8("color: black; background: white"));
+    MainVolVal->setText(QString::number(((double) fluid_output->getSynthGain())/100, 'f', 2));
 
     MainVol = new QSlider(groupMainVol);
     MainVol->setObjectName(QString::fromUtf8("MainVol"));
@@ -277,10 +326,10 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     MainVol->setTickInterval(25);
     MainVol->setToolTip("<html><head/><body><p>Synth Gain</p></body></html>");
 
-    groupVUm = new QGroupBox(MainVolume);
+    groupVUm = new QGroupBox(groupV);
     groupVUm->setObjectName(QString::fromUtf8("groupVUm"));
     groupVUm->setStyleSheet(QString::fromUtf8("QGroupBox QToolTip {color: black;} \n"));
-    groupVUm->setGeometry(QRect(590+100 + 125, 51, 45, 206));
+    groupVUm->setGeometry(QRect(66, 36, 45, 206));
     groupVUm->setLayoutDirection(Qt::LeftToRight);
     groupVUm->setAlignment(Qt::AlignCenter);
     groupVUm->setFlat(false);
@@ -327,15 +376,38 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     spinChan = new QSpinBox(groupE);
     spinChan->setObjectName(QString::fromUtf8("spinChan"));
     spinChan->setToolTip("<html><head/><body><p>Current chan for Distortion, Low/High Cut...</p></body></html>");
-    spinChan->setGeometry(QRect(11, 40, 45, 49));
+    spinChan->setGeometry(QRect(11, 40, 45, 29));
     QFont font2;
     font2.setPointSize(16);
     spinChan->setFont(font2);
     spinChan->setAlignment(Qt::AlignCenter);
-    spinChan->setMaximum(15);
+    spinChan->setMaximum(47);
     spinChan->setValue(channel_selected);
     spinChan->setAutoFillBackground(true);
     spinChan->setStyleSheet(QString::fromUtf8("color: black; background-color: white;"));
+
+    labelGroupIndex = new QLabel(groupE);
+    labelGroupIndex->setObjectName(QString::fromUtf8("labelGroupIndex"));
+    labelGroupIndex->setGeometry(QRect(9, 75, 48, 16));
+    labelGroupIndex->setAutoFillBackground(true);
+    labelGroupIndex->setFrameShape(QFrame::Panel);
+    labelGroupIndex->setAlignment(Qt::AlignCenter);
+    labelGroupIndex->setText(QString("Index"));
+    labelGroupIndex->setToolTip("Current group index of 16 channels");
+
+    spinGroupIndex = new QSpinBox(groupE);
+    spinGroupIndex->setObjectName(QString::fromUtf8("spinGroupIndex"));
+    spinGroupIndex->setToolTip("Current group index of 16 channels");
+    spinGroupIndex->setGeometry(QRect(11, 101, 45, 29));
+
+    //QFont font2;
+    font2.setPointSize(16);
+    spinGroupIndex->setFont(font2);
+    spinGroupIndex->setAlignment(Qt::AlignCenter);
+    spinGroupIndex->setMaximum(2);
+    spinGroupIndex->setValue(channel_selected/16);
+    spinGroupIndex->setAutoFillBackground(true);
+    spinGroupIndex->setStyleSheet(QString::fromUtf8("color: black; background-color: white;"));
 
     DistortionBox = new QGroupBox(groupE);
     DistortionBox->setObjectName(QString::fromUtf8("DistortionBox"));
@@ -347,7 +419,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     label_dist_gain->setObjectName(QString::fromUtf8("label_dist_gain"));
     label_dist_gain->setGeometry(QRect(12, 35, 31, 16));
     label_dist_gain->setAlignment(Qt::AlignCenter);
-    labelChan->setToolTip("<html><head/><body><p>Distortion Input Gain</p>"
+    label_dist_gain->setToolTip("<html><head/><body><p>Distortion Input Gain</p>"
                             "<p>of the current channel</p></body></html>");
 
     label_distortion_disp = new QLabel(DistortionBox);
@@ -703,12 +775,38 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     label_trem_disp->setText(QString().setNum(((float)(100.0f * fluid_output->level_WaveModulator[channel_selected])/100.0), 'f', 2));
     label_trem_disp2->setText(QString().setNum(((float) TremoloFreq->value())/100, 'f', 2));
 
+    QPushButton *g = new QPushButton(groupE);
+    g->setObjectName(QString::fromUtf8("g false button"));
+    g->setGeometry(QRect(lowbox +125, 4 + 6, 161+70, 128 - 8));
+    g->setLayoutDirection(Qt::LeftToRight);
+    g->setFlat(false);
+
+    static QPixmap pix(161+70, 128);
+    static int one = 1;
+    if(one) {
+        one = 0;
+        QPainter pixPaint(&pix);
+        QPixmap p1(":/run_environment/graphics/custom/Midicustom.png");
+        QPixmap p2(":/run_environment/graphics/icon.png");
+        p2 =  p2.scaled(60, 60);
+        p1 =  p1.scaled(184, 60);
+    //#e0e0c0  #c0c0a0
+        pix.fill(QColor(0xc0c0a0));
+        pixPaint.drawPixmap(6, 10 + 20, p2);
+        pixPaint.drawPixmap(54, 0 + 20, p1);
+    }
+    QIcon ico(pix);
+
+    g->setIcon(ico);
+    g->setIconSize(QSize(161+70, 128));
+
+
 
     //&&
 
     PresetBox = new QGroupBox(groupE);
     PresetBox->setObjectName(QString::fromUtf8("PresetBox"));
-    lowbox+= 125;
+    lowbox+= 125 + expX;
     PresetBox->setGeometry(QRect(lowbox, 4, 161+70, 128));
     PresetBox->setLayoutDirection(Qt::LeftToRight);
     PresetBox->setAlignment(Qt::AlignCenter);
@@ -815,16 +913,16 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
                                     "<p>channel into the MIDI File</p>"
                                       "<p>from the current position</p></body></html>");
 
-    for(n = 0; n < 16; n++) {
+    for(n = 0; n < SYNTH_CHANS; n++) {
 
         connect(wicon[n], QOverload<bool>::of(&QPushButton::clicked), [=](bool)
         {
             VST_chan vst(main_widget, n, 1);
         });
 
-        connect(wicon[n + 16], QOverload<bool>::of(&QPushButton::clicked), [=](bool)
+        connect(wicon[n + SYNTH_CHANS], QOverload<bool>::of(&QPushButton::clicked), [=](bool)
         {
-            VST_chan vst(main_widget, n + 16, 1);
+            VST_chan vst(main_widget, n + SYNTH_CHANS, 1);
         });
 
         connect(groupChan[n], QOverload<bool>::of(&QGroupBox::clicked), [=](bool checked)
@@ -855,6 +953,8 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
 
     connect(MainVol, QOverload<int>::of(&QDial::valueChanged), [=](int num)
     {
+        MainVolVal->setText(QString::number(((double) num)/100, 'f', 2));
+
         fluid_output->setSynthGain(num);
     });
 
@@ -901,19 +1001,35 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         fluid_output->freq_WaveModulator[channel_selected] = ((float) num) / 100.0f;
     });
 
-    //QObject::connect(HighCutGain, SIGNAL(valueChanged(int)), this, SLOT(highcut_gain(int)));
-    //QObject::connect(HighCutFreq, SIGNAL(valueChanged(int)), this, SLOT(highcut_freq(int)));
+
+    block_scroll = false;
+
+    connect(spinGroupIndex, QOverload<int>::of(&QSpinBox::valueChanged), [=](int num)
+    {
+
+        channel_selected =  16 * num + (channel_selected & 15);
+
+        spinChan->setValue(channel_selected);
+    });
 
     connect(spinChan, QOverload<int>::of(&QSpinBox::valueChanged), [=](int num)
     {
-        scrollArea->horizontalScrollBar()->setValue(num*7);
-        groupM->setGeometry(QRect((num<9) ? 0: (9-num)*60, 0, 2000, 600));
-
-        labelChan->setText(QString("Chan ")+QString().setNum(num));
-
-        groupChan[channel_selected]->setStyleSheet(QString::fromUtf8("background-color: #80103040;"));
+        int old = channel_selected;//
         channel_selected = num;
-        groupChan[num]->setStyleSheet(QString::fromUtf8("background-color: #80303060;"));
+
+        num &= 15;
+        int num2 = num + (channel_selected/16) * 16;
+
+        if(!block_scroll) {
+            scrollArea->horizontalScrollBar()->setValue((num2)*7);
+            groupM->setGeometry(QRect((num2 < 16) ? 0: (- (num2/16*16))*60, 0, 3000, 600));
+        }
+
+        labelChan->setText(QString("Chan ")+QString().setNum(num2));
+
+        groupChan[old]->setStyleSheet(QString::fromUtf8("background-color: #80103040;"));
+        channel_selected = num + (channel_selected/16) * 16;
+        groupChan[channel_selected]->setStyleSheet(QString::fromUtf8("background-color: #80303060;"));
 
         DistortionGain->setValue(
                     fluid_output->get_param_filter(PROC_FILTER_DISTORTION,
@@ -957,6 +1073,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
         TremoloLevel->setValue((int) (100.0f * fluid_output->level_WaveModulator[channel_selected]));
         TremoloFreq->setValue((int) (100.0f * fluid_output->freq_WaveModulator[channel_selected]));
 
+        spinGroupIndex->setValue(channel_selected/16);
     });
 
     QObject::connect(DistortionButton, SIGNAL(clicked()), this, SLOT(distortion_clicked()));
@@ -989,7 +1106,7 @@ void FluidDialog::tab_MainVolume(QDialog */*FluidDialog*/){
     // scroll
     connect(scrollArea->horizontalScrollBar(), QOverload<int>::of(&QDial::valueChanged), [=](int num)
     {
-        groupM->setGeometry(QRect(-num*58/16, 0, 2000, 600));
+        groupM->setGeometry(QRect(-num*58/16, 0, 3000, 600));
     });
 
 
@@ -1000,12 +1117,16 @@ void FluidDialog::mousePressEvent(QMouseEvent* /*event*/) {
 
     if(MainVolume == NULL || disable_mainmenu) return;
 
-    for(int n= 0; n < 16; n++) {
+    for(int n= 0; n < SYNTH_CHANS; n++) {
         if(groupChan[n]->hasFocus()) {
             groupChan[channel_selected]->setStyleSheet(QString::fromUtf8("background-color: #80103040;"));
             channel_selected = n;
             groupChan[n]->setStyleSheet(QString::fromUtf8("background-color: #80303060;"));
+
+            block_scroll = true;
             spinChan->setValue(n);
+            spinGroupIndex->setValue(n/16);
+            block_scroll = false;
             break;
 
         }
@@ -1156,8 +1277,16 @@ void FluidDialog::timer_update(){
             line_r[n]->setStyleSheet(QString::fromUtf8("color: #608000;"));
     }
 
+    // get first track index for Fluidsynth channels
+    int track_index[3] = {-1, -1, -1};
+
+    for(int n = 0; n < MAX_OUTPUT_DEVICES; n++) {
+        int r = MidiOutput::AllTracksToOne ? MidiOutput::_midiOutFluidMAP[0] : MidiOutput::_midiOutFluidMAP[n];
+        if(r >= 0 && track_index[r % 3] < 0) track_index[r % 3] = n;
+    }
+
     // channel animation
-    for(int n = 0; n < 16; n++) {
+    for(int n = 0; n < SYNTH_CHANS; n++) {
         if(fluid_output->isNoteOn[n]) {
             if(!fluid_output->getAudioMute(n))
                 line[n]->setStyleSheet(QString::fromUtf8("color: green;"));
@@ -1169,13 +1298,29 @@ void FluidDialog::timer_update(){
         if(fluid_output->isNoteOn[n]) fluid_output->isNoteOn[n]--;
     }
 
-    for(int n = 0; n < 16; n++) {
-        int _bank = Bank_MIDI[n];
-        int _instrument = Prog_MIDI[n];
+    for(int n = 0; n < SYNTH_CHANS; n++) {
+        int indx = track_index[n/16] >= 0 ? ((n & 15) + 4 * (track_index[n/16] > 0)
+                + 16 * track_index[n/16]) : (n & 15);
+
+        int _bank = MidiOutput::file->Bank_MIDI[indx];
+        int _instrument = MidiOutput::file->Prog_MIDI[indx];
 
         QString s;
-        if(n != 9) s = MidiFile::instrumentName( _bank, _instrument);
-        else s = MidiFile::drumName(_instrument);
+
+        if(track_index[n/16] >= 0) {
+
+            bool is_instrument = false;
+
+            if((n  & 15) != 9 || ((n & 15) == 9 && (n > 9) && track_index[n/16] > 0
+                          && !MidiOutput::file->DrumUseCh9))
+                is_instrument = true;
+
+            if(is_instrument)
+                s = MidiFile::instrumentName( _bank, _instrument);
+            else
+                s = MidiFile::drumName(_instrument);
+        }
+
 
         qv[n]->setText(s);
     }
@@ -1210,8 +1355,9 @@ void FluidDialog::DeletePressets() // delete
 
             if(sys) {
                 b = sys->data();
-                if((b[0]==id[0] || b[3]=='R') && b[1]==id[1] && b[2]==id[2] &&
-                        (b[3]=='R' || b[3]==(char) (0x70+channel_selected))){
+                if((((b[0] == (char) 0 || b[0] == (char) 1 || b[0] == (char) 2) && b[3] == (char) (0x70+channel_selected))
+                  || b[3] == 'R') && b[1] == id[1] && b[2] == id[2] &&
+                  (b[3] == 'R' || b[3] == (char) (0x70+channel_selected))){
                     MWin->getFile()->channel(16)->removeEvent(sys);
                 }
             }
@@ -1230,7 +1376,7 @@ void FluidDialog::StorePressets() // store or delete
 
     char id[4]=
     {0x10, 0x66, 0x66, 'R'};
-    int entries = 15 * 16 + 1;
+    int entries = 15 * SYNTH_CHANS + 1;
     int BOOL;
 
     MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
@@ -1243,7 +1389,7 @@ void FluidDialog::StorePressets() // store or delete
 
     encode_sys_format(qd, (void *) &entries);
 
-    for(int n = 0; n < 16; n++) {
+    for(int n = 0; n < SYNTH_CHANS; n++) {
 
         if(n == 0)
             encode_sys_format(qd, (void *) &fluid_output->synth_gain);
@@ -1272,7 +1418,6 @@ void FluidDialog::StorePressets() // store or delete
         encode_sys_format(qd, (void *) &fluid_output->level_WaveModulator[n]);
         encode_sys_format(qd, (void *) &fluid_output->freq_WaveModulator[n]);
 
-
     }
 
     if(_save_mode) {
@@ -1295,7 +1440,7 @@ void FluidDialog::StorePressets() // store or delete
         if(sys) {
             c = sys->data();
             // delete for individual chans
-            if(c[0] == (char) 0 && c[1] == id[1] && c[2] == id[2] && (c[3] & 0xF0) == (char) 0x70){
+            if((c[0] == (char) 0 || c[0] == (char) 1 || c[0] == (char) 2) && c[1] == id[1] && c[2] == id[2] && (c[3] & 0xF0) == (char) 0x70){
                 MWin->getFile()->channel(event->channel())->removeEvent(sys);
             }
 
@@ -1373,12 +1518,17 @@ void FluidDialog::LoadPressets()
         }
 
         if((found == 1 && entries != 13 * 16 + 1) &&
-                (found == 2 && entries != (15 * 16 + 1))) {
+                (found == 2 && entries != (15 * 16 + 1) && entries != (15 * SYNTH_CHANS + 1))) {
 
             return;
         }
 
-        for(int n = 0; n < 16; n++) {
+        int nchan = 16;
+
+        if(entries == (15 * SYNTH_CHANS + 1))
+            nchan = SYNTH_CHANS;
+
+        for(int n = 0; n < nchan; n++) {
 
             if(n == 0)
                 decode_sys_format(qd, (void *) &fluid_output->synth_gain);
@@ -1435,6 +1585,11 @@ void FluidDialog::StoreSelectedPresset()
 
     int BOOL;
 
+    MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
+
+    int track_index = MWin->getFile()->track(NewNoteTool::editTrack())->fluid_index();
+
+    id[0] = track_index % 3;
     id[3]|= (channel_selected & 15);
 
     QDataStream qd(&b,
@@ -1473,8 +1628,6 @@ void FluidDialog::StoreSelectedPresset()
         encode_sys_format(qd, (void *) &fluid_output->level_WaveModulator[n]);
         encode_sys_format(qd, (void *) &fluid_output->freq_WaveModulator[n]);
 
-
-    MainWindow *MWin = ((MainWindow *) _parent); // get MainWindow :D
     MWin->getFile()->track(0);
     SysExEvent *sys_event = new SysExEvent(16, b, MWin->getFile()->track(0));
 
@@ -1528,8 +1681,9 @@ void FluidDialog::LoadSelectedPresset(int current_tick)
         if(sys) {
             b = sys->data();
 
-            if(b[1] == id2[1] && b[2] == id2[2] && ((b[0] == id2[0] && (b[3] & 0xf0) == 0x70) ||
-                                                       b[3] == 'R')){
+            if(b[1] == id2[1] && b[2] == id2[2] &&
+                    (((b[0] == (char) 0 || b[0] == (char) 1 || b[0] == (char) 2) && (b[3] & 0xf0) == 0x70)
+                     || b[3] == 'R')){
                 int entries = 13 * 1;
                 char id[4];
 
@@ -1544,13 +1698,18 @@ void FluidDialog::LoadSelectedPresset(int current_tick)
                     else n = b[0] & 0xf;
                 }
 
+                if(flag == 1) {
+                    n+= (b[0] % 3) * 16;
+                }
+
                 QDataStream qd(&b,
                                QIODevice::ReadOnly);
                 qd.startTransaction();
 
                 qd.readRawData((char *) id, 4);
 
-                if(flag == 1 && (id[0]!=id2[0] || id[1]!=id2[1] || id[2]!=id2[2] || (id[3] & 0xF0) != 0x70)) {
+                if(flag == 1 && ((id[0] != (char) 0 && id[0] != (char) 1 && id[0] != (char) 2)
+                    || id[1]!=id2[1] || id[2]!=id2[2] || (id[3] & 0xF0) != 0x70)) {
                     continue;
                 }
 
@@ -1567,7 +1726,7 @@ void FluidDialog::LoadSelectedPresset(int current_tick)
                     continue;
                 }
 
-                if(flag == 3 && entries != (15 * 16 + 1)) {
+                if(flag == 3 && (entries != (15 * 16 + 1) && entries != (15 * SYNTH_CHANS + 1))) {
                     QMessageBox::information(this, "Ehhh!", "entries differents");
                     continue;
                 }
@@ -1654,7 +1813,7 @@ void FluidDialog::ResetPresset() {
 
     fluid_output->synth_gain= 1.0;
 
-    for(int n = 0; n < 16; n++) {
+    for(int n = 0; n < SYNTH_CHANS; n++) {
         fluid_output->audio_chanmute[n]= false;
         groupChan[n]->setChecked(!fluid_output->getAudioMute(n));
         fluid_output->synth_chanvolume[n]= 127.0;

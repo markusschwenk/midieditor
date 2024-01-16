@@ -41,6 +41,7 @@ public:
 
     static void copyAction();
     static void pasteAction();
+    static void pasteAction2();
 
     virtual bool showsSelection();
 

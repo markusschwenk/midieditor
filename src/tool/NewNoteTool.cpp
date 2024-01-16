@@ -33,6 +33,7 @@
 #include "../MidiEvent/UnknownEvent.h"
 #include "../gui/MatrixWidget.h"
 #include "../midi/MidiChannel.h"
+#include "../midi/MidiTrack.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiPlayer.h"
 #include "../protocol/Protocol.h"
@@ -79,10 +80,17 @@ void NewNoteTool::draw(QPainter* painter)
     if (inDrag) {
         int line2 = line;
 
-        if(_channel >= 0 && _channel < 16 && OctaveChan_MIDI[_channel] && _channel != 9) {
-            line2-= 12 * OctaveChan_MIDI[_channel];
-            if(line2 < 0) line2 = 0;
-            if(line2 > 127) line2 = 127;
+        if(_channel >= 0 && _channel < 16 && OctaveChan_MIDI[_channel]) {
+            if((_channel == 9 && Tool::file()->track(_track)->fluid_index() == 0) ||
+                    ((_channel == 9 && Tool::file()->track(_track)->fluid_index() != 0
+                && MidiOutput::isFluidsynthConnected(Tool::file()->track(_track)->device_index()) && Tool::file()->DrumUseCh9))) {
+
+            } else {
+
+                 line2-= 12 * OctaveChan_MIDI[_channel];
+                 if(line2 < 0) line2 = 0;
+                 if(line2 > 127) line2 = 127;
+            }
         }
 
         if (line2 <= 127) {
@@ -110,12 +118,18 @@ bool NewNoteTool::press(bool leftClick)
     inDrag = true;
     line = matrixWidget->lineAtY(mouseY);
 
-    if(_channel >= 0 && _channel < 16 && OctaveChan_MIDI[_channel] && _channel != 9) {
-        line+= 12 * OctaveChan_MIDI[_channel];
-        if(line < 0) line = 0;
-        if(line > 127) line = 127;
-    }
+    if(_channel >= 0 && _channel < 16 && OctaveChan_MIDI[_channel]) {
+        if((_channel == 9 && Tool::file()->track(_track)->fluid_index() == 0) ||
+                ((_channel == 9 && Tool::file()->track(_track)->fluid_index() != 0
+            && MidiOutput::isFluidsynthConnected(Tool::file()->track(_track)->device_index()) && Tool::file()->DrumUseCh9))) {
 
+        } else {
+
+             line+= 12 * OctaveChan_MIDI[_channel];
+             if(line < 0) line = 0;
+             if(line > 127) line = 127;
+        }
+    }
 
     xPos = rasteredX(mouseX);
     return true;
@@ -123,10 +137,12 @@ bool NewNoteTool::press(bool leftClick)
 
 bool NewNoteTool::release()
 {
+    bool ret = false;
+
     int startTick, endTick;
     int currentX = rasteredX(mouseX);
     inDrag = false;
-    if (currentX < xPos || line > 127) {
+    if ((currentX < xPos) || (line > 127)) {
         int temp = currentX;
         currentX = xPos;
         xPos = temp;
@@ -141,20 +157,23 @@ bool NewNoteTool::release()
 
         // note
         if (line >= 0 && line <= 127) {
-            currentProtocol()->startNewAction("Create note", image());
+            if(track != file()->track(0)) {
+                currentProtocol()->startNewAction("Create note", image());
 
-            NoteOnEvent* on = file()->channel(_channel)->insertNote(127 - line,
-                startTick, endTick, 100, track);
-            selectEvent(on, true, true);
-            currentProtocol()->endAction();
+                NoteOnEvent* on = file()->channel(_channel)->insertNote(127 - line,
+                    startTick, endTick, 100, track);
+                selectEvent(on, true, true);
+                currentProtocol()->endAction();
 
-            if (_standardTool) {
-                Tool::setCurrentTool(_standardTool);
-                _standardTool->move(mouseX, mouseY);
-                _standardTool->release();
+                if (_standardTool) {
+                    Tool::setCurrentTool(_standardTool);
+                    _standardTool->move(mouseX, mouseY);
+                    _standardTool->release();
+                }
+
+                return true;
             }
-
-            return true;
+            return false;
         } else {
 
             MidiTrack* generalTrack = file()->track(0);
@@ -162,114 +181,166 @@ bool NewNoteTool::release()
             MidiEvent* event;
             // prog
             if (line == MidiEvent::PROG_CHANGE_LINE) {
+                if(track != file()->track(0)) {
+                    currentProtocol()->startNewAction("Create Program Change Event",
+                        image());
 
-                currentProtocol()->startNewAction("Create Program Change Event",
-                    image());
-
-                event = new ProgChangeEvent(_channel, 0, track);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(_channel)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+                    event = new ProgChangeEvent(_channel, 0, track);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(_channel)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
 
             } else if (line == MidiEvent::TIME_SIGNATURE_EVENT_LINE) {
-                currentProtocol()->startNewAction("Create Time Signature Event",
-                    image());
 
-                // 4/4
-                event = new TimeSignatureEvent(18, 4, 2, 24, 8, generalTrack);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(18)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+                if(track == file()->track(0)) {
+
+                    currentProtocol()->startNewAction("Create Time Signature Event",
+                        image());
+
+                    // 4/4
+                    event = new TimeSignatureEvent(18, 4, 2, 24, 8, generalTrack);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(18)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
             } else if (line == MidiEvent::TEMPO_CHANGE_EVENT_LINE) {
-                currentProtocol()->startNewAction("Create Tempo Change Event",
-                    image());
-                // quarter = 120
-                event = new TempoChangeEvent(17, 500000, generalTrack);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(17)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
-            } else if (line == MidiEvent::KEY_SIGNATURE_EVENT_LINE) {
-                currentProtocol()->startNewAction("Create Key Signature Event",
-                    image());
-                event = new KeySignatureEvent(16, 0, false, generalTrack);
 
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(16)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+                if(track == file()->track(0)) {
+                    currentProtocol()->startNewAction("Create Tempo Change Event",
+                        image());
+                    // quarter = 120
+                    event = new TempoChangeEvent(17, 500000, generalTrack);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(17)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
+            } else if (line == MidiEvent::KEY_SIGNATURE_EVENT_LINE) {
+
+                if(track == file()->track(0)) {
+                    currentProtocol()->startNewAction("Create Key Signature Event",
+                        image());
+                    event = new KeySignatureEvent(16, 0, false, generalTrack);
+
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(16)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else if (line == MidiEvent::CONTROLLER_LINE) {
-                currentProtocol()->startNewAction("Create Control Change Event",
-                    image());
-                event = new ControlChangeEvent(_channel, 0, 0, track);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(_channel)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+
+                if(track != file()->track(0)) {
+                    currentProtocol()->startNewAction("Create Control Change Event",
+                        image());
+                    event = new ControlChangeEvent(_channel, 0, 0, track);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(_channel)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else if (line == MidiEvent::KEY_PRESSURE_LINE) {
-                currentProtocol()->startNewAction("Create Key Pressure Event",
-                    image());
-                event = new KeyPressureEvent(_channel, 127, 100, track);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(_channel)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+
+                if(track != file()->track(0)) {
+                    currentProtocol()->startNewAction("Create Key Pressure Event",
+                        image());
+                    event = new KeyPressureEvent(_channel, 127, 100, track);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(_channel)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else if (line == MidiEvent::CHANNEL_PRESSURE_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create Channel Pressure Event", image());
-                event = new ChannelPressureEvent(_channel, 100, track);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(_channel)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+
+                if(track != file()->track(0)) {
+                    currentProtocol()->startNewAction(
+                        "Create Channel Pressure Event", image());
+                    event = new ChannelPressureEvent(_channel, 100, track);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(_channel)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else if (line == MidiEvent::PITCH_BEND_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create Pitch Bend Event", image());
-                event = new PitchBendEvent(_channel, 8192, track);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(_channel)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+
+                if(track != file()->track(0)) {
+                    currentProtocol()->startNewAction(
+                        "Create Pitch Bend Event", image());
+                    event = new PitchBendEvent(_channel, 8192, track);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(_channel)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else if (line == MidiEvent::TEXT_EVENT_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create Text Event", image());
-                event = new TextEvent(16, track);
-                TextEvent* textEvent = (TextEvent*)event;
-                textEvent->setText("New Text Event");
-                textEvent->setType(TextEvent::getTypeForNewEvents());
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(16)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+
+                if(1/*track == file()->track(0)*/) {
+                    currentProtocol()->startNewAction(
+                        "Create Text Event", image());
+                    event = new TextEvent(16, track);
+                    TextEvent* textEvent = (TextEvent*)event;
+                    textEvent->setText("New Text Event");
+                    textEvent->setType(TextEvent::getTypeForNewEvents());
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(16)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else if (line == MidiEvent::UNKNOWN_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create Unknown Event", image());
-                event = new UnknownEvent(16, 0x52, QByteArray(), track);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(16)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+
+                if(track == file()->track(0)) {
+                    currentProtocol()->startNewAction(
+                        "Create Unknown Event", image());
+                    event = new UnknownEvent(16, 0x52, QByteArray(), track);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(16)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else if (line == MidiEvent::SYSEX_LINE) {
-                currentProtocol()->startNewAction(
-                    "Create SysEx Event", image());
-                event = new SysExEvent(16, QByteArray(), track);
-                int startMs = matrixWidget->msOfXPos(xPos);
-                int startTick = file()->tick(startMs);
-                file()->channel(16)->insertEvent(event, startTick);
-                selectEvent(event, true, true);
-                currentProtocol()->endAction();
+
+                if(track == file()->track(0)) {
+                    currentProtocol()->startNewAction(
+                        "Create SysEx Event", image());
+                    event = new SysExEvent(16, QByteArray(), track);
+                    int startMs = matrixWidget->msOfXPos(xPos);
+                    int startTick = file()->tick(startMs);
+                    file()->channel(16)->insertEvent(event, startTick);
+                    selectEvent(event, true, true);
+                    currentProtocol()->endAction();
+                    ret = true;
+                }
+
             } else {
                 if (_standardTool) {
                     Tool::setCurrentTool(_standardTool);
@@ -285,7 +356,7 @@ bool NewNoteTool::release()
         _standardTool->move(mouseX, mouseY);
         _standardTool->release();
     }
-    return true;
+    return ret;
 }
 
 bool NewNoteTool::move(int mouseX, int mouseY)

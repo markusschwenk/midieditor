@@ -150,6 +150,11 @@ public:
 
     static void limitUndoAction(bool limit);
 
+    bool testFileModified();
+    unsigned int number;
+    unsigned int number_saved;
+    bool currentTrackDeleted;
+
 signals:
     /**
 		 * \brief This Signal will be emitted when there has been an undo/redo

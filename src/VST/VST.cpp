@@ -28,6 +28,12 @@
 #include "../MidiEvent/SysExEvent.h"
 #include <QMessageBox>
 #include "../fluid/FluidDialog.h"
+#include "../midi/MidiTrack.h"
+#include "../midi/MidiFile.h"
+#include "../midi/MidiChannel.h"
+#include "../protocol/Protocol.h"
+#include "../tool/NewNoteTool.h"
+
 #include <qscreen.h>
 
 QWidget *main_widget = NULL;
@@ -54,9 +60,10 @@ QString VST_directory;
 QString VST_directory32bits;
 #endif
 
-#define OUT_CH(x) (x & 15)
+#define OUT_CH(x) ((x & 15) + (x/32) * 16)
 
 static VST_preset_data_type *VST_preset_data[PRE_CHAN + 1];
+static char VST_MIDI_vol[PRE_CHAN + 1];
 
 #define VST_ON(x) (VST_preset_data[x] && VST_preset_data[x]->on)
 
@@ -212,7 +219,7 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
     if(channel == PRE_CHAN)
         Dialog->setWindowTitle("VST Pluging pre-loaded");
     else
-        Dialog->setWindowTitle("VST channel #" + QString().number(channel & 15) + " plugin " + QString().number(channel/16 + 1));
+        Dialog->setWindowTitle("VST channel #" + QString().number((channel & 15) + (channel/32) * 16) + " plugin " + QString().number(((channel/16) & 1) + 1));
 
     groupBox->setTitle(QString());
 
@@ -235,14 +242,14 @@ VSTDialog::VSTDialog(QWidget* parent, int chan) : QDialog(parent, Qt::WindowSyst
 
     QMetaObject::connectSlotsByName(Dialog);
 
-    time_updat= new QTimer(this);
-    if(!time_updat)
-        ERROR_CRITICAL("VSTDialog: time_updat fail\n");
-    time_updat->setSingleShot(false);
+    time_update= new QTimer(this);
+    if(!time_update)
+        ERROR_CRITICAL("VSTDialog: time_update fail\n");
+    time_update->setSingleShot(false);
 
-    connect(time_updat, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
-    time_updat->setSingleShot(false);
-    time_updat->start(50);
+    connect(time_update, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
+    time_update->setSingleShot(false);
+    time_update->start(50);
 
 }
 
@@ -253,7 +260,7 @@ void VSTDialog::accept() {
 }
 
 void VSTDialog::recVSTDialog(int chan, int button, int val) {
-    qWarning("recVSTDialog %i %i %i", chan, button, val);
+    //qWarning("recVSTDialog %i %i %i", chan, button, val);
     if(chan == channel) {
         switch(button) {
         case 255:
@@ -339,8 +346,8 @@ void VSTDialog::timer_update() {
 
 VSTDialog::~VSTDialog() {
 
-    time_updat->stop();
-    delete time_updat;
+    time_update->stop();
+    delete time_update;
     if(semaf) delete semaf;
     hide();
 
@@ -783,8 +790,8 @@ void VSTDialog::Save() {
 
     DEBUG_OUT((QString("save ") + QString().number(chan) + QString(" pre ") + QString().number(pre)).toLocal8Bit().data());
 
-    file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Preset (%i) data stored", chan & 15, chan/16 + 1, pre));
-
+    file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Track %i Preset (%i) data stored", chan & 15, ((chan/16) & 1) + 1, chan/32, pre));
+    
     VST_preset_data[chan]->preset[pre].clear();
 
     _block_timer2 = 1;
@@ -1166,7 +1173,7 @@ void VSTDialog::Delete() {
 
     int pre = VST_preset_data[chan]->curr_preset;
 
-    file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Preset (%i) deleted", chan & 15, chan/16 + 1, pre));
+    file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Track %i Preset (%i) deleted", chan & 15, ((chan/16) & 1) + 1, chan/32, pre));
 
     VST_preset_data[chan]->preset[pre].clear();
 
@@ -1692,7 +1699,7 @@ int VST_proc::VST_exit() {
     }
 
     if(out_vst) {
-        for(int n = 0; n < 16 * 2; n++) {
+        for(int n = 0; n < SYNTH_CHANS * 2; n++) {
             if(out_vst[n]) delete out_vst[n];
             out_vst[n] = NULL;
         }
@@ -1732,7 +1739,9 @@ void VST_proc::VST_MIDInotesOff(int chan) {
         return;
     }
 
-    for(; chan < PRE_CHAN; chan+= 16) {
+    int chan32 = (((chan & 0x6F) + 32) >= PRE_CHAN) ? PRE_CHAN : (chan & 0x6F) + 32;
+
+    for(; chan < chan32; chan+= 16) {
 
         if(VST_ON(chan) && (VST_preset_data[chan]->type & 1)) {
 
@@ -1785,10 +1794,18 @@ void VST_proc::VST_MIDInotesOff(int chan) {
 
 }
 
+void VST_proc::VST_MIDIvol(int chan, int vol) {
+    VST_MIDI_vol[chan] = vol & 127;
+}
+
+
 bool VST_proc::VST_isMIDI(int chan) {
 
+
   //DEBUG_OUT("VST_isMIDI");
-    for(; chan < PRE_CHAN; chan+= 16) {
+    int chan32 = (((chan & 0x6F) + 32) >= PRE_CHAN) ? PRE_CHAN : (chan & 0x6F) + 32;
+
+    for(; chan < chan32; chan+= 16) {
         if(VST_ON(chan) && (VST_preset_data[chan]->type & 1)) return true;
     }
 
@@ -1808,7 +1825,9 @@ void VST_proc::VST_MIDIcmd(int chan, int deltaframe, QByteArray cmd) {
             vstEvents[n] = NULL;
     }
 
-    for(; chan < PRE_CHAN; chan+= 16) {
+    int chan32 = (((chan & 0x6F) + 32) >= PRE_CHAN) ? PRE_CHAN : (chan & 0x6F) + 32;
+
+    for(; chan < chan32; chan+= 16) {
 
         if(!VST_ON(chan) || !(VST_preset_data[chan]->type & 1) || ((VST_preset_data[chan]->type & 128) && deltaframe != -666)) continue;
 
@@ -1820,6 +1839,7 @@ void VST_proc::VST_MIDIcmd(int chan, int deltaframe, QByteArray cmd) {
         }
 */
         if(VST_preset_data[chan]->external) {
+
             VST_proc::VST_external_MIDIcmd(chan, (deltaframe == -666) ? 0 : deltaframe, cmd);
             waits = 0;
             if(deltaframe == -666) break;
@@ -1848,11 +1868,6 @@ void VST_proc::VST_MIDIcmd(int chan, int deltaframe, QByteArray cmd) {
             waits = 0;
             return;
         }
-*/
-/*
-        vstEvents[chan]->events[pos] = new VstEvent();
-
-
 */
 
         VstEvent *ev = new VstEvent();
@@ -2038,7 +2053,7 @@ int VST_proc::VST_unload(int chan) {
 
         _block_timer2 = 0;
         vst_mix_disable = 0;
-        emit ((MainWindow *) main_widget)->ToggleViewVST(chan, false);
+        emit ((MainWindow *) main_widget)->ToggleViewVST(chan & 31, false);
         return 0;
     }
 
@@ -2116,7 +2131,7 @@ int VST_proc::VST_unload(int chan) {
     _block_timer2 = 0;
     vst_mix_disable = 0;
 
-    emit ((MainWindow *)main_widget)->ToggleViewVST(chan, false);
+    emit ((MainWindow *)main_widget)->ToggleViewVST(chan & 31, false);
 
     return 0;
 }
@@ -2200,14 +2215,17 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
     while(1) {
 
         if(!*p) break;
-        else {QCoreApplication::processEvents();QThread::msleep(50);}
+        else {
+            QCoreApplication::processEvents();
+            QThread::msleep(50);
+        }
     }
 
 
     if(first_time) {
 
         if(VST_directory == "") {
-            VST_directory = QDir::homePath();
+            VST_directory = QDir::homePath() + "/Midieditor";
 #ifdef __ARCH64__
             if(fluid_output->fluid_settings->value("VST_directory").toString() != "")
                 VST_directory = fluid_output->fluid_settings->value("VST_directory").toString();
@@ -2219,15 +2237,15 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
         }
 #ifdef __ARCH64__
         if(VST_directory32bits == "") {
-            VST_directory32bits = QDir::homePath();
+            VST_directory32bits = QDir::homePath() + "/Midieditor";
             if(fluid_output->fluid_settings->value("VST_directory_32bits").toString() != "")
                 VST_directory32bits = fluid_output->fluid_settings->value("VST_directory_32bits").toString();
 
         }
 #endif
 
-        out_vst = new float*[16 * 2];
-        for(int n = 0; n < 16 * 2; n++) {
+        out_vst = new float*[SYNTH_CHANS * 2];
+        for(int n = 0; n < SYNTH_CHANS * 2; n++) {
             out_vst[n] = new float[FLUID_OUT_SAMPLES + 256];
         }
 
@@ -2242,6 +2260,8 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
     if(!_parentS) return -1;
 
     VST_proc::VST_unload(chan);
+
+    VST_MIDI_vol[chan] = 100;
 
     if(VST_preset_data[chan]) {
         qWarning("Error! VST_preset_data[%i] defined after VST_unload()", chan);
@@ -2299,20 +2319,29 @@ int VST_proc::VST_load(int chan, const QString pathModule) {
                 delete VST_temp;
 
                 if(fluid_control && !fluid_control->disable_mainmenu && chan < PRE_CHAN) {
+
                     fluid_control->wicon[chan]->setVisible(true);
                 }
 
                 _block_timer2 = 0;
                 vst_mix_disable = 0;
 
-                if(chan < PRE_CHAN) emit ((MainWindow *)main_widget)->ToggleViewVST(chan, true);
+                MidiFile* file = ((MainWindow *)main_widget)->getFile();
+                int ti = 32 * (file->track(NewNoteTool::editTrack())->fluid_index() % 3);
+                if(chan < PRE_CHAN && chan >= ti && chan < ti + 32) emit ((MainWindow *)main_widget)->ToggleViewVST(chan & 31, true);
                 return 0;
+            } else {
+                DELETE(VST_temp)
+                _block_timer2 = 0;
+                vst_mix_disable = 0;
+                return -1;
             }
 
 
         } else {
             DELETE(VST_temp)
-                    vst_mix_disable = 0;
+            _block_timer2 = 0;
+            vst_mix_disable = 0;
             return -1;
         }
 
@@ -2513,7 +2542,9 @@ nochunk:
 
             VST_preset_data[chan]->vstWidget->blockSignals(false);
 
-            if(chan < PRE_CHAN) emit ((MainWindow *)main_widget)->ToggleViewVST(chan, true);
+            MidiFile* file = ((MainWindow *)main_widget)->getFile();
+            int ti = 32 * (file->track(NewNoteTool::editTrack())->fluid_index() % 3);
+            if(chan < PRE_CHAN && chan >= ti && chan < ti + 32) emit ((MainWindow *)main_widget)->ToggleViewVST(chan & 31, true);
             return 0;
         }
     }
@@ -2624,14 +2655,15 @@ int VST_proc::VST_mix(float**in, int nchans, int samplerate, int nsamples, int m
         for(int n = 0; n < PRE_CHAN + 1; n++)
             vstEvents[n] = NULL;
     }
-
+/*
     int chan = (mode == 2) ? 16 : 0;
 
     if(mode == 1)
         nchans = 16;
+*/
 
-
-    for(; chan < nchans; chan++) {
+    for(int c = 0; c < nchans/2; c++) {
+        int chan = (c & 15) + 32 * (c/16) + 16 * (mode == 2);
 
         if(vst_mix_disable) {
             _block_timer = 0;
@@ -2720,9 +2752,9 @@ int VST_proc::VST_mix(float**in, int nchans, int samplerate, int nsamples, int m
             if(VST_preset_data[chan]->disabled) continue;
 
             // only VST 1 can use midi ch
-            if(chan < 16 && VST_proc::VST_isMIDI(chan) && fluid_output->synth_chanvolume[chan] < 127) {
+            if((chan & 31) < 16 && VST_proc::VST_isMIDI(chan) && fluid_output->synth_chanvolume[chan] <= 127) {
                 float vol = ((float) (fluid_output->synth_chanvolume[chan] & 127)) / 127.0f;
-
+                vol *= ((float ) VST_MIDI_vol[chan])/127.0f;
                 float *f1 = in[OUT_CH(chan) * 2];
                 float *o1 = out_vst[OUT_CH(chan) * 2];
                 float *f2 = in[OUT_CH(chan) * 2 + 1];
@@ -3842,7 +3874,7 @@ int VST_proc::VST_SaveParameters(int chan)
 
     int clen = 0;
 
-    file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Preset data stored", chan & 15, chan/16 + 1));
+    file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Track %i Preset data stored", chan & 15, ((chan/16) & 1) + 1, chan/32));
 
     ///-> filename
 
@@ -4076,7 +4108,7 @@ VST_chan::VST_chan(QWidget* parent, int channel, int flag) : QDialog(parent, Qt:
 
 
     if(VST_directory == "") {
-        VST_directory = QDir::homePath();
+        VST_directory = QDir::homePath() + "/Midieditor";
 
 #ifdef __ARCH64__
         if(fluid_output->fluid_settings->value("VST_directory").toString() != "")
@@ -4090,7 +4122,7 @@ VST_chan::VST_chan(QWidget* parent, int channel, int flag) : QDialog(parent, Qt:
 
 #ifdef __ARCH64__
     if(VST_directory32bits == "") {
-        VST_directory32bits = QDir::homePath();
+        VST_directory32bits = QDir::homePath() + "/Midieditor";
         if(fluid_output->fluid_settings->value("VST_directory_32bits").toString() != "")
             VST_directory32bits = fluid_output->fluid_settings->value("VST_directory_32bits").toString();
     }
@@ -4169,13 +4201,12 @@ VST_chan::VST_chan(QWidget* parent, int channel, int flag) : QDialog(parent, Qt:
 
         labelinfo = new QLabel(VST_chan);
         labelinfo->setObjectName(QString::fromUtf8("labelinfo"));
-        labelinfo->setGeometry(QRect(20, 10, 200, 31));
+        labelinfo->setGeometry(QRect(20, 10, 240, 31));
         QFont font;
         font.setPointSize(12);
         labelinfo->setFont(font);
         //labelinfo->setText("Channel #" + QString::number(channel));
-        labelinfo->setText("Channel #" + QString().number(channel & 15) + " plugin " + QString().number(channel/16 + 1));
-
+        labelinfo->setText("Channel #" + QString().number((channel & 15) + (channel/32) * 16) + " plugin " + QString().number(((channel/16) & 1) + 1));
 
         Addfiles();
 
@@ -4422,7 +4453,7 @@ void VST_chan::setVSTDirectory2() {
 
 void VST_chan::SetVST() {
 
-    if(VST_ON(PRE_CHAN) && (VST_preset_data[PRE_CHAN]->type & 1) && chan >= 16) {
+    if(VST_ON(PRE_CHAN) && (VST_preset_data[PRE_CHAN]->type & 1) && (chan & 31)>= 16) {
 
         QMessageBox::information(_parentS, "VST Channel - plugin 2", "Please, load Synth VST plugins in this channel as Plugin 1");
 
@@ -4477,7 +4508,8 @@ void VST_chan::SetVST() {
         }
 
         ((VSTDialog *) VST_preset_data[chan]->vstWidget)->channel = chan;
-        ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setWindowTitle("VST channel #" + QString().number(chan & 15) + " plugin " + QString().number(chan/16 + 1));
+        ((VSTDialog *) VST_preset_data[chan]->vstWidget)->setWindowTitle("VST channel #" + QString().number((chan & 15) + (chan/32) * 16) + " plugin " + QString().number(((chan/16) & 1) + 1));
+
         VST_preset_data[chan]->on = true;
         ((VSTDialog *) VST_preset_data[chan]->vstWidget)->groupBox->setEnabled(true);
 
@@ -4527,7 +4559,9 @@ void VST_chan::SetVST() {
 
         }
 
-        emit ((MainWindow *)main_widget)->ToggleViewVST(chan, true);
+        MidiFile* file = ((MainWindow *)main_widget)->getFile();
+        int ti = 32 * (file->track(NewNoteTool::editTrack())->fluid_index() % 3);
+        if(chan < PRE_CHAN && chan >= ti && chan < ti + 32) emit ((MainWindow *)main_widget)->ToggleViewVST(chan & 31, true);
 
         close();
 
@@ -4569,7 +4603,7 @@ void VST_chan::DeleteVST() {
         char id[4]= {0x0, 0x66, 0x66, 'V'};
         id[0] = chan;
 
-        file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Deleted", chan & 15, chan/16 + 1));
+        file->protocol()->startNewAction(QString().asprintf("SYSex VST #%i pluging %i Track %i Deleted", chan & 15, ((chan/16) & 1) + 1, chan/32));
 
         int dtick = file->tick(150);
 
@@ -4734,8 +4768,14 @@ int VST_proc::VST_external_mix(int samplerate, int nsamples) {
         dat[0] = 0x70; // VST_MIX
         dat[1] = samplerate;
         dat[2] = nsamples;
-        for(int n = 0; n < 16; n++)
-            dat[3 + n] = fluid_output->synth_chanvolume[n];
+
+        for(int n = 0; n < SYNTH_CHANS; n++) {
+
+            if(VST_preset_data[chan]->type & 1)
+                dat[3 + n]= (fluid_output->synth_chanvolume[n] * VST_MIDI_vol[chan])/127;
+            else
+                dat[3 + n] = fluid_output->synth_chanvolume[n];
+        }
 
         sharedVSText->unlock();
         sys_sema_in->release();
@@ -5082,12 +5122,12 @@ VSTlogo::VSTlogo(QWidget* parent, QString text) : QDialog(parent, Qt::FramelessW
 
 
 
-    time_updat= new QTimer(this);
-    time_updat->setSingleShot(false);
+    time_update= new QTimer(this);
+    time_update->setSingleShot(false);
 
-    connect(time_updat, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
-    time_updat->setSingleShot(false);
-    time_updat->start(5);
+    connect(time_update, SIGNAL(timeout()), this, SLOT(timer_update()), Qt::DirectConnection);
+    time_update->setSingleShot(false);
+    time_update->start(5);
 
 
 }
@@ -5303,7 +5343,7 @@ VSTExportDatas::VSTExportDatas(QWidget* parent, int chan) : QDialog(parent, Qt::
     spinBoxChan->setFont(font);
     spinBoxChan->setAlignment(Qt::AlignCenter);
     spinBoxChan->setMinimum(0);
-    spinBoxChan->setMaximum(15);
+    spinBoxChan->setMaximum(47);
 
     pushButtonExport1 = new QPushButton(groupBoxDestChan);
     pushButtonExport1->setObjectName(QString::fromUtf8("pushButtonExport1"));
@@ -5333,13 +5373,13 @@ VSTExportDatas::VSTExportDatas(QWidget* parent, int chan) : QDialog(parent, Qt::
 
 void VSTExportDatas::ExportVST1() {
     plugin = 0;
-    channel2 = spinBoxChan->value();
+    channel2 = (spinBoxChan->value() & 15) + (spinBoxChan->value()/16) * 32;
     ExportVST();
 }
 
 void VSTExportDatas::ExportVST2() {
     plugin = 1;
-    channel2 = spinBoxChan->value();
+    channel2 = (spinBoxChan->value() & 15) + (spinBoxChan->value()/16) * 32;
     ExportVST();
 }
 
@@ -5354,20 +5394,26 @@ void VSTExportDatas::ExportVST() {
 
         QMessageBox::information(_parentS, "VST Channel - plugin 2", "Please, export Synth VST plugins in this channel as Plugin 1");
 
-        qDebug("synth module in plugin 2 of channel %i", chan2 & 15);
+        qDebug("synth module in plugin 2 of channel %i", (chan2 & 15) + (chan2/32) * 16);
 
         return;
     }
 
-    qWarning("exporting from channel %i to channel %i plugin %i", chan & 15, chan2, (plugin & 1)+ 1);
+    if(plugin & 128)
+        qWarning("inporting from channel %i to channel %i plugin %i", (chan & 15) + (chan/32) * 16, (chan2 & 15) + (chan2/32) * 16, (plugin & 1)+ 1);
+    else
+        qWarning("exporting from channel %i to channel %i plugin %i", (chan & 15) + (chan/32) * 16, (chan2 & 15) + (chan2/32) * 16, (plugin & 1)+ 1);
 
     MainWindow *MWin = ((MainWindow *) _parentS);
     MidiFile* file = MWin->getFile();
 
-    file->protocol()->startNewAction(QString::asprintf("SYSex VST Export from #%i plugin %i to #%i ", chan & 15, 1 + (plugin & 1), chan2));
+    if(plugin & 128)
+        file->protocol()->startNewAction(QString::asprintf("SYSex VST Inporting from file to #%i plugin %i", (chan2 & 15) + (chan2/32) * 16, 1 + (plugin & 1)));
+    else
+        file->protocol()->startNewAction(QString::asprintf("SYSex VST Export from #%i plugin %i to #%i ", (chan & 15) + (chan/32) * 16, 1 + (plugin & 1), (chan2 & 15) + (chan2/32) * 16));
 
     char id[4]= {0x0, 0x66, 0x66, 'V'};
-    id[0] = (chan2 & 15) | ((plugin & 1) ? 16 : 0);
+    id[0] = (chan2 & 0xEF) | ((plugin & 1) ? 16 : 0);
 
     int dtick= file->tick(150);
 
@@ -5531,7 +5577,7 @@ void VSTExportDatas::ExportVST() {
                             clen = 0;
                             decode_sys_format(qd, (void *) &clen);
 
-                            qWarning("asys VST pre %i len %i %i", pre, c.size(), clen);
+                            //qWarning("asys VST pre %i len %i %i", pre, c.size(), clen);
 
                             decode_sys_format(qd, (void *) &dat);
                             if(dat != VST_preset_data[chan]->uniqueID) continue;
@@ -5545,7 +5591,7 @@ void VSTExportDatas::ExportVST() {
                             if(dat != VST_preset_data[chan]->numParams) continue;
                             if(dat != _numParams) continue;
 
-                            qWarning("bsys VST pre %i len %i %i", pre, c.size(), clen);
+                            //qWarning("bsys VST pre %i len %i %i", pre, c.size(), clen);
 
 
                             if(data2) free(data2);
@@ -5993,7 +6039,7 @@ void VSTExportDatas::ImportVSTfile() {
             //if(VST_ON(chan)) VST_proc::VST_unload(chan);
 
             plugin = (chan & 16) ? 129 : 128;
-            channel2 = (chan & 15);
+            channel2 = chan & 0xEF;
             ExportVST();
 
             VST_proc::Logo(0, QString());

@@ -102,5 +102,11 @@
         <file>run_environment/graphics/custom/background2.png</file>
         <file>run_environment/graphics/custom/drum.png</file>
         <file>run_environment/graphics/custom/background3.png</file>
+        <file>run_environment/graphics/custom/Midicustom2.png</file>
+        <file>run_environment/graphics/custom/virtualkb.png</file>
+        <file>run_environment/graphics/custom/pedal_off.png</file>
+        <file>run_environment/graphics/custom/pedal_on.png</file>
+        <file>run_environment/graphics/tool/paste_ext.png</file>
+        <file>run_environment/graphics/tool/select_multitrack.png</file>
     </qresource>
 </RCC>

@@ -51,7 +51,6 @@ void ProtocolStep::addItem(ProtocolItem* item)
     _itemStack->push(item);
 }
 
-
 ProtocolStep* ProtocolStep::releaseStep()
 {
 

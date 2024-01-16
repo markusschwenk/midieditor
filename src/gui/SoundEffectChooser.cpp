@@ -41,8 +41,7 @@
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
-
-
+#include "../tool/NewNoteTool.h"
 
 SoundEffectChooser::SoundEffectChooser(MidiFile* f, int channel, QWidget* parent, int flag, int tick_edit)
     : QDialog(parent, Qt::WindowSystemMenuHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint)
@@ -714,7 +713,7 @@ void SoundEffectChooser::accept() {
         }
     }
     if (!track) {
-        track = _file->track(0);
+        track = _file->track(NewNoteTool::editTrack());
     }
 
     ControlChangeEvent* event = 0;
@@ -730,7 +729,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 1) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
 
@@ -739,7 +741,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 1) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -753,7 +758,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 10) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
 
@@ -762,7 +770,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 10) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -776,7 +787,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 7) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -784,7 +798,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 7) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -798,7 +815,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 64) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -806,7 +826,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 64) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -820,7 +843,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 66) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -828,7 +854,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 66) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -842,7 +871,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 73) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -850,7 +882,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 73) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -864,7 +899,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 72) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -872,7 +910,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 72) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -886,7 +927,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 75) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -894,7 +938,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 75) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -908,7 +955,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 91) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -916,7 +966,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 91) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -930,7 +983,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 93) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     } else if(_flag > SOUNDEFFECTCHOOSER_ALL) {
@@ -938,7 +994,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             ControlChangeEvent* toRemove = dynamic_cast<ControlChangeEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != event && toRemove->control() == 93) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
     }
@@ -974,7 +1033,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             PitchBendEvent* toRemove = dynamic_cast<PitchBendEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != Pevent) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
 
@@ -988,7 +1050,10 @@ void SoundEffectChooser::accept() {
             foreach (MidiEvent* event2, *(_file->eventsBetween(clicks-10, clicks+10))) {
                 PitchBendEvent* toRemove = dynamic_cast<PitchBendEvent*>(event2);
                 if (toRemove && event2->channel()==_channel && toRemove != Pevent) {
-                    _file->channel(_channel)->removeEvent(toRemove);
+                    if(!_file->MultitrackMode)
+                        _file->channel(_channel)->removeEvent(toRemove);
+                    else if(toRemove->track() == track)
+                        _file->channel(_channel)->removeEvent(toRemove);
                 }
             }
         }
@@ -997,7 +1062,10 @@ void SoundEffectChooser::accept() {
         foreach (MidiEvent* event2, *(_file->eventsBetween(_tick_edit - 10, _tick_edit + 10))) {
             PitchBendEvent* toRemove = dynamic_cast<PitchBendEvent*>(event2);
             if (toRemove && event2->channel()==_channel && toRemove != Pevent) {
-                _file->channel(_channel)->removeEvent(toRemove);
+                if(!_file->MultitrackMode)
+                    _file->channel(_channel)->removeEvent(toRemove);
+                else if(toRemove->track() == track)
+                    _file->channel(_channel)->removeEvent(toRemove);
             }
         }
 

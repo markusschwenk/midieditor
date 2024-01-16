@@ -22,6 +22,7 @@
 #include "../MidiEvent/TextEvent.h"
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
+#include "../tool/NewNoteTool.h"
 #include "../protocol/Protocol.h"
 
 TextEventEdit::TextEventEdit(MidiFile* f, int channel, QWidget* parent, int flag)
@@ -82,7 +83,7 @@ void TextEventEdit::accept()
  result=1;
  if(_flag!=TEXTEVENT_NEW_TEXT && _flag!=TEXTEVENT_NEW_MARKER  &&
          _flag!=TEXTEVENT_NEW_LYRIK && _flag!=TEXTEVENT_NEW_TRACK_NAME) {QDialog::accept();return;}
-    MidiTrack* track = 0;
+    MidiTrack* track = _file->track(NewNoteTool::editTrack());
 
     int type = TextEvent::TEXT;
     if(_flag == TEXTEVENT_NEW_MARKER) type = TextEvent::MARKER;

@@ -39,6 +39,19 @@ void ColoredWidget::paintEvent(QPaintEvent*)
 #endif
     p.setPen(Qt::lightGray);
     p.setBrush(_color);
+
     p.drawRoundedRect(x, y, l, l, 30, 30, Qt::RelativeSize);
+
+    if(1) {
+
+        QLinearGradient linearGrad(QPointF(x, y), QPointF(x + l, y + l));
+        linearGrad.setColorAt(0, QColor(60, 60, 60, 0x40));
+        linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+        linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+
+        QBrush d(linearGrad);
+        p.setBrush(d);
+        p.drawRoundedRect(x, y, l, l, 30, 30, Qt::RelativeSize);
+    }
     p.end();
 }
