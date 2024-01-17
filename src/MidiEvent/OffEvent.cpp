@@ -26,16 +26,37 @@ OffEvent::OffEvent(int ch, int l, MidiTrack* track)
 {
     _line = l;
     _onEvent = 0;
+
+    int midi_time = -1;
+    int pos = -1;
+    midi_modified = false;
+
     QList<OnEvent*> eventsToClose = onEvents->values(line());
     for (int i = 0; i < eventsToClose.length(); i++) {
         if (eventsToClose.at(i)->channel() == channel()) {
-            setOnEvent(eventsToClose.at(i));
 
-            // remove entry
-            removeOnEvent(eventsToClose.at(i));
-            return;
+            // find first onEvent to let
+
+            if(midi_time == -1) {
+                pos = i;
+                midi_time = eventsToClose.at(i)->midiTime();
+            } else if(eventsToClose.at(i)->midiTime() < midi_time){
+                pos = i;
+                midi_time = eventsToClose.at(i)->midiTime();
+            }
+
         }
+
     }
+
+    if(pos >= 0) {
+        setOnEvent(eventsToClose.at(pos));
+
+        // remove entry
+        removeOnEvent(eventsToClose.at(pos));
+    }
+
+    return;
 }
 
 QList<OnEvent*> OffEvent::corruptedOnEvents()
@@ -58,11 +79,13 @@ OffEvent::OffEvent(OffEvent& other)
     : MidiEvent(other)
 {
     _onEvent = other._onEvent;
+    midi_modified = other.midi_modified;
 }
 
 void OffEvent::setOnEvent(OnEvent* event)
 {
     _onEvent = event;
+    midi_modified = true;
     event->setOffEvent(this);
 }
 
@@ -73,16 +96,18 @@ OnEvent* OffEvent::onEvent()
 
 void OffEvent::setMidiTime(int t, bool toProtocol)
 {
+    midi_modified = true;
     MidiEvent::setMidiTime(t, toProtocol);
 }
 
 void OffEvent::enterOnEvent(OnEvent* event)
 {
-    onEvents->insertMulti(event->line(), event);
+    onEvents->insert(event->line(), event);
 }
 
 void OffEvent::clearOnEvents()
 {
+
     onEvents->clear();
 }
 
@@ -106,6 +131,7 @@ void OffEvent::reloadState(ProtocolEntry* entry)
     }
     MidiEvent::reloadState(entry);
     _onEvent = other->_onEvent;
+    midi_modified = other->midi_modified;
 }
 
 QByteArray OffEvent::save()

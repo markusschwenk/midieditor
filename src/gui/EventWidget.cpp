@@ -133,7 +133,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     switch (field) {
     case EventWidget::MidiEventTick: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(INT_MAX);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
@@ -155,7 +155,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::MidiEventNote: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(127);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
@@ -164,7 +164,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::NoteEventOffTick: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(INT_MAX);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
@@ -173,7 +173,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::NoteEventVelocity: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(127);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
@@ -182,7 +182,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::NoteEventDuration: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(INT_MAX);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
@@ -191,7 +191,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::MidiEventChannel: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(15);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
@@ -204,14 +204,17 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         EventWidget::EventType type = eventWidget->type();
         switch (type) {
         case EventWidget::PitchBendEventType: {
+            spin->setMinimum(0);
             spin->setMaximum(16383);
             break;
         }
         case EventWidget::TempoChangeEventType: {
+            spin->setMinimum(1);
             spin->setMaximum(1000);
             break;
         }
         default: {
+            spin->setMinimum(0);
             spin->setMaximum(127);
             break;
         }
@@ -239,7 +242,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         QComboBox* box = dynamic_cast<QComboBox*>(editor);
         int current = 0;
         for (int i = 0; i < 128; i++) {
-            QString text = QString::number(i) + ": " + MidiFile::instrumentName(i);
+            QString text = QString::number(i) + ": " + MidiFile::instrumentName(0,i);
             box->addItem(text);
             if (!text.compare(index.data().toString())) {
                 current = i;
@@ -264,7 +267,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::TimeSignatureNum: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(1);
+        spin->setMinimum(1);
         spin->setMaximum(99);
         if (index.data().canConvert(QVariant::Int)) {
             spin->setValue(index.data().toInt());
@@ -822,7 +825,7 @@ QList<QPair<QString, EventWidget::EditorField> > EventWidget::getFields()
     QList<QPair<QString, EditorField> > fields;
     fields.append(QPair<QString, EditorField>("On Tick", MidiEventTick));
 
-    switch (_currentType) {
+    switch ((int) _currentType) {
     case ChannelPressureEventType: {
         fields.append(QPair<QString, EditorField>("Value", MidiEventValue));
         fields.append(QPair<QString, EditorField>("Channel", MidiEventChannel));
@@ -887,7 +890,9 @@ QList<QPair<QString, EventWidget::EditorField> > EventWidget::getFields()
         break;
     }
     }
-    fields.append(QPair<QString, EditorField>("Track", MidiEventTrack));
+
+    if(!(_currentType == TempoChangeEventType || _currentType == TimeSignatureEventType))
+        fields.append(QPair<QString, EditorField>("Track", MidiEventTrack));
     return fields;
 }
 
@@ -1104,7 +1109,7 @@ QVariant EventWidget::fieldContent(EditorField field)
         if (program < 0) {
             return QVariant("");
         }
-        return QVariant(QString::number(program) + ": " + MidiFile::instrumentName(program));
+        return QVariant(QString::number(program) + ": " + MidiFile::instrumentName(0, program));
     }
     case KeySignatureKey: {
         int key = -1;
@@ -1209,8 +1214,8 @@ QVariant EventWidget::fieldContent(EditorField field)
             return QVariant("");
         }
         QString s;
-        s.sprintf("%02X", n);
-        s = "0x" + s;
+
+        s = s.asprintf("0x%02X", n);
         return QVariant(s);
     }
     case MidiEventData: {
@@ -1279,11 +1284,11 @@ void EventWidget::getKey(int index, int* tonality, bool* minor)
 QString EventWidget::dataToString(QByteArray data)
 {
     QString s;
+
     foreach (unsigned char b, data) {
-        QString t;
-        t.sprintf("%02X", b);
-        s = s + "0x" + t + "\n";
+        s = s + s.asprintf("0x%02X\n", b);
     }
+
     return s.trimmed();
 }
 

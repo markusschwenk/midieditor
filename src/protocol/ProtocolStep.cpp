@@ -31,11 +31,23 @@ ProtocolStep::ProtocolStep(QString description, QImage* img)
 
 ProtocolStep::~ProtocolStep()
 {
-    delete _itemStack;
+
+    while (!_itemStack->isEmpty()) {
+        ProtocolItem* item = _itemStack->pop();
+        if(item)
+            delete item;
+    }
+
 }
 
 void ProtocolStep::addItem(ProtocolItem* item)
 {
+
+    if(item->midi_modified) {
+        midi_modified = item->midi_modified;
+    }
+
+
     _itemStack->push(item);
 }
 
@@ -48,7 +60,14 @@ ProtocolStep* ProtocolStep::releaseStep()
     // Copy the Single steps and release them
     while (!_itemStack->isEmpty()) {
         ProtocolItem* item = _itemStack->pop();
-        step->addItem(item->release());
+
+        if(item->midi_modified) {
+            midi_modified = item->midi_modified;
+        }
+
+        ProtocolItem* rel = item->release();
+
+        step->addItem(rel);
     }
     return step;
 }
@@ -61,6 +80,10 @@ int ProtocolStep::items()
 QString ProtocolStep::description()
 {
     return _stepDescription;
+}
+
+void ProtocolStep::setDescription(QString description) {
+    _stepDescription = description;
 }
 
 QImage* ProtocolStep::image()

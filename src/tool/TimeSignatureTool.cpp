@@ -13,7 +13,7 @@ TimeSignatureTool::TimeSignatureTool()
     setToolTipText("Edit time signatures");
 }
 
-TimeSignatureTool::TimeSignatureTool(TimeSignatureTool& other) : TimeSignatureTool(){
+TimeSignatureTool::TimeSignatureTool(TimeSignatureTool& /*other*/) : TimeSignatureTool(){
 }
 
 void TimeSignatureTool::draw(QPainter* painter){
@@ -28,7 +28,7 @@ void TimeSignatureTool::draw(QPainter* painter){
     painter->fillRect(startX, 0, endX-startX, matrixWidget->height(), Qt::lightGray);
 }
 
-bool TimeSignatureTool::press(bool leftClick){
+bool TimeSignatureTool::press(bool /*leftClick*/){
     return false;
 }
 

@@ -18,15 +18,15 @@
 
 #include "SingleNotePlayer.h"
 
-#define SINGLE_NOTE_LENGTH_MS 2000
-
 #include "../MidiEvent/NoteOnEvent.h"
 #include "MidiOutput.h"
 #include <QTimer>
+#include "../midi/MidiFile.h"
 
 SingleNotePlayer::SingleNotePlayer()
 {
     playing = false;
+    _track_index = 0;
     offMessage.clear();
     timer = new QTimer();
     timer->setInterval(SINGLE_NOTE_LENGTH_MS);
@@ -34,21 +34,50 @@ SingleNotePlayer::SingleNotePlayer()
     connect(timer, &QTimer::timeout, this, &SingleNotePlayer::timeout);
 }
 
-void SingleNotePlayer::play(NoteOnEvent* event)
+void SingleNotePlayer::play(NoteOnEvent* event, int track_index, int ms)
 {
+    MidiOutput::playedNotes.clear(); // alternative player sucks
+
+    _track_index = track_index;
+
     if (playing) {
-        MidiOutput::sendCommand(offMessage);
+        MidiOutput::sendCommand(offMessage, track_index);
         timer->stop();
     }
+
+    QByteArray array, array2;
+
+    array2 = event->save();
+
+    int i= array2[0] & 0xf;
+
+    array.clear();
+    array.append(0xB0 | i);
+    array.append(char(0)); // bank 0
+    array.append(char(MidiOutput::file->Bank_MIDI[i]));
+    MidiOutput::sendCommand(array, track_index);
+
+    array.clear();
+    array.append(0xC0 | i);
+    array.append(char(MidiOutput::file->Prog_MIDI[i])); // program
+    MidiOutput::sendCommand(array, track_index);
+
+    array.clear();
+    array.append(0xE0 | i); //pitch bend
+    array.append(char(0xff));
+    array.append(char(0x3f));
+    MidiOutput::sendCommand(array, track_index);
+
     offMessage = event->saveOffEvent();
-    MidiOutput::sendCommand(event);
+    MidiOutput::sendCommand(event, track_index);
     playing = true;
+    timer->setInterval(ms);
     timer->start();
 }
 
 void SingleNotePlayer::timeout()
 {
-    MidiOutput::sendCommand(offMessage);
+    MidiOutput::sendCommand(offMessage, _track_index);
     timer->stop();
     playing = false;
 }

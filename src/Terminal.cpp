@@ -23,6 +23,7 @@
 #include <QTextEdit>
 #include <QTimer>
 
+#include "midi/MidiFile.h"
 #include "midi/MidiInput.h"
 #include "midi/MidiOutput.h"
 
@@ -32,16 +33,25 @@ Terminal::Terminal()
 {
     _process = 0;
     _textEdit = new QTextEdit();
+    if(!_textEdit)
+        ERROR_CRITICAL_NO_MEMORY();
     _textEdit->setReadOnly(true);
 
-    _inPort = "";
-    _outPort = "";
+    for(int n = 0; n < MAX_INPUT_DEVICES; n++) {
+        _inPort[n] = "";
+    }
+
+    for(int n = 0; n < MAX_OUTPUT_DEVICES; n++) {
+        _outPort[n] = "";
+    }
 }
 
-void Terminal::initTerminal(QString startString, QString inPort,
-    QString outPort)
+void Terminal::initTerminal(QString startString, QString inPort[],
+    QString outPort[])
 {
     _terminal = new Terminal();
+    if(!_terminal)
+        ERROR_CRITICAL_NO_MEMORY();
     _terminal->execute(startString, inPort, outPort);
 }
 
@@ -54,16 +64,20 @@ void Terminal::writeString(QString message)
         _textEdit->verticalScrollBar()->maximum());
 }
 
-void Terminal::execute(QString startString, QString inPort, QString outPort)
+void Terminal::execute(QString startString, QString inPort[], QString outPort[])
 {
-    _inPort = inPort;
-    _outPort = outPort;
+    for(int n = 0; n < MAX_INPUT_DEVICES; n++)
+        _inPort[n] = inPort[n];
+    for(int n = 0; n < MAX_OUTPUT_DEVICES; n++)
+        _outPort[n] = outPort[n];
 
     if (startString != "") {
         if (_process) {
             _process->kill();
         }
         _process = new QProcess();
+        if(!_process)
+            ERROR_CRITICAL_NO_MEMORY();
 
         connect(_process, SIGNAL(readyReadStandardOutput()), this,
             SLOT(printToTerminal()));
@@ -71,79 +85,71 @@ void Terminal::execute(QString startString, QString inPort, QString outPort)
             SLOT(printErrorToTerminal()));
         connect(_process, SIGNAL(started()), this, SLOT(processStarted()));
 
-        _process->start(startString);
+        QStringList args;
+        _process->start(startString, args);
     } else {
         processStarted();
     }
+}
+
+void Terminal::setOutport(int port, QString device)
+{
+    if(port < 0 || port > MAX_OUTPUT_DEVICES) return;
+
+    _outPort[port] = device;
+    if(MidiOutput::setOutputPort(_outPort[port], port))
+        _outPort[port] = "";
 }
 
 void Terminal::processStarted()
 {
     writeString("Started process");
 
-    QStringList inputVariants;
-    QString inPort = _inPort;
-    inputVariants.append(inPort);
-    if (inPort.contains(':')) {
-        inPort = inPort.section(':', 0, 0);
-    }
-    inputVariants.append(inPort);
-    if (inPort.contains('(')) {
-        inPort = inPort.section('(', 0, 0);
-    }
-    inputVariants.append(inPort);
+    for(int n = 0; n < MAX_INPUT_DEVICES; n++) {
+        if (MidiInput::inputPort(n) == "" && _inPort[n] != "") {
+            writeString("Trying to set Input Port to " + _inPort[n] + "device #" +
+                        QString::number(n));
 
-    QStringList outputVariants;
-    QString outPort = _outPort;
-    outputVariants.append(outPort);
-    if (outPort.contains(':')) {
-        outPort = outPort.section(':', 0, 0);
-    }
-    outputVariants.append(outPort);
-    if (outPort.contains('(')) {
-        outPort = outPort.section('(', 0, 0);
-    }
-    outputVariants.append(outPort);
-
-    if (MidiInput::inputPort() == "" && _inPort != "") {
-        writeString("Trying to set Input Port to " + _inPort);
-
-        foreach (QString portVariant, inputVariants) {
-            foreach (QString port, MidiInput::inputPorts()) {
-                if (port.startsWith(portVariant)) {
-                    writeString("Found port " + port);
-                    MidiInput::setInputPort(port);
-                    _inPort = "";
-                    break;
-                }
-            }
-            if (_inPort == "") {
-                break;
-            }
+            if(MidiInput::setInputPort(_inPort[n], n))
+                _inPort[n] = "";
         }
     }
 
-    if (MidiOutput::outputPort() == "" && _outPort != "") {
-        writeString("Trying to set Output Port to " + _outPort);
-
-        foreach (QString portVariant, outputVariants) {
-            foreach (QString port, MidiOutput::outputPorts()) {
-                if (port.startsWith(portVariant)) {
-                    writeString("Found port " + port);
-                    MidiOutput::setOutputPort(port);
-                    _outPort = "";
-                    break;
-                }
-            }
-            if (_outPort == "") {
+    if(!MidiOutput::FluidSynthTracksAuto)
+        for(int n = 0; n < MAX_OUTPUT_DEVICES; n++) {
+            if(MidiOutput::AllTracksToOne && n != 0)
                 break;
+            if (MidiOutput::outputPort(n) == "" && _outPort[n] != "") {
+                writeString("Trying to set Output Port to " + _outPort[n]);
+                if(MidiOutput::setOutputPort(_outPort[n], n))
+                    _outPort[n] = "";
+
             }
         }
+
+    bool try_input = false;
+
+    for(int n = 0; n < MAX_INPUT_DEVICES; n++) {
+
+        if(MidiInput::inputPort(n) == "" && _inPort[n] != "")
+            try_input = true;
     }
+
+    bool try_output = false;
+
+    if(!MidiOutput::FluidSynthTracksAuto)
+        for(int n = 0; n < MAX_OUTPUT_DEVICES; n++) {
+            if(MidiOutput::AllTracksToOne && n != 0)
+                break;
+            if(MidiOutput::outputPort(n) == "" && _outPort[n] != "")
+                try_output = true;
+        }
 
     // if not both are set, try again in 1 second
-    if ((MidiOutput::outputPort() == "" && _outPort != "") || (MidiInput::inputPort() == "" && _inPort != "")) {
+    if ((try_output) || (try_input)) {
         QTimer* timer = new QTimer();
+        if(!timer)
+            ERROR_CRITICAL_NO_MEMORY();
         connect(timer, SIGNAL(timeout()), this, SLOT(processStarted()));
         timer->setSingleShot(true);
         timer->start(1000);

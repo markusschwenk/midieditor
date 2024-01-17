@@ -98,6 +98,7 @@ void TimeSignatureEvent::setNumerator(int n)
 {
     ProtocolEntry* toCopy = copy();
     numerator = n;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -105,6 +106,7 @@ void TimeSignatureEvent::setDenominator(int d)
 {
     ProtocolEntry* toCopy = copy();
     denominator = d;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

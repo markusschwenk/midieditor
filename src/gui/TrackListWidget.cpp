@@ -22,6 +22,7 @@
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiTrack.h"
+#include "../tool/NewNoteTool.h"
 #include "../protocol/Protocol.h"
 
 #include <QAction>
@@ -50,9 +51,9 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
     colored = new ColoredWidget(*(track->color()), this);
     layout->addWidget(colored, 0, 0, 2, 1);
     QString text = "Track " + QString::number(track->number());
-    QLabel* text1 = new QLabel(text, this);
-    text1->setFixedHeight(15);
-    layout->addWidget(text1, 0, 1, 1, 1);
+    text_track = new QLabel(text, this);
+    text_track->setFixedHeight(15);
+    layout->addWidget(text_track, 0, 1, 1, 1);
 
     trackNameLabel = new QLabel("New Track", this);
     trackNameLabel->setFixedHeight(15);
@@ -61,7 +62,12 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
     QToolBar* toolBar = new QToolBar(this);
     toolBar->setIconSize(QSize(12, 12));
     QPalette palette = toolBar->palette();
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    palette.setColor(QPalette::Background, QColor(0xe0e0c0));
+#else
     palette.setColor(QPalette::Background, Qt::white);
+#endif
     toolBar->setPalette(palette);
     // visibility
     visibleAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/visible.png"), "Track visible", toolBar);
@@ -86,8 +92,13 @@ TrackListItem::TrackListItem(MidiTrack* track, TrackListWidget* parent)
 
     // remove
     QAction* removeAction = new QAction(QIcon(":/run_environment/graphics/trackwidget/remove.png"), "Remove track", toolBar);
-    toolBar->addAction(removeAction);
-    connect(removeAction, SIGNAL(triggered()), this, SLOT(removeTrack()));
+    if(track->number() != 0) {
+        toolBar->addAction(removeAction);
+        connect(removeAction, SIGNAL(triggered()), this, SLOT(removeTrack()));
+    } else {
+        removeAction->setVisible(false);
+    }
+
 
     layout->addWidget(toolBar, 2, 1, 1, 1);
 
@@ -102,6 +113,7 @@ void TrackListItem::toggleVisibility(bool visible)
     if (visible) {
         text = "Show track";
     }
+
     trackList->midiFile()->protocol()->startNewAction(text);
     track->setHidden(!visible);
     trackList->midiFile()->protocol()->endAction();
@@ -125,13 +137,30 @@ void TrackListItem::renameTrack()
 
 void TrackListItem::removeTrack()
 {
-    emit trackRemoveClicked(track->number());
+    if(track->file()->numTracks() > 2)
+        emit trackRemoveClicked(track->number());
+    else
+        QMessageBox::critical(this, "MidiEditor", "You cannot delete this track (minimum 2 tracks)");
+
 }
 
 void TrackListItem::onBeforeUpdate()
 {
 
     trackNameLabel->setText(track->name());
+
+    QString text;
+
+    if(MidiOutput::isFluidsynthConnected(track->device_index())) {
+        int chan = MidiOutput::_midiOutFluidMAP[MidiOutput::AllTracksToOne ? 0 : track->device_index()] * 16;
+        text = "Track " + QString::number(track->number()) + " / " + QString::asprintf("Fluidsynth chan (%i-%i)", chan, chan + 15);
+    } else {
+        QString out_name = MidiOutput::outputPort(track->device_index());
+        out_name.truncate(30);
+        text = "Track " + QString::number(track->number()) + " / " + out_name;
+    }
+
+    text_track->setText(text);
 
     if (visibleAction->isChecked() == track->hidden()) {
         disconnect(visibleAction, SIGNAL(toggled(bool)), this, SLOT(toggleVisibility(bool)));
@@ -147,21 +176,56 @@ void TrackListItem::onBeforeUpdate()
     colored->setColor(*(track->color()));
 }
 
+void TrackListItem::paintEvent(QPaintEvent* event) {
+    QWidget::paintEvent(event);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    QPainter *p = new QPainter(this);
+    if(!p) return;
+
+    p->fillRect(0, 0, width(), height() - 2, background1);
+
+    int numTracks = trackList->midiFile()->numTracks();
+
+    MidiTrack * t = NULL;
+    int i = NewNoteTool::editTrack();
+    if(i < numTracks) t = trackList->midiFile()->track(i);
+    if(track == t) {
+
+        QColor c(0x80ffff);
+        c.setAlpha(32);
+
+        p->fillRect(0, 0, width(), height() - 2, c);
+    }
+
+
+    p->end();
+    delete p;
+#endif
+
+}
+
 TrackListWidget::TrackListWidget(QWidget* parent)
     : QListWidget(parent)
 {
 
     setSelectionMode(QAbstractItemView::SingleSelection);
+#ifdef CUSTOM_MIDIEDITOR_GUI
+    // Estwald Color Changes
+    setStyleSheet("QListWidget {background-color: #e0e0c0;} QListWidget::item { border-bottom: 1px solid black;}");
+#else
     setStyleSheet("QListWidget::item { border-bottom: 1px solid lightGray; }");
+#endif
     file = 0;
     connect(this, SIGNAL(itemClicked(QListWidgetItem*)), this, SLOT(chooseTrack(QListWidgetItem*)));
 }
 
-void TrackListWidget::setFile(MidiFile* f)
+void TrackListWidget::setFile(MidiFile* f, bool update)
 {
     file = f;
     connect(file->protocol(), SIGNAL(actionFinished()), this, SLOT(update()));
-    update();
+    if(update)
+        this->update();
 }
 
 void TrackListWidget::chooseTrack(QListWidgetItem* item)
@@ -170,6 +234,7 @@ void TrackListWidget::chooseTrack(QListWidgetItem* item)
     int t = item->data(Qt::UserRole).toInt();
     MidiTrack* track = trackorder.at(t);
     emit trackClicked(track);
+
 }
 
 void TrackListWidget::update()
@@ -217,9 +282,17 @@ void TrackListWidget::update()
         }
     }
 
+    int index = -1;
+
     foreach (TrackListItem* item, items.values()) {
         item->onBeforeUpdate();
+        if(item->getTrack()->number() == NewNoteTool::editTrack())
+            index = item->getTrack()->number();
     }
+
+    if(index >= 0)
+
+        this->setCurrentRow(index);
 
     QListWidget::update();
 }

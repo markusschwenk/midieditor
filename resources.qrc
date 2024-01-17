@@ -44,8 +44,10 @@
         <file>run_environment/graphics/tool/screen_unlocked.png</file>
         <file>run_environment/graphics/tool/select.png</file>
         <file>run_environment/graphics/tool/select_box.png</file>
+        <file>run_environment/graphics/tool/select_box2.png</file>
         <file>run_environment/graphics/tool/select_left.png</file>
         <file>run_environment/graphics/tool/select_right.png</file>
+        <file>run_environment/graphics/tool/select_cursor.png</file>
         <file>run_environment/graphics/tool/select_single.png</file>
         <file>run_environment/graphics/tool/stop.png</file>
         <file>run_environment/graphics/tool/stop_record.png</file>
@@ -54,11 +56,12 @@
         <file>run_environment/graphics/tool/zoom_hor_out.png</file>
         <file>run_environment/graphics/tool/zoom_ver_in.png</file>
         <file>run_environment/graphics/tool/zoom_ver_out.png</file>
-        <file>run_environment/metronome/metronome-01.wav</file>
         <file>run_environment/graphics/channelwidget/loud.png</file>
+        <file>run_environment/graphics/channelwidget/sound_effect.png</file>
         <file>run_environment/graphics/channelwidget/instrument.png</file>
         <file>run_environment/graphics/channelwidget/solo.png</file>
         <file>run_environment/graphics/channelwidget/visible.png</file>
+        <file>run_environment/graphics/channelwidget/noinstrument.png</file>
         <file>run_environment/graphics/trackwidget/loud.png</file>
         <file>run_environment/graphics/trackwidget/remove.png</file>
         <file>run_environment/graphics/trackwidget/rename.png</file>
@@ -69,5 +72,41 @@
         <file>run_environment/graphics/tool/meter.png</file>
         <file>run_environment/graphics/tool/tempo.png</file>
         <file>run_environment/graphics/tool/measure.png</file>
+        <file>run_environment/graphics/tool/config_fluid.png</file>
+        <file>run_environment/graphics/fluid/icon_button_off.png</file>
+        <file>run_environment/graphics/fluid/icon_button_on.png</file>
+        <file>run_environment/graphics/tool/midi_text.png</file>
+        <file>run_environment/graphics/tool/midi_marker.png</file>
+        <file>run_environment/graphics/tool/drum.png</file>
+        <file>run_environment/graphics/drum/snare1.png</file>
+        <file>run_environment/graphics/drum/snare2.png</file>
+        <file>run_environment/graphics/drum/closedhihat.png</file>
+        <file>run_environment/graphics/drum/openhihat.png</file>
+        <file>run_environment/graphics/drum/pedalhihat.png</file>
+        <file>run_environment/graphics/drum/crashcymbal.png</file>
+        <file>run_environment/graphics/drum/ridecymbal.png</file>
+        <file>run_environment/graphics/drum/tambourine.png</file>
+        <file>run_environment/graphics/drum/bassdrum.png</file>
+        <file>run_environment/graphics/drum/tom.png</file>
+        <file>run_environment/metronome/metronome-01.wav</file>
+        <file>run_environment/graphics/tool/select_box3.png</file>
+        <file>run_environment/graphics/tool/config_midiin.png</file>
+        <file>run_environment/resource.drum</file>
+        <file>run_environment/graphics/tool/drumbox.png</file>
+        <file>run_environment/graphics/tool/drumbox-res.png</file>
+        <file>run_environment/graphics/tool/record2.png</file>
+        <file>run_environment/graphics/tool/play2.png</file>
+        <file>run_environment/graphics/channelwidget/vst_effect.png</file>
+        <file>run_environment/graphics/custom/background.png</file>
+        <file>run_environment/graphics/custom/Midicustom.png</file>
+        <file>run_environment/graphics/custom/background2.png</file>
+        <file>run_environment/graphics/custom/drum.png</file>
+        <file>run_environment/graphics/custom/background3.png</file>
+        <file>run_environment/graphics/custom/Midicustom2.png</file>
+        <file>run_environment/graphics/custom/virtualkb.png</file>
+        <file>run_environment/graphics/custom/pedal_off.png</file>
+        <file>run_environment/graphics/custom/pedal_on.png</file>
+        <file>run_environment/graphics/tool/paste_ext.png</file>
+        <file>run_environment/graphics/tool/select_multitrack.png</file>
     </qresource>
 </RCC>

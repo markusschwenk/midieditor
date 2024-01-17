@@ -28,6 +28,7 @@
 #define MIDICHANNEL_H_
 
 #include "../protocol/ProtocolEntry.h"
+#include "../midi/MidiOutput.h"
 #include <QMultiMap>
 
 class MidiFile;
@@ -111,39 +112,40 @@ public:
     /**
 		 * \brief returns the program number of the midi program at tick.
 		 */
-    int progAtTick(int tick);
+    int progAtTick(int tick, MidiTrack * track = NULL);
+    int progBankAtTick(int tick, int *bank, MidiTrack * track = NULL);
 
     /**
 		 * \brief returns whether the channel is visible in the MatrixWidget.
 		 */
-    bool visible();
+    bool visible(int track_index = 0);
 
     /**
 		 * \brief sets the channels visibility to b.
 		 */
-    void setVisible(bool b);
+    void setVisible(bool b, int track_index = -1);
 
     /**
 		 * \brief returns whether the channel is muted.
 		 */
-    bool mute();
+    bool mute(int track_index = 0);
 
     /**
 		 * \brief sets the channel mute or makes it loud.
 		 */
-    void setMute(bool b);
+    void setMute(bool b, int track_index = -1);
 
     /**
 		 * \brief returns whether the channel is playing in solo mode.
 		 *
 		 * If the channel is in solo mode, all other channels are muted.
 		 */
-    bool solo();
+    bool solo(int track_index = 0);
 
     /**
 		 * \brief sets the solo mode to b.
 		 */
-    void setSolo(bool b);
+    void setSolo(bool b, int track_index = -1);
 
     /**
 		 * \brief removes all events of the channel.
@@ -167,7 +169,7 @@ protected:
     /**
 		 * \brief the flags solo, mute and visible.
 		 */
-    bool _visible, _mute, _solo;
+    bool _visible[MAX_OUTPUT_DEVICES], _mute[MAX_OUTPUT_DEVICES ], _solo[MAX_OUTPUT_DEVICES];
 
     /**
 		 * \brief contains all MidiEvents of the channel sorted by their tick.

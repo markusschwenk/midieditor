@@ -20,6 +20,8 @@
 #define TERMINAL_H_
 
 #include <QObject>
+#include "midi/MidiInput.h"
+#include "midi/MidiOutput.h"
 
 class QProcess;
 class QTextEdit;
@@ -38,8 +40,8 @@ class Terminal : public QObject {
 		 * tries to start a process with the given startstring - on success
 		 * it will try to open the ports starting with the given values.
 		 */
-		static void initTerminal(QString startString, QString inPort,
-				QString outPort);
+        static void initTerminal(QString startString, QString inPort[],
+                QString outPort[]);
 
 		/**
 		 * \brief returns the terminal
@@ -58,13 +60,15 @@ class Terminal : public QObject {
 		 * they are not empty.
 		 * Will stop the current process.
 		 */
-		void execute(QString startString, QString inPort,
-				QString outPort);
+        void execute(QString startString, QString inPort[],
+                QString outPort[]);
 
 		/**
 		 * \the console.
 		 */
 		QTextEdit *console();
+
+        void setOutport(int port, QString device);
 
 	public slots:
 
@@ -91,7 +95,7 @@ class Terminal : public QObject {
 
 		QTextEdit *_textEdit;
 
-		QString _inPort, _outPort;
+        QString _inPort[MAX_INPUT_DEVICES], _outPort[MAX_OUTPUT_DEVICES];
 };
 
 #endif

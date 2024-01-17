@@ -23,6 +23,8 @@
 #include <QMultiMap>
 #include <QObject>
 #include <QProcess>
+#include <QMutex>
+#include "../midi/MidiFile.h"
 
 #include <vector>
 
@@ -32,40 +34,95 @@ class RtMidiOut;
 class QStringList;
 class MidiTrack;
 
+//#define HACK_INPUT
+
+#define MAX_INPUT_DEVICES 6
+#define MAX_INPUT_PAIR (MAX_INPUT_DEVICES/2)
+
+#define DEVICE_ID 0xcacafe1
+#define DEVICE_SEQUENCER_ID 0x5EC001
+#define DEVICE_ID_TEST (DEVICE_ID + 0)
+
 class MidiInput : public QObject {
 
 public:
     static void init();
 
-    static void sendCommand(QByteArray array);
-    static void sendCommand(MidiEvent* e);
-
-    static QStringList inputPorts();
-    static bool setInputPort(QString name);
-    static QString inputPort();
+    static QStringList inputPorts(int index);
+    static bool setInputPort(QString name, int index);
+    static QString inputPort(int index);
+    static bool closeInputPort(int index);
 
     static void startInput();
     static QMultiMap<int, MidiEvent*> endInput(MidiTrack* track);
 
-    static void receiveMessage(double deltatime,
-        std::vector<unsigned char>* message, void* userData = 0);
+    static void receiveMessage(double /*deltatime*/,
+        std::vector<unsigned char>* message, void* /*userData = 0*/);
+    static void receiveMessage_mutex(double /*deltatime*/,
+        std::vector<unsigned char>* message, void* /*userData = 0*/);
 
+    static void send_thru(int dev, int is_effect, std::vector<unsigned char>* message);
+    static void cleanKeyMaps();
     static void setTime(int ms);
+    static int currentTime() {
+        return _currentTime;
+    }
+
+    static void deleteIndexArray(QByteArray &a, int i) {
+        QByteArray b;
+
+        b = a.left(i);
+        if((i + 1) < a.count())
+            b+= a.mid(i + 1);
+/*
+        for(int n = 0; n < i; n++)
+            b.append(a.at(n));
+        for(int n = i + 1; n < a.count(); n++)
+            b.append(a.at(n));
+        a = b;
+*/
+    }
 
     static bool recording();
     static void setThruEnabled(bool b);
     static bool thru();
 
-    static bool isConnected();
+    static bool isConnected(int index);
+    static void connectVirtual(int device);
+
+    static RtMidiIn* _midiIn[MAX_INPUT_DEVICES];
+
+    static int track_index;
+    static MidiFile *file;
+    static bool keyboard2_connected[MAX_INPUT_DEVICES];
+    static std::vector<unsigned char> message[MAX_INPUT_DEVICES];
+
+    static QByteArray note_roll[16];
+    static unsigned char note_roll_velocity[16];
+    static QByteArray note_roll_out[16];
+
+    static unsigned int keys_dev[MAX_INPUT_DEVICES][16];
+    static unsigned int keys_fluid[MAX_INPUT_DEVICES];
+    static int keys_vst[MAX_INPUT_DEVICES][16];
+    static unsigned int keys_seq[MAX_INPUT_DEVICES];
+    static unsigned int keys_switch[MAX_INPUT_DEVICES];
+    static int loadSeq_mode;
+
+    static QMutex mutex_input;
+
+    static void ClearMessages() {
+        _messages->clear();
+    }
 
 private:
-    static QString _inPort;
-    static RtMidiIn* _midiIn;
+    static QString _inPort[MAX_INPUT_DEVICES];
+
     static QMultiMap<int, std::vector<unsigned char> >* _messages;
     static int _currentTime;
     static bool _recording;
     static QList<int> toUnique(QList<int> in);
     static bool _thru;
+
 };
 
 #endif

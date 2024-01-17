@@ -20,6 +20,7 @@
 
 #include "../gui/Appearance.h"
 #include "../MidiEvent/TextEvent.h"
+#include "../tool/NewNoteTool.h"
 #include "MidiChannel.h"
 #include "MidiFile.h"
 
@@ -80,10 +81,38 @@ int MidiTrack::number()
     return _number;
 }
 
+int MidiTrack::device_index()
+{
+    int index = 0;
+
+    if(_number) {
+        index = (_number - 1);
+        if(index >= MAX_OUTPUT_DEVICES)
+            index = 0;
+    }
+
+    return index;
+}
+
+int MidiTrack::fluid_index()
+{
+    int index = 0;
+
+    if(_number) {
+
+        index = MidiOutput::_midiOutFluidMAP[((_number - 1))];
+        if(index < 0)
+            index = (_number - 1) % 3;
+    }
+
+    return index;
+}
+
 void MidiTrack::setNumber(int number)
 {
     ProtocolEntry* toCopy = copy();
     _number = number;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -92,11 +121,15 @@ void MidiTrack::setNameEvent(TextEvent* nameEvent)
     if ((_nameEvent) && (_nameEvent->type() == TextEvent::TRACKNAME)) {
         _nameEvent->setType(TextEvent::TEXT);
     }
+
     ProtocolEntry* toCopy = copy();
     _nameEvent = nameEvent;
+
     if (_nameEvent) {
         _nameEvent->setType(TextEvent::TRACKNAME);
     }
+
+    midi_modified = true;
     protocol(toCopy, this);
     emit trackChanged();
 }
@@ -114,22 +147,33 @@ ProtocolEntry* MidiTrack::copy()
 void MidiTrack::reloadState(ProtocolEntry* entry)
 {
     MidiTrack* other = dynamic_cast<MidiTrack*>(entry);
+
     if (!other) {
         return;
     }
+
     if (_number != other->number()) {
         setNumber(other->_number);
     }
+
     _nameEvent = other->_nameEvent;
     _file = other->_file;
     _hidden = other->_hidden;
     _muted = other->_muted;
+    //NewNoteTool::setEditTrack(other->_number);
+    if(NewNoteTool::editTrack() >= _file->numTracks()) {
+        if(_file->numTracks() > 1)
+            NewNoteTool::setEditTrack(1);
+        else
+            NewNoteTool::setEditTrack(0);
+    }
 }
 
 void MidiTrack::setHidden(bool hidden)
 {
     ProtocolEntry* toCopy = copy();
     _hidden = hidden;
+    midi_modified = false;
     protocol(toCopy, this);
     emit trackChanged();
 }
@@ -143,6 +187,7 @@ void MidiTrack::setMuted(bool muted)
 {
     ProtocolEntry* toCopy = copy();
     _muted = muted;
+    midi_modified = false;
     protocol(toCopy, this);
     emit trackChanged();
 }

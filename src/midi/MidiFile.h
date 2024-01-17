@@ -25,6 +25,19 @@
 #include <QList>
 #include <QMultiMap>
 #include <QObject>
+#include <QMessageBox>
+#include <QFile>
+
+#undef CUSTOM_MIDIEDITOR_GUI
+#define CUSTOM_MIDIEDITOR_GUI "By Estwald"
+
+extern bool MidieditorMaster;
+
+extern int OctaveChan_MIDI[17];
+
+extern QBrush background1;
+extern QBrush background2;
+extern QBrush background3;
 
 class MidiEvent;
 class TimeSignatureEvent;
@@ -32,6 +45,29 @@ class TempoChangeEvent;
 class Protocol;
 class MidiChannel;
 class MidiTrack;
+
+#define ERROR_CRITICAL(x) {\
+    QMessageBox::critical(new QWidget(), "MidiEditor (irrecoverable)", x);\
+    exit(-1);\
+}
+
+#define ERROR_CRITICAL2(x) {\
+    QMessageBox::critical(new QWidget(), "MidiEditor", x);\
+}
+
+#define ERROR_CRITICAL_NO_MEMORY() {\
+    QMessageBox::critical(new QWidget(), "MidiEditor (irrecoverable)", "Out of memory\n");\
+    exit(-1);\
+}
+
+#define ERROR_CRITICAL_NO_MEMORY2() {\
+    QMessageBox::critical(new QWidget(), "MidiEditor", "Out of memory\n");\
+    return;\
+}
+
+#define ERROR_CRITICAL_NO_MEMORY3() {\
+    QMessageBox::critical(new QWidget(), "MidiEditor", "Out of memory\n");\
+}
 
 class MidiFile : public QObject, public ProtocolEntry {
 
@@ -42,7 +78,15 @@ public:
     MidiFile();
     // needed to protocol fileLength
     MidiFile(int maxTime, Protocol* p);
+
+    ~MidiFile();
+
+    bool loadMidiEvents(QList<MidiEvent*>* events, MidiFile *file, bool *selectMultiTrack);
+    bool saveMidiEvents(QFile &f, QList<MidiEvent*>* events, bool selectMultiTrack);
     bool save(QString path);
+    bool saveMSEQ(QString path, bool onlych0 = true);
+    bool lock_backup(bool locked);
+    bool backup(bool save_backup = true);
     QByteArray writeDeltaTime(int time);
     int maxTime();
     int endTick();
@@ -61,11 +105,16 @@ public:
     QMultiMap<int, MidiEvent*>* channelEvents(int channel);
 
     Protocol* protocol();
+    void cleanProtocol();
     MidiChannel* channel(int i);
+
     void preparePlayerData(int tickFrom);
+    void preparePlayerDataSequencer(int tickFrom);
+
     QMultiMap<int, MidiEvent*>* playerData();
 
-    static QString instrumentName(int prog);
+    static QString instrumentName(int bank, int prog);
+    static QString drumName(int prog);
     static QString controlChangeName(int control);
     int cursorTick();
     int pauseTick();
@@ -75,7 +124,7 @@ public:
     bool saved();
     void setSaved(bool b);
     void setPath(QString path);
-    bool channelMuted(int ch);
+    bool channelMuted(int ch, int track_index);
     int numTracks();
     QList<MidiTrack*>* tracks();
     void addTrack();
@@ -104,6 +153,16 @@ public:
 
     int startTickOfMeasure(int measure);
 
+    bool MultitrackMode; // flag to use 16 channels per track or 16 channels for alls
+    bool DrumUseCh9;
+
+    int Bank_MIDI[516];
+    int Prog_MIDI[516];
+
+    bool is_sequencer;
+    bool is_multichannel_sequencer;
+    float scale_time_sequencer;
+
 signals:
     void cursorPositionChanged();
     void recalcWidgetSize();
@@ -126,6 +185,7 @@ private:
     QMap<MidiFile*, QMap<MidiTrack*, MidiTrack*> > pasteTracks;
 
     void printLog(QStringList* log);
+    int _file_tracks;
 };
 
 #endif

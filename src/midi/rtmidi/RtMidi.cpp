@@ -2070,7 +2070,7 @@ void MidiInWinMM :: initialize( const std::string& /*clientName*/ )
 
 void MidiInWinMM :: openPort( unsigned int portNumber, const std::string /*portName*/ )
 {
-  if ( connected_ ) {
+  if (connected_ ) {
     errorString_ = "MidiInWinMM::openPort: a valid connection already exists!";
     error( RtMidiError::WARNING, errorString_ );
     return;

@@ -44,6 +44,22 @@ QByteArray SysExEvent::save()
 {
     QByteArray s;
     s.append(char(0xF0));
+
+    // sysEX uses VLQ as length! ((https://en.wikipedia.org/wiki/Variable-length_quantity)
+
+    unsigned int length = _data.length() + 1;
+
+    int nbytes = 0;
+    while((int) length >= (128 << (7 * nbytes))) nbytes++;
+
+    while(nbytes) {
+
+        s.append(128 | ((length >> (7 * nbytes)) & 127));
+        nbytes--;
+    }
+
+    s.append(length & 127);
+
     s.append(_data);
     s.append(char(0xF7));
     return s;
@@ -73,5 +89,6 @@ void SysExEvent::setData(QByteArray d)
 {
     ProtocolEntry* toCopy = copy();
     _data = d;
+    midi_modified = true;
     protocol(toCopy, this);
 }

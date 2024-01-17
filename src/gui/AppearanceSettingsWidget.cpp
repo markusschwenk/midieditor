@@ -125,7 +125,7 @@ NamedColorWidgetItem::NamedColorWidgetItem(int number, QString name, QColor colo
     setFixedHeight(ROW_HEIGHT);
 }
 
-void NamedColorWidgetItem::mousePressEvent(QMouseEvent* event) {
+void NamedColorWidgetItem::mousePressEvent(QMouseEvent* /*event*/) {
     QColor newColor = QColorDialog::getColor(color, this);
     colorChanged(newColor);
     colored->setColor(newColor);

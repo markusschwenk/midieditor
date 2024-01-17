@@ -83,9 +83,8 @@ void DataEditor::rebuild()
 
             QLineEdit* edit = new QLineEdit(_central);
             edit->setInputMask("HH");
-            QString text;
-            text.sprintf("%02X", c);
-            edit->setText(text);
+            QString text; 
+            edit->setText(text.asprintf("%02X", c));
             layout->addWidget(edit, row, 1, 1, 1);
 
             QPushButton* minus = new QPushButton("-", _central);

@@ -92,6 +92,7 @@ void KeySignatureEvent::setTonality(int t)
 {
     ProtocolEntry* toCopy = copy();
     _tonality = t;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -99,6 +100,7 @@ void KeySignatureEvent::setMinor(bool minor)
 {
     ProtocolEntry* toCopy = copy();
     _minor = minor;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

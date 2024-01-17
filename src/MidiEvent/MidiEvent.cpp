@@ -59,6 +59,12 @@ MidiEvent::MidiEvent(MidiEvent& other)
     numChannel = other.numChannel;
     timePos = other.timePos;
     midiFile = other.midiFile;
+    midi_modified = other.midi_modified;
+}
+
+MidiEvent::~MidiEvent() {
+
+    //qWarning("midi event destroyed");
 }
 
 MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
@@ -104,7 +110,12 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         (*content) >> tempByte;
 
         OffEvent* event = new OffEvent(channel, 127 - note, track);
-        *ok = true;
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
         return event;
     }
 
@@ -126,9 +137,21 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
 
         if (velocity > 0) {
             NoteOnEvent* event = new NoteOnEvent(note, velocity, channel, track);
+            if(event)
+                *ok = true;
+            else {
+                *ok = false;
+                ERROR_CRITICAL_NO_MEMORY();
+            }
             return event;
         } else {
             OffEvent* event = new OffEvent(channel, 127 - note, track);
+            if(event)
+                *ok = true;
+            else {
+                *ok = false;
+                ERROR_CRITICAL_NO_MEMORY();
+            }
             return event;
         }
     }
@@ -148,9 +171,16 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         (*content) >> tempByte;
         int value = tempByte;
 
-        *ok = true;
 
-        return new KeyPressureEvent(channel, value, note, track);
+        KeyPressureEvent *event = new KeyPressureEvent(channel, value, note, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+
+        return event;
     }
 
     case 0xB0: {
@@ -163,8 +193,16 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         int control = tempByte;
         (*content) >> tempByte;
         int value = tempByte;
-        *ok = true;
-        return new ControlChangeEvent(channel, control, value, track);
+        ControlChangeEvent *event = new ControlChangeEvent(channel, control, value, track);
+
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+
+        return event;
     }
 
     case 0xC0: {
@@ -174,8 +212,15 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         } else {
             tempByte = secondByte;
         }
-        *ok = true;
-        return new ProgChangeEvent(channel, tempByte, track);
+
+        ProgChangeEvent *event =new ProgChangeEvent(channel, tempByte, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+        return event;
     }
 
     case 0xD0: {
@@ -187,9 +232,15 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
         }
         int value = tempByte;
 
-        *ok = true;
+        ChannelPressureEvent *event = new ChannelPressureEvent(channel, value, track);
 
-        return new ChannelPressureEvent(channel, value, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+        return event;
     }
 
     case 0xE0: {
@@ -206,9 +257,15 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
 
         int value = (second << 7) | first;
 
-        *ok = true;
+        PitchBendEvent *event = new PitchBendEvent(channel, value, track);
+        if(event)
+            *ok = true;
+        else {
+            *ok = false;
+            ERROR_CRITICAL_NO_MEMORY();
+        }
+        return event;
 
-        return new PitchBendEvent(channel, value, track);
     }
 
     case 0xF0: {
@@ -227,8 +284,45 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                     array.append((char)tempByte);
                 }
             }
+
+            // sysEX uses VLQ as length! (https://en.wikipedia.org/wiki/Variable-length_quantity)
+
+            unsigned int length = 0;
+            int index = 0;
+
+            for(; index < 4; index++) {
+                if(array[index] & 128) {
+                   length = (length + (array[index] & 127)) * 128;
+                } else {
+                    length += array[index];
+                    break;
+                }
+            }
+
             *ok = true;
-            return new SysExEvent(channel, array, track);
+            if(array.size() == (int) (length + index)) // sysEx have length...
+            {
+                SysExEvent *event = new SysExEvent(channel, QByteArray(array.constData() + index + 1, array.size() - index - 1), track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
+
+            }
+            // for old compatibility
+            SysExEvent *event = new SysExEvent(channel, array, track);
+
+            if(event)
+                *ok = true;
+            else {
+                *ok = false;
+                ERROR_CRITICAL_NO_MEMORY();
+            }
+            return event;
         }
 
         case 0x0F: {
@@ -250,7 +344,16 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                 (*content) >> value;
                 // 1te Stelle abziehen,
                 value -= 50331648;
-                return new TempoChangeEvent(17, (int)value, track);
+
+                TempoChangeEvent *event = new TempoChangeEvent(17, (int)value, track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
             }
             case 0x58: {
                 // TimeSignature
@@ -268,7 +371,17 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                 int metronome = (int)tempByte;
                 (*content) >> tempByte;
                 int num32 = (int)tempByte;
-                return new TimeSignatureEvent(18, num, denom, metronome, num32, track);
+
+                TimeSignatureEvent *event = new TimeSignatureEvent(18, num, denom, metronome, num32, track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
+
             }
             case 0x59: {
                 // keysignature
@@ -285,7 +398,17 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                 if (tempByte == 0) {
                     minor = false;
                 }
-                return new KeySignatureEvent(channel, tonality, minor, track);
+
+                KeySignatureEvent *event = new KeySignatureEvent(channel, tonality, minor, track);
+
+                if(event)
+                    *ok = true;
+                else {
+                    *ok = false;
+                    ERROR_CRITICAL_NO_MEMORY();
+                }
+                return event;
+
             }
             case 0x2F: {
                 // end Event
@@ -299,8 +422,17 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                     // textevent
                     // read type
                     TextEvent* textEvent = new TextEvent(channel, track);
+
+                    if(textEvent)
+                        *ok = true;
+                    else {
+                        *ok = false;
+                        ERROR_CRITICAL_NO_MEMORY();
+                    }
+
                     textEvent->setType(tempByte);
                     int length = MidiFile::variableLengthvalue(content);
+#if 0
                     // use wchar_t because some files use Unicode.
                     wchar_t str[128] = L"";
                     for (int i = 0; i < length; i++) {
@@ -309,6 +441,46 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                         wcsncat(str, temp, 1);
                     }
                     textEvent->setText(QString::fromWCharArray(str));
+#else
+ // Modified by Estwald:
+
+                    QString str;
+                    char text[length + 1];
+                    int counter =0;
+                    int is_utf8 = 0;
+                    for (int i = 0; i < length; i++) {
+                        (*content) >> tempByte;
+                        text[i] = tempByte;
+                        if(tempByte & 128) {// UTF8 autodetecting decoding chars
+                            if(counter == 0) {
+                               if((tempByte & ~7) == 0xF0) counter = 3;
+                               else if((tempByte & ~15) == 0xE0) counter = 2;
+                               else if((tempByte & ~31) == 0xC0) counter = 1;
+                            } else if((tempByte & 0xC0) == 0x80) {
+                                counter--;
+                                if(!counter) is_utf8 = 1;
+                            } else counter = 0;
+                        } else counter = 0;
+                    }
+/*
+   NOTE: files can use ASCII (and derivates) or UTF8.
+   MIDI Editor asumes UTF8 format and because it, is very easy one
+   bad conversion/encoding of the text from olds MIDIs, ecc.
+
+   ASCII section (0 to 127 ch) is the same thing, but 128+ in
+   UTF8 characters is codified as 2 to 4 bytes length and you
+   can try to detect this encode method to import correctly
+   UTF8 characters, assuming Local8Bit (i have some .kar/.mid
+   in this format and works fine) as alternative.
+
+*/
+
+                    if(!is_utf8)
+                        str = QString::fromLocal8Bit((const char *) text, length);
+                    else
+                        str = QString::fromUtf8((const char *) text, length);
+                    textEvent->setText(str);
+#endif
                     *ok = true;
                     return textEvent;
 
@@ -326,8 +498,17 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
                         (*content) >> tempByte;
                         array.append((char)tempByte);
                     }
-                    *ok = true;
-                    return new UnknownEvent(channel, typeByte, array, track);
+
+                    UnknownEvent *event = new UnknownEvent(channel, typeByte, array, track);
+
+                    if(event)
+                        *ok = true;
+                    else {
+                        *ok = false;
+                        ERROR_CRITICAL_NO_MEMORY();
+                    }
+                    return event;
+
                 }
             }
             }
@@ -347,9 +528,12 @@ MidiEvent* MidiEvent::loadMidiEvent(QDataStream* content, bool* ok,
 void MidiEvent::setTrack(MidiTrack* track, bool toProtocol)
 {
     ProtocolEntry* toCopy = copy();
+    if(!toCopy)
+        ERROR_CRITICAL_NO_MEMORY2();
 
     _track = track;
     if (toProtocol) {
+        midi_modified = true;
         protocol(toCopy, this);
     } else {
         delete toCopy;
@@ -365,8 +549,11 @@ void MidiEvent::setChannel(int ch, bool toProtocol)
 {
     int oldChannel = channel();
     ProtocolEntry* toCopy = copy();
+    if(!toCopy)
+        ERROR_CRITICAL_NO_MEMORY2();
     numChannel = ch;
     if (toProtocol) {
+        midi_modified = true;
         protocol(toCopy, this);
         file()->channelEvents(oldChannel)->remove(midiTime(), this);
         // tells the new channel to add this event
@@ -402,18 +589,25 @@ void MidiEvent::setMidiTime(int t, bool toProtocol)
     }
 
     ProtocolEntry* toCopy = copy();
+    if(!toCopy)
+        ERROR_CRITICAL_NO_MEMORY2();
     file()->channelEvents(numChannel)->remove(timePos, this);
     timePos = t;
     if (timePos > file()->endTick()) {
         file()->setMaxLengthMs(file()->msOfTick(timePos) + 100);
     }
+    midi_modified = true;
+
     if (toProtocol) {
         protocol(toCopy, this);
     } else {
         delete toCopy;
     }
 
-    file()->channelEvents(numChannel)->insert(timePos, this);
+    if(numChannel >= 17)
+        file()->channelEvents(numChannel)->replace(timePos, this);
+    else
+        file()->channelEvents(numChannel)->insert(timePos, this);
 }
 
 int MidiEvent::midiTime()
@@ -436,16 +630,68 @@ int MidiEvent::line()
     return 0;
 }
 
-void MidiEvent::draw(QPainter* p, QColor c)
+void MidiEvent::draw(QPainter* p, QColor c, int mode)
 {
-    p->setPen(Qt::gray);
+    if(mode & 1)
+        p->setPen(QPen(Qt::black, 2, Qt::SolidLine));
+    else
+        p->setPen(Qt::gray);
+
     p->setBrush(c);
-    p->drawRoundedRect(x(), y(), width(), height(), 1, 1);
+    p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+
+    if(c.alpha() == 255) {
+
+        QLinearGradient linearGrad(QPointF(x(), y()), QPointF(x() + width(), y() + height()));
+        linearGrad.setColorAt(0, QColor(80, 80, 80, 0x40));
+        linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+        linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+
+        QBrush d(linearGrad);
+        p->setBrush(d);
+        p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+    }
+
+
+}
+
+void MidiEvent::draw2(QPainter* p, QColor c, Qt::BrushStyle bs, int mode)
+{
+    if(mode & 1)
+        p->setPen(QPen(Qt::black, 2, Qt::SolidLine));
+    else
+        p->setPen(Qt::gray);
+
+    QBrush d(c, bs);
+
+    if(c.alpha() == 255) {
+        p->setBrush(QColor(0, 0, 0, c.alpha()));
+        p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+    }
+
+    p->setBrush(d);
+    p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+
+    if(c.alpha() == 255) {
+
+        QLinearGradient linearGrad(QPointF(x(), y()), QPointF(x() + width(), y() + height()));
+        linearGrad.setColorAt(0, QColor(80, 80, 80, 0x40));
+        linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+        linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+
+        QBrush d(linearGrad);
+        p->setBrush(d);
+        p->drawRoundedRect(x(), y(), width(), height(), 2, 2);
+    }
+
 }
 
 ProtocolEntry* MidiEvent::copy()
 {
-    return new MidiEvent(*this);
+    MidiEvent *event = new MidiEvent(*this);
+    if(!event)
+        ERROR_CRITICAL_NO_MEMORY3();
+    return event;
 }
 
 void MidiEvent::reloadState(ProtocolEntry* entry)
@@ -460,8 +706,13 @@ void MidiEvent::reloadState(ProtocolEntry* entry)
     numChannel = other->numChannel;
     file()->channelEvents(numChannel)->remove(timePos, this);
     timePos = other->timePos;
-    file()->channelEvents(numChannel)->insert(timePos, this);
+    if(numChannel >= 17)
+        file()->channelEvents(numChannel)->replace(timePos, this);
+    else
+        file()->channelEvents(numChannel)->insert(timePos, this);
     midiFile = other->midiFile;
+    midi_modified = other->midi_modified;
+
 }
 
 QString MidiEvent::typeString()
@@ -534,6 +785,7 @@ void MidiEvent::moveToChannel(int ch)
 
     numChannel = ch;
 
+    midi_modified = true;
     protocol(toCopy, this);
 
     midiFile->channel(ch)->insertEvent(this, midiTime());

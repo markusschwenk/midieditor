@@ -67,7 +67,7 @@ void PaintWidget::mouseMoveEvent(QMouseEvent* event)
     }
 }
 
-void PaintWidget::enterEvent(QEvent* event)
+void PaintWidget::enterEvent(QEvent*)
 {
 
     this->mouseOver = true;
@@ -79,7 +79,7 @@ void PaintWidget::enterEvent(QEvent* event)
     update();
 }
 
-void PaintWidget::leaveEvent(QEvent* event)
+void PaintWidget::leaveEvent(QEvent*)
 {
     this->mouseOver = false;
 
@@ -90,7 +90,7 @@ void PaintWidget::leaveEvent(QEvent* event)
     update();
 }
 
-void PaintWidget::mousePressEvent(QMouseEvent* event)
+void PaintWidget::mousePressEvent(QMouseEvent*)
 {
 
     this->mousePressed = true;
@@ -100,12 +100,13 @@ void PaintWidget::mousePressEvent(QMouseEvent* event)
         return;
     }
 
+
     if (this->repaintOnMousePress) {
         this->update();
     }
 }
 
-void PaintWidget::mouseReleaseEvent(QMouseEvent* event)
+void PaintWidget::mouseReleaseEvent(QMouseEvent*)
 {
 
     this->inDrag = false;

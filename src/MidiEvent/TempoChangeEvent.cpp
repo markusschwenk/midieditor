@@ -83,6 +83,7 @@ void TempoChangeEvent::setBeats(int beats)
     ProtocolEntry* toCopy = copy();
     _beats = beats;
     file()->calcMaxTime();
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

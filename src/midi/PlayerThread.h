@@ -23,16 +23,35 @@
 #include <QObject>
 #include <QThread>
 #include <QTimer>
+#include <QElapsedTimer>
+#include <QMutex>
+
+#define MAP_NOTE_OFF 0
+#define MAP_NOTE_ON 1
+#define MAP_NOTE_FLUSH 2
+
+#define SEQ_FLAG_SWITCH_ON 65536
+#define SEQ_FLAG_AUTORHYTHM 128
+#define SEQ_FLAG_INFINITE 32
+#define SEQ_FLAG_LOOP 16
+#define SEQ_FLAG_STOP 4
+#define SEQ_FLAG_ON 2
+#define SEQ_FLAG_ON2 1
+
+#define SEQ_FLAG_MASK (SEQ_FLAG_INFINITE | SEQ_FLAG_LOOP)
+
 
 class MidiFile;
 class MidiEvent;
-class QTime;
+//class QTime;
 
 class PlayerThread : public QThread {
 
     Q_OBJECT
 
 public:
+    int mode;
+
     PlayerThread();
     void setFile(MidiFile* f);
     void stop();
@@ -60,9 +79,98 @@ private:
     int interval, position, timeoutSinceLastSignal;
     volatile bool stopped;
     QTimer* timer;
-    QTime* time;
+    QElapsedTimer* time;
+    qint64 realtimecount;
 
     int measure, posInMeasure;
+
+    int text_tim;
+    bool MultitrackMode;
+
+    bool update_prg[48]; // real time prg change event
+};
+
+class PlayerThreadSequencer : public QThread {
+
+    Q_OBJECT
+
+public:
+
+    PlayerThreadSequencer();
+
+    void run();
+
+    volatile bool stopped;
+
+public slots:
+    void timeout();
+
+signals:
+    void loop(qint64 diff_t);
+private:
+
+    QTimer* timer;
+    QElapsedTimer* time;
+    qint64 realtimecount;
+};
+
+class PlayerSequencer : public QObject {
+
+    Q_OBJECT
+
+public:
+
+    PlayerSequencer(int chan);
+
+    void setFile(MidiFile* f, int index);
+    void unsetFile(int index);
+    bool isFile(int index);
+
+    // 0 - 508 bmp
+    void setScaleTime(int bpm, int index);
+    void setVolume(int volume, int index);
+    void setButtons(unsigned int buttons, int index);
+    unsigned int getButtons(int index);
+
+    void setMode(int index, unsigned int buttons);
+
+    // program to send notes off (-1 = all)
+    void set_flush(int note);
+
+    bool enable;
+
+    void loop(qint64 diff_t);
+    void flush(); // send notes off
+
+
+    bool is_drum_only;
+    bool use_drum;
+    bool autorhythm;
+
+private:
+    int volume[4];
+    MidiFile* file[4];
+    QMultiMap<int, MidiEvent*>* events[4];
+    int position;
+    int current_index;
+
+    bool update_prg[16]; // real time prg change event
+    unsigned char map_key_status[128]; // ch 0
+    unsigned char map_key[128]; // ch 0
+    unsigned char map_key2[4][128]; // ch 1 - 3 and 9
+
+    int note_random;
+    int note_count;
+    int _chan;
+    int _device;
+
+    int _force_flush_mode;
+
+    void SendInput(QByteArray a);
+
+    static QMutex mutex_player;
+
+    unsigned int _buttons[4];
 };
 
 #endif

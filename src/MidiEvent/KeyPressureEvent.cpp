@@ -71,6 +71,7 @@ void KeyPressureEvent::setValue(int v)
 {
     ProtocolEntry* toCopy = copy();
     _value = v;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -78,6 +79,7 @@ void KeyPressureEvent::setNote(int n)
 {
     ProtocolEntry* toCopy = copy();
     _note = n;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

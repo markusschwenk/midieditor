@@ -22,6 +22,7 @@
 #include <QList>
 #include <QMap>
 #include <QObject>
+#include "../midi/MidiFile.h"
 
 class MidiEvent;
 class RtMidiIn;
@@ -29,28 +30,55 @@ class RtMidiOut;
 class QStringList;
 class SenderThread;
 
+#define MAX_OUTPUT_DEVICES 31
+
 class MidiOutput : public QObject {
 
 public:
     static void init();
-    static void sendCommand(QByteArray array);
-    static void sendCommand(MidiEvent* e);
-    static QStringList outputPorts();
-    static bool setOutputPort(QString name);
-    static QString outputPort();
-    static void sendEnqueuedCommand(QByteArray array);
+    static void forceDrum(bool force);
+    static void sendCommand(QByteArray array, int track_index);
+    static void sendCommand(MidiEvent* e, int track_index);
+    static void sendCommandDelete(MidiEvent* e, int track_index);
+    static QStringList outputPorts(int index = 0);
+    static bool closeOutputPort(int index);
+    static bool setOutputPort(QString name, int index = 0);
+    static QString outputPort(int index = 0, bool force = false);
+    static int FluidDevice(QString name);
+    static QString GetFluidDevice(int index);
+    static void sendEnqueuedCommand(QByteArray array, int track_index);
     static bool isAlternativePlayer;
+    static bool omitSysExLength;
     static QMap<int, QList<int> > playedNotes;
     static void setStandardChannel(int channel);
     static int standardChannel();
-    static void sendProgram(int channel, int prog);
+    static void sendProgram(int channel, int prog, int track_index = 0);
     static bool isConnected();
+    static bool isFluidsynthConnected(int track_index = 0);
+    static RtMidiOut* _midiOut[MAX_OUTPUT_DEVICES];
+    static int _midiOutMAP[MAX_OUTPUT_DEVICES];
+    static int _midiOutFluidMAP[MAX_OUTPUT_DEVICES];
+    static int is_playing;
+    static MidiFile *file;
+
+    static bool AllTracksToOne;
+    static bool FluidSynthTracksAuto;
+    static bool SaveMidiOutDatas;
+
+    static int sequencer_cmd[16];
+    static int sequencer_enabled[16];
+
+    static void update_config();
+    static void saveTrackDevices();
+    static bool loadTrackDevices(bool ask = false, QWidget *w = 0);
+
 
 private:
-    static QString _outPort;
-    static RtMidiOut* _midiOut;
+    static QString _outPort[MAX_OUTPUT_DEVICES];
+
     static SenderThread* _sender;
     static int _stdChannel;
+
 };
 
 #endif

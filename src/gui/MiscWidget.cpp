@@ -4,6 +4,8 @@
 #include "../midi/MidiChannel.h"
 #include "../midi/MidiFile.h"
 #include "../midi/MidiTrack.h"
+#include "../midi/MidiInput.h"
+#include "../midi/MidiPlayer.h"
 #include "../protocol/Protocol.h"
 #include "../tool/EventTool.h"
 #include "../tool/NewNoteTool.h"
@@ -23,6 +25,7 @@
 MiscWidget::MiscWidget(MatrixWidget* mw, QWidget* parent)
     : PaintWidget(parent)
 {
+    paint_in_use = false;
     setRepaintOnMouseMove(true);
     setRepaintOnMousePress(true);
     setRepaintOnMouseRelease(true);
@@ -88,24 +91,29 @@ void MiscWidget::setControl(int ctrl)
     computeMinMax();
 }
 
-void MiscWidget::paintEvent(QPaintEvent* event)
+void MiscWidget::paintEvent(QPaintEvent*)
 {
 
     if (!matrixWidget->midiFile())
         return;
+
+    if(paint_in_use)
+        return;
+    paint_in_use = true;
 
     // draw background
     QPainter painter(this);
     QFont f = painter.font();
     f.setPixelSize(9);
     painter.setFont(f);
-    QColor c(234, 246, 255);
+    QColor c;
+    c = COLOR_BACK_RASTER;
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::gray);
     painter.setBrush(c);
     painter.drawRect(0, 0, width() - 1, height() - 1);
 
-    painter.setPen(QColor(194, 230, 255));
+    painter.setPen(COLOR_VEL_RASTER);
     for (int i = 0; i < 8; i++) {
         painter.drawLine(0, (i * height()) / 8, width(), (i * height()) / 8);
     }
@@ -119,8 +127,23 @@ void MiscWidget::paintEvent(QPaintEvent* event)
     // draw contents
     if (mode == VelocityEditor) {
 
-        QList<MidiEvent*>* list = matrixWidget->velocityEvents();
-        foreach (MidiEvent* event, *list) {
+        int ch = NewNoteTool::editChannel();
+
+        QList<MidiEvent*> list;
+
+        for(int n = 0; n < 16; n++) {
+            if(n == ch) continue;
+            foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+                if(ev->channel() == n) list.append(ev);
+            }
+        }
+
+        foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+            if(ev->channel() == ch) list.append(ev);
+        }
+
+       // QList<MidiEvent*>* list = matrixWidget->velocityEvents();
+        foreach (MidiEvent* event, list) {
 
             if (!event->file()->channel(event->channel())->visible()) {
                 continue;
@@ -130,8 +153,13 @@ void MiscWidget::paintEvent(QPaintEvent* event)
                 continue;
             }
 
+            if(!(!event->file()->MultitrackMode ||
+                    (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                continue;
+
             QColor* c = matrixWidget->midiFile()->channel(event->channel())->color();
-            if (!matrixWidget->colorsByChannel()) {
+            // disabled from CUSTOM 11
+            if (0 && !matrixWidget->colorsByChannel()) {
                 c = event->track()->color();
             }
 
@@ -145,6 +173,23 @@ void MiscWidget::paintEvent(QPaintEvent* event)
                     painter.setBrush(*c);
                     painter.setPen(Qt::lightGray);
                     painter.drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
+
+                    if(1) {
+
+                        QLinearGradient linearGrad(QPointF(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h),
+                                                   QPointF(event->x() - LEFT_BORDER_MATRIX_WIDGET + WIDTH, height() - h + h));
+
+                        linearGrad.setColorAt(0, QColor(60, 60, 60, 0x40));
+                        linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+                        linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+                        QBrush d(linearGrad);
+                        painter.setBrush(d);
+                        painter.drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
+
+                    }
+
+
+
                 }
             }
         }
@@ -176,6 +221,22 @@ void MiscWidget::paintEvent(QPaintEvent* event)
                         painter.setBrush(Qt::darkBlue);
                         painter.setPen(Qt::lightGray);
                         painter.drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
+
+                        if(1) {
+
+                            QLinearGradient linearGrad(QPointF(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h),
+                                                       QPointF(event->x() - LEFT_BORDER_MATRIX_WIDGET + WIDTH, height() - h + h));
+
+                            linearGrad.setColorAt(0, QColor(60, 60, 60, 0x20));
+                            linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+                            linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+                            QBrush d(linearGrad);
+                            painter.setBrush(d);
+                            painter.drawRoundedRect(event->x() - LEFT_BORDER_MATRIX_WIDGET, height() - h, WIDTH, h, 1, 1);
+
+                        }
+
+
                     }
                 }
             }
@@ -196,8 +257,8 @@ void MiscWidget::paintEvent(QPaintEvent* event)
         QList<MidiEvent*> accordingEvents;
         QList<QPair<int, int> > track = getTrack(&accordingEvents);
 
-        int xOld;
-        int yOld;
+        int xOld = 0;
+        int yOld = 0;
 
         for (int i = 0; i < track.size(); i++) {
 
@@ -277,16 +338,103 @@ void MiscWidget::paintEvent(QPaintEvent* event)
 
         painter.drawLine(lineX, lineY, mouseX, mouseY);
     }
+
+    if(Tool::currentTool() && Tool::selectCurrentChanOnly && !MidiInput::recording() && !MidiPlayer::isPlaying()) {
+
+        int x = 10;
+        int y = 24;
+
+        painter.setPen(Qt::black);
+        painter.setBrush(QColor(255, 255, 255, 240));
+
+        QFont f = painter.font();
+        QFont f2(f);
+        f2.setBold(true);
+        f2.setPixelSize(20);
+        painter.setFont(f2);
+
+        int ch = NewNoteTool::editChannel();
+        int tk = NewNoteTool::editTrack();
+
+        QString text = "Select Channel #" + QString::number(ch) + QString(" Only - Track: " + QString::number(tk));
+
+        int textlength = QFontMetrics(f2).horizontalAdvance(text);
+
+        if(!(mouseX >= x - 8 && mouseX < x - 8 + textlength + 16 &&
+           mouseY >= y - 16 && mouseY < y - 16 + 26)) {
+
+            painter.drawRoundedRect(x - 8, y - 16, textlength + 16, 26, 5, 5);
+            painter.drawText(x, y + 4, text);
+        }
+
+        painter.setFont(f);
+    } else if(!MidiInput::recording() && !MidiPlayer::isPlaying()) {
+
+        int x = 10;
+        int y = 24;
+
+        painter.setPen(Qt::black);
+        painter.setBrush(QColor(255, 255, 245, 240));
+
+        QFont f = painter.font();
+        QFont f2(f);
+        f2.setBold(true);
+        f2.setPixelSize(20);
+        painter.setFont(f2);
+
+        int ch = NewNoteTool::editChannel();
+        int tk = NewNoteTool::editTrack();
+
+        QString text = "Channel #" + QString::number(ch) + QString(" - Track: " + QString::number(tk));
+
+        if(SelectTool::selectMultiTrack) {
+
+            text = "Multitrack Selection";
+
+        }
+
+        int textlength = QFontMetrics(f2).horizontalAdvance(text);
+
+        if(!(mouseX >= x - 8 && mouseX < x - 8 + textlength + 16 &&
+           mouseY >= y - 16 && mouseY < y - 16 + 26)) {
+
+            painter.drawRoundedRect(x - 8, y - 16, textlength + 16, 26, 5, 5);
+            painter.drawText(x, y + 4, text);
+        }
+
+        painter.setFont(f);
+    }
+
+
+    paint_in_use = false;
 }
 
 void MiscWidget::mouseMoveEvent(QMouseEvent* event)
 {
+    if (!matrixWidget->midiFile())
+        return;
+
     if (edit_mode == SINGLE_MODE) {
         if (mode == VelocityEditor) {
             bool above = dragging;
             if (!above) {
-                QList<MidiEvent*>* list = matrixWidget->velocityEvents();
-                foreach (MidiEvent* event, *list) {
+                int ch = NewNoteTool::editChannel();
+
+                QList<MidiEvent*> list;
+
+                for(int n = 0; n < 16; n++) {
+                    if(n == ch) continue;
+                    if(Tool::selectCurrentChanOnly && n != ch) continue;
+                    foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+                        if(ev->channel() == n) list.append(ev);
+                    }
+                }
+
+                foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+                    if(ev->channel() == ch) list.append(ev);
+                }
+                //QList<MidiEvent*>* list = matrixWidget->velocityEvents();
+                foreach (MidiEvent* event, list) {
 
                     if (!event->file()->channel(event->channel())->visible()) {
                         continue;
@@ -295,6 +443,11 @@ void MiscWidget::mouseMoveEvent(QMouseEvent* event)
                     if (event->track()->hidden()) {
                         continue;
                     }
+
+                    if(!(!event->file()->MultitrackMode ||
+                            (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                        continue;
+
 
                     int velocity = 0;
                     NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
@@ -363,14 +516,24 @@ void MiscWidget::mouseMoveEvent(QMouseEvent* event)
 
 void MiscWidget::mousePressEvent(QMouseEvent* event)
 {
+    if (!matrixWidget->midiFile())
+        return;
 
     if (edit_mode == SINGLE_MODE) {
 
         if (mode == VelocityEditor) {
 
+            int ch = NewNoteTool::editChannel();
+
             // check whether selection has to be changed.
             bool clickHandlesSelected = false;
             foreach (MidiEvent* event, Selection::instance()->selectedEvents()) {
+
+                if(Tool::selectCurrentChanOnly && event->channel() != ch) continue;
+
+                if(!(!event->file()->MultitrackMode ||
+                        (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                    continue;
 
                 int velocity = 0;
                 NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
@@ -390,8 +553,23 @@ void MiscWidget::mousePressEvent(QMouseEvent* event)
             // find event to select
             bool selectedNew = false;
             if (!clickHandlesSelected) {
-                QList<MidiEvent*>* list = matrixWidget->velocityEvents();
-                foreach (MidiEvent* event, *list) {
+                int ch = NewNoteTool::editChannel();
+
+                QList<MidiEvent*> list;
+
+                for(int n = 0; n < 16; n++) {
+                    if(n == ch) continue;
+                    if(Tool::selectCurrentChanOnly && n != ch) continue;
+                    foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+                        if(ev->channel() == n) list.append(ev);
+                    }
+                }
+
+                foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+                    if(ev->channel() == ch) list.append(ev);
+                }
+                //QList<MidiEvent*>* list = matrixWidget->velocityEvents();
+                foreach (MidiEvent* event, list) {
 
                     if (!event->file()->channel(event->channel())->visible()) {
                         continue;
@@ -400,6 +578,11 @@ void MiscWidget::mousePressEvent(QMouseEvent* event)
                     if (event->track()->hidden()) {
                         continue;
                     }
+
+                    if(!(!event->file()->MultitrackMode ||
+                            (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                        continue;
+
 
                     int velocity = 0;
                     NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
@@ -487,6 +670,8 @@ void MiscWidget::mousePressEvent(QMouseEvent* event)
 
 void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (!matrixWidget->midiFile())
+        return;
 
     int channelToUse = (mode == TempoEditor) ? 17 : channel;
 
@@ -502,11 +687,20 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
 
                 int dX = dragY - mouseY;
 
+                int ch = NewNoteTool::editChannel();
+
                 if (dX < -3 || dX > 3) {
                     matrixWidget->midiFile()->protocol()->startNewAction("Edited velocity");
 
                     int dV = 127 * dX / height();
                     foreach (MidiEvent* event, Selection::instance()->selectedEvents()) {
+
+                        if(Tool::selectCurrentChanOnly && event->channel() != ch) continue;
+
+                        if(!(!event->file()->MultitrackMode ||
+                                (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                            continue;
+
                         NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
                         if (noteOn) {
                             int v = dV + noteOn->velocity();
@@ -798,11 +992,20 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
             // process data
             if (mode == VelocityEditor) {
 
+                int ch = NewNoteTool::editChannel();
+
                 // when any events are selected, only use those. Else all
                 // in the range
                 QList<MidiEvent*> events;
                 if (Selection::instance()->selectedEvents().size() > 0) {
                     foreach (MidiEvent* event, Selection::instance()->selectedEvents()) {
+
+                        if(Tool::selectCurrentChanOnly && event->channel() != ch) continue;
+
+                        if(!(!event->file()->MultitrackMode ||
+                                (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                            continue;
+
                         NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
                         if (noteOn) {
                             if (noteOn->midiTime() >= minTick && noteOn->midiTime() <= maxTick) {
@@ -811,8 +1014,23 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                         }
                     }
                 } else {
-                    QList<MidiEvent*>* list = matrixWidget->velocityEvents();
-                    foreach (MidiEvent* event, *list) {
+                    int ch = NewNoteTool::editChannel();
+
+                    QList<MidiEvent*> list;
+
+                    for(int n = 0; n < 16; n++) {
+                        if(n == ch) continue;
+                        if(Tool::selectCurrentChanOnly && n != ch) continue;
+                        foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+                            if(ev->channel() == n) list.append(ev);
+                        }
+                    }
+
+                    foreach (MidiEvent* ev, *(matrixWidget->velocityEvents())) {
+                        if(ev->channel() == ch) list.append(ev);
+                    }
+                    //QList<MidiEvent*>* list = matrixWidget->velocityEvents();
+                    foreach (MidiEvent* event, list) {
 
                         if (!event->file()->channel(event->channel())->visible()) {
                             continue;
@@ -821,6 +1039,10 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
                         if (event->track()->hidden()) {
                             continue;
                         }
+
+                        if(!(!event->file()->MultitrackMode ||
+                                (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                            continue;
 
                         NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
                         if (noteOn) {
@@ -837,6 +1059,11 @@ void MiscWidget::mouseReleaseEvent(QMouseEvent* event)
 
                     // process per event
                     foreach (MidiEvent* event, events) {
+
+                        if(!(!event->file()->MultitrackMode ||
+                                (event->file()->MultitrackMode && event->track()->number() == NewNoteTool::editTrack())))
+                            continue;
+
 
                         NoteOnEvent* noteOn = dynamic_cast<NoteOnEvent*>(event);
                         if (noteOn) {

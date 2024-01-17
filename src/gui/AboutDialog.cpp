@@ -43,8 +43,11 @@ AboutDialog::AboutDialog(QWidget* parent)
     icon->setPixmap(QPixmap(":/run_environment/graphics/midieditor.png").scaledToWidth(80, Qt::SmoothTransformation));
     icon->setFixedSize(80, 80);
     layout->addWidget(icon, 0, 0, 3, 1);
-
+#ifdef CUSTOM_MIDIEDITOR
+    QLabel* title = new QLabel("<h1>" + QApplication::applicationName() + " CUSTOM</h1>", this);
+#else
     QLabel* title = new QLabel("<h1>" + QApplication::applicationName() + "</h1>", this);
+#endif
     layout->addWidget(title, 0, 1, 1, 2);
     title->setStyleSheet("color: black");
 
@@ -67,11 +70,16 @@ AboutDialog::AboutDialog(QWidget* parent)
                                  "<a href=\"https://midieditor.org/\">www.midieditor.org</a><br>"
                                  "support@midieditor.org"
                                  "</p>"
-                                 "<h3>Author</h3>"
+                                 "<h3>Original Author</h3>"
                                  "<p>"
                                  "Markus Schwenk<br>"
                                  "Email: kontakt@markus-schwenk.de<br>"
-                                 "Website: <a href=\"http://www.markus-schwenk.de\">www.markus-schwenk.de</a><br>"
+                                 "Website: <a href=\"http://www.markus-schwenk.de\">www.markus-schwenk.de</a><br>" 
+                                 "</p>"
+                                 "<h3>Midieditor CUSTOM</h3>"
+                                 "<p>"
+                                 "F. Munoz Aka 'Estwald'<br>"
+                                 "Website: <a href=\"https://github.com/Estwald/midieditor\">https://github.com/Estwald/midieditor</a><br>"
                                  "</p>"
                                  "<h3>Contributors</h3>"
         + contributors +
@@ -85,6 +93,9 @@ AboutDialog::AboutDialog(QWidget* parent)
         "<h3>Third party Libraries</h3>"
         "<p>"
         "RtMidi (Copyright (c) 2003-2014 Gary P. Scavone)"
+        "</p>"
+        "<p>"
+        "Fluidsynth (soundfont synthesizer): <a href=\"http://www.fluidsynth.org\">www.fluidsynth.org</a>"
         "</p>"
         "</body>"
         "</html>");

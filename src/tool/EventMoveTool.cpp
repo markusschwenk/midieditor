@@ -43,7 +43,7 @@ EventMoveTool::EventMoveTool(bool upDown, bool leftRight)
         setToolTipText("Move Events (up and down)");
     } else {
         setImage(":/run_environment/graphics/tool/move_left_right.png");
-        setToolTipText("Move Events (left and right)");
+        setToolTipText("Move Events (left and right)\nor click one nonselected note to align the selected notes");
     }
 }
 
@@ -108,6 +108,22 @@ void EventMoveTool::draw(QPainter* painter)
                 painter->setBrush(Qt::darkBlue);
                 painter->drawRoundedRect(event->x() - shiftX, event->y() - customShiftY,
                     event->width(), event->height(), 1, 1);
+
+                if(1) {
+
+                    QLinearGradient linearGrad(QPointF(event->x() - shiftX, event->y() - customShiftY),
+                                               QPointF(event->x() - shiftX + event->width(),event->y() - customShiftY + event->height()));
+
+                    linearGrad.setColorAt(0, QColor(80, 80, 80, 0x20));
+                    linearGrad.setColorAt(0.5, QColor(0xcf, 0xcf, 0xcf, 0x70));
+                    linearGrad.setColorAt(1.0, QColor(0xff, 0xff, 0xff, 0x70));
+
+                    QBrush d(linearGrad);
+                    painter->setBrush(d);
+                    painter->drawRoundedRect(event->x() - shiftX, event->y() - customShiftY,
+                                             event->width(), event->height(), 1, 1);
+                }
+
                 painter->setPen(Qt::gray);
                 painter->drawLine(event->x() - shiftX, 0, event->x() - shiftX,
                     matrixWidget->height());
@@ -164,7 +180,8 @@ bool EventMoveTool::release()
         return true;
     }
 
-    currentProtocol()->startNewAction("Move events", image());
+    int selected = Selection::instance()->selectedEvents().size();
+    currentProtocol()->startNewAction("Move events (" + QString::number(selected) + ")", image());
 
     // backwards to hold stability
     for (int i = Selection::instance()->selectedEvents().count() - 1; i >= 0; i--) {
@@ -180,10 +197,24 @@ bool EventMoveTool::release()
                 note = 127;
             }
             ev->setNote(note);
-            changeTick(ev, shiftX);
+
+            int old_ms= ev->midiTime();
             if (ev->offEvent()) {
-                changeTick(ev->offEvent(), shiftX);
+                old_ms= ev->offEvent()->midiTime()-old_ms;
             }
+
+            changeTick(ev, shiftX);
+
+            if (ev->offEvent()) {
+
+                //changeTick(ev->offEvent(), shiftX);
+
+
+                ev->offEvent()->setMidiTime(ev->midiTime()+old_ms);
+
+            }
+
+
         } else if (!off) {
             changeTick(event, shiftX);
         }
@@ -201,6 +232,24 @@ bool EventMoveTool::release()
 bool EventMoveTool::move(int mouseX, int mouseY)
 {
     EventTool::move(mouseX, mouseY);
+
+    foreach (MidiEvent* event, Selection::instance()->selectedEvents()) {
+
+        if (pointInRect(mouseX, mouseY, event->x() - 2, event->y(),
+                event->x() + event->width() + 2, event->y() + event->height())) {
+            if (moveUpDown && moveLeftRight) {
+                matrixWidget->setCursor(Qt::SizeAllCursor);
+            } else if (moveUpDown) {
+                matrixWidget->setCursor(Qt::SizeVerCursor);
+            } else {
+                matrixWidget->setCursor(Qt::SizeHorCursor);
+            }
+            return inDrag;
+        }
+
+    }
+    if(!inDrag)
+        matrixWidget->setCursor(Qt::ArrowCursor);
     return inDrag;
 }
 
@@ -244,7 +293,7 @@ int EventMoveTool::computeRaster()
         NoteOnEvent* onEvent = dynamic_cast<NoteOnEvent*>(event);
         if (onEvent) {
             if ((lastTick == -1) || (onEvent->offEvent()->midiTime() > lastTick)) {
-                lastTick = onEvent->offEvent()->midiTime();
+               lastTick = onEvent->offEvent()->midiTime();
             }
         }
     }
@@ -268,6 +317,7 @@ int EventMoveTool::computeRaster()
             useFirst = false;
         }
     }
+
     if (useLast) {
         int lastXReal = matrixWidget->xPosOfMs(file()->msOfTick(lastTick)) + mouseX - startX;
         lastX = rasteredX(lastXReal);

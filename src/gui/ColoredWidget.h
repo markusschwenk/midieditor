@@ -4,7 +4,12 @@
 #include <QWidget>
 #include <QColor>
 
+#undef CUSTOM_MIDIEDITOR_GUI
+#define CUSTOM_MIDIEDITOR_GUI "By Estwald"
+
 class ColoredWidget : public QWidget {
+
+    Q_OBJECT
 
 public:
     ColoredWidget(QColor color, QWidget* parent = 0);
@@ -14,8 +19,12 @@ public:
         update();
     }
 
+signals:
+    void doubleClick();
+
 protected:
-    void paintEvent(QPaintEvent* event);
+    void paintEvent(QPaintEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
     QColor _color;
