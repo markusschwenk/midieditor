@@ -1,0 +1,64 @@
+MFile 1 4 480
+MTrk
+0 TimeSig 4 4 24 8
+0 Tempo 500000
+0 Meta TrkName "Lead Vocal"
+0 ProgCh ch=1 p=53 "Voice Oohs"
+0 Par ch=1 con=7 val=100
+0 NoteOn ch=1 n=60 v=80
+479 NoteOff ch=1 n=60 v=0
+480 NoteOn ch=1 n=60 v=80
+959 NoteOff ch=1 n=60 v=0
+960 NoteOn ch=1 n=62 v=80
+1439 NoteOff ch=1 n=62 v=0
+1440 NoteOn ch=1 n=64 v=80
+1919 NoteOff ch=1 n=64 v=0
+1920 NoteOn ch=1 n=67 v=80
+2399 NoteOff ch=1 n=67 v=0
+2400 NoteOn ch=1 n=69 v=80
+2879 NoteOff ch=1 n=69 v=0
+2880 NoteOn ch=1 n=67 v=80
+3359 NoteOff ch=1 n=67 v=0
+3360 NoteOn ch=1 n=64 v=80
+3839 NoteOff ch=1 n=64 v=0
+3840 NoteOn ch=1 n=62 v=80
+4319 NoteOff ch=1 n=62 v=0
+4320 NoteOn ch=1 n=60 v=80
+4800 Meta EndOfTrk
+MTrk
+0 Meta TrkName "Piano (RH)"
+0 ProgCh ch=2 p=1 "Acoustic Grand Piano"
+0 Par ch=2 con=7 val=90
+0 NoteOn ch=2 n=72 v=70
+...
+4800 Meta EndOfTrk
+MTrk
+0 Meta TrkName "Piano (LH Bass Line)"
+0 ProgCh ch=3 p=34 "Fretless Bass"
+0 Par ch=3 con=7 val=100
+0 NoteOn ch=3 n=48 v=90
+239 NoteOff ch=3 n=48 v=0
+240 NoteOn ch=3 n=55 v=90
+479 NoteOff ch=3 n=55 v=0
+480 NoteOn ch=3 n=52 v=90
+719 NoteOff ch=3 n=52 v=0
+720 NoteOn ch=3 n=53 v=90
+959 NoteOff ch=3 n=53 v=0
+... 
+4800 Meta EndOfTrk
+MTrk
+0 Meta TrkName "Strings Pad"
+0 ProgCh ch=4 p=49 "String Ensemble 1"
+0 Par ch=4 con=7 val=60
+0 Par ch=4 con=91 val=40
+0 NoteOn ch=4 n=60 v=50
+0 NoteOn ch=4 n=64 v=50
+0 NoteOn ch=4 n=67 v=50
+1920 NoteOff ch=4 n=60 v=0
+1920 NoteOff ch=4 n=64 v=0
+1920 NoteOff ch=4 n=67 v=0
+1920 NoteOn ch=4 n=59 v=50
+1920 NoteOn ch=4 n=62 v=50
+1920 NoteOn ch=4 n=67 v=50
+... 
+4800 Meta EndOfTrk
