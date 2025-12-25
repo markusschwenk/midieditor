@@ -147,6 +147,8 @@ public:
 
     MidiFile* file();
 
+    static bool selectCurrentChanOnly;
+
 protected:
     /**
 		 * \brief the Tools Button if existing.

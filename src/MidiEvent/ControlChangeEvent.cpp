@@ -88,6 +88,7 @@ void ControlChangeEvent::setValue(int v)
 {
     ProtocolEntry* toCopy = copy();
     _value = v;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
@@ -95,6 +96,7 @@ void ControlChangeEvent::setControl(int c)
 {
     ProtocolEntry* toCopy = copy();
     _control = c;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

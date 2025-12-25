@@ -37,6 +37,7 @@ public:
 		 * \brief Creates a new ProtocolItem.
 		 */
     ProtocolItem(ProtocolEntry* oldObj, ProtocolEntry* newObj);
+    ~ProtocolItem();
 
     /**
 		 * \brief reloads the state of oldObj on newObj.
@@ -47,6 +48,8 @@ public:
 		 * Object.
 		 */
     ProtocolItem* release();
+
+    bool midi_modified = false;
 
 private:
     /**

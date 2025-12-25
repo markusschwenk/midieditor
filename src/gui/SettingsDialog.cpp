@@ -35,7 +35,7 @@
 #endif
 #include "UpdateSettingsWidget.h"
 
-SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer* server, QWidget* parent)
+SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer* /*server*/, QWidget* parent)
     : QDialog(parent)
 {
 
@@ -98,7 +98,14 @@ SettingsDialog::SettingsDialog(QString title, QSettings* settings, RemoteServer*
     addSetting(new RemoteSettingsWidget(server, central));
 #endif
     addSetting(new AppearanceSettingsWidget(central));
+#ifndef CUSTOM_MIDIEDITOR
     addSetting(new UpdateSettingsWidget(settings, central));
+#endif
+}
+
+void SettingsDialog::reject() {
+    submit();
+    hide();
 }
 
 void SettingsDialog::addSetting(SettingsWidget* settingWidget)

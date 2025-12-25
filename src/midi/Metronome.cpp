@@ -7,17 +7,29 @@
 #include <QFileInfo>
 
 #include <QMediaPlayer>
+#ifndef IS_QT5
+#include <QAudioOutput>
+#endif
 
-Metronome *Metronome::_instance = new Metronome();
+Metronome *Metronome::_instance = NULL;// Qt 6.9 fix new Metronome();
 bool Metronome::_enable = false;
 
 Metronome::Metronome(QObject *parent) :	QObject(parent) {
     _file = 0;
     num = 4;
     denom = 2;
+
+#ifdef IS_QT5
     _player = new QMediaPlayer(this, QMediaPlayer::LowLatency);
     _player->setVolume(100);
     _player->setMedia(QUrl::fromLocalFile(QFileInfo("metronome/metronome-01.wav").absoluteFilePath()));
+#else
+    _player = new QMediaPlayer(this);
+    _player->setAudioOutput(new QAudioOutput(this)); // Necesario en Qt 6
+    _player->audioOutput()->setVolume(1.0);          // Volumen de 0.0 a 1.0
+
+    _player->setSource(QUrl::fromLocalFile(QFileInfo("metronome/metronome-01.wav").absoluteFilePath()));
+#endif
 }
 
 void Metronome::setFile(MidiFile *file){
@@ -87,9 +99,17 @@ void Metronome::setEnabled(bool b){
 }
 
 void Metronome::setLoudness(int value){
+#ifdef IS_QT5
     _instance->_player->setVolume(value);
+#else
+    _instance->_player->audioOutput()->setVolume(((float) value) / 100.0f);
+#endif
 }
 
 int Metronome::loudness(){
+#ifdef IS_QT5
     return _instance->_player->volume();
+#else
+    return (int) (_instance->_player->audioOutput()->volume() * 100.0f);
+#endif
 }

@@ -15,7 +15,7 @@ void Appearance::init(QSettings *settings){
                            decode("track_color_" + QString::number(track),
                                   settings, defaultColor(track)));
     }
-    _opacity = settings->value("appearance_opacity", 100).toInt();
+    _opacity = settings->value("Main/appearance_opacity", 100).toInt();
 }
 
 QColor *Appearance::channelColor(int channel){
@@ -37,7 +37,7 @@ void Appearance::writeSettings(QSettings *settings) {
     for (int track = 0; track < 17; track++) {
         write("track_color_" + QString::number(track), settings, trackColors[track]);
     }
-    settings->setValue("appearance_opacity", _opacity);
+    settings->setValue("Main/appearance_opacity", _opacity);
 }
 
 QColor *Appearance::defaultColor(int n) {
@@ -118,15 +118,15 @@ QColor *Appearance::defaultColor(int n) {
 
 QColor *Appearance::decode(QString name, QSettings *settings, QColor *defaultColor){
    bool ok;
-   int r = settings->value(name + "_r").toInt(&ok);
+   int r = settings->value("Main/" + name + "_r").toInt(&ok);
    if (!ok) {
        return new QColor(*defaultColor);
    }
-   int g = settings->value(name + "_g").toInt(&ok);
+   int g = settings->value("Main/" + name + "_g").toInt(&ok);
    if (!ok) {
        return defaultColor;
    }
-   int b = settings->value(name + "_b").toInt(&ok);
+   int b = settings->value("Main/" + name + "_b").toInt(&ok);
    if (!ok) {
        return defaultColor;
    }
@@ -134,9 +134,9 @@ QColor *Appearance::decode(QString name, QSettings *settings, QColor *defaultCol
 }
 
 void Appearance::write(QString name, QSettings *settings, QColor *color) {
-    settings->setValue(name + "_r", QVariant(color->red()));
-    settings->setValue(name + "_g", QVariant(color->green()));
-    settings->setValue(name + "_b", QVariant(color->blue()));
+    settings->setValue("Main/" + name + "_r", QVariant(color->red()));
+    settings->setValue("Main/" + name + "_g", QVariant(color->green()));
+    settings->setValue("Main/" + name + "_b", QVariant(color->blue()));
 }
 
 void Appearance::setTrackColor(int track, QColor color) {
@@ -148,7 +148,7 @@ void Appearance::setChannelColor(int channel, QColor color){
 }
 
 int Appearance::trackToColorIndex(int track){
-    int mod = (track-1) %17;
+    int mod = (track-1) % 17;
     if (mod < 0) {
         mod+=17;
     }

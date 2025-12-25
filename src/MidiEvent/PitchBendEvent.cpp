@@ -80,11 +80,11 @@ void PitchBendEvent::setValue(int v)
 {
     ProtocolEntry* toCopy = copy();
     _value = v;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 
 bool PitchBendEvent::isOnEvent()
 {
-    //	return (_control < 64 && _control> 69) || _value > 64;
     return false;
 }

@@ -38,6 +38,8 @@ public:
 
     void moveToChannel(int channel);
 
+    void setMidiTime(int t, bool toProtocol = true);
+
 protected:
     OffEvent* _offEvent;
 };

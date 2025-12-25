@@ -106,7 +106,9 @@ AutomaticUpdateDialog::AutomaticUpdateDialog(
 }
 
 void AutomaticUpdateDialog::enableAutoUpdates() {
+#ifndef CUSTOM_MIDIEDITOR
   UpdateManager::setAutoCheckUpdatesEnabled(true);
+#endif
   this->hide();
 }
 

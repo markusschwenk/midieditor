@@ -11,6 +11,8 @@ class Metronome : public QObject {
     Q_OBJECT
 
 public:
+    static Metronome* _instance;
+
     Metronome(QObject* parent = 0);
 
     void setFile(MidiFile* file);
@@ -28,7 +30,7 @@ public slots:
     void playbackStopped();
 
 private:
-    static Metronome* _instance;
+    //static Metronome* _instance;
     MidiFile* _file;
     void reset();
     int num, denom, lastPos, lastMeasure;

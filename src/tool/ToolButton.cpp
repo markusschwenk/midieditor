@@ -19,8 +19,13 @@
 #include "ToolButton.h"
 #include "Tool.h"
 
+#ifdef IS_QT5
 ToolButton::ToolButton(Tool* tool, QKeySequence sequence, QWidget* parent)
     : QAction(parent)
+#else
+ToolButton::ToolButton(Tool* tool, QKeySequence sequence, QWidget* parent)
+    : QAction("ToolButton", (QObject *) parent)
+#endif
 {
     button_tool = tool;
     tool->setButton(this);

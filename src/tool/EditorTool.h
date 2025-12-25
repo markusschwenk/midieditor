@@ -136,6 +136,8 @@ public:
 
     bool selected();
 
+    virtual bool isStandardTool();
+
     virtual void buttonClick();
 
     virtual ProtocolEntry* copy();

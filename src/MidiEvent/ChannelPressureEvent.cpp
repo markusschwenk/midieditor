@@ -72,6 +72,7 @@ void ChannelPressureEvent::setValue(int v)
 {
     ProtocolEntry* toCopy = copy();
     _value = v;
+    midi_modified = true;
     protocol(toCopy, this);
 }
 

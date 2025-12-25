@@ -30,6 +30,7 @@ SettingsWidget::SettingsWidget(QString title, QWidget* parent)
 
 bool SettingsWidget::accept()
 {
+
     return true;
 }
 

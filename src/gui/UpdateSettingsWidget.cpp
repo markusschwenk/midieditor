@@ -1,9 +1,11 @@
+#ifndef CUSTOM_MIDIEDITOR
 #include "UpdateSettingsWidget.h"
 
 #include <QCheckBox>
 #include <QGridLayout>
 #include <QPushButton>
 #include <QSettings>
+
 
 #include "../UpdateManager.h"
 
@@ -36,7 +38,7 @@ UpdateSettingsWidget::UpdateSettingsWidget(QSettings *settings, QWidget *parent)
   _auto = new QCheckBox("Automatically check for Updates", this);
   _auto->setChecked(UpdateManager::autoCheckForUpdates());
 
-  connect(_auto, SIGNAL(toggled(bool)), this, SLOT(enableAutoUpdates(bool)));
+ // connect(_auto, SIGNAL(toggled(bool)), this, SLOT(enableAutoUpdates(bool)));
   layout->addWidget(_auto, 1, 0, 1, 6);
 
   layout->setRowStretch(6, 1);
@@ -45,3 +47,4 @@ UpdateSettingsWidget::UpdateSettingsWidget(QSettings *settings, QWidget *parent)
 void UpdateSettingsWidget::enableAutoUpdates(bool enable) {
   UpdateManager::setAutoCheckUpdatesEnabled(enable);
 }
+#endif

@@ -40,6 +40,7 @@ public:
 public slots:
     void rowChanged(int row);
     void submit();
+    void reject();
 
 signals:
     void settingsChanged();

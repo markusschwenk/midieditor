@@ -24,6 +24,8 @@
 class MidiFile;
 class NoteOnEvent;
 class PlayerThread;
+class PlayerThreadSequencer;
+class PlayerSequencer;
 class SingleNotePlayer;
 
 class MidiPlayer : public QObject {
@@ -31,8 +33,16 @@ class MidiPlayer : public QObject {
     Q_OBJECT
 
 public:
-    static void play(MidiFile* file);
-    static void play(NoteOnEvent* event);
+    static void play(MidiFile* file, int mode = 0);
+    static void play(NoteOnEvent* event, int ms = 2000);
+
+    static void init_sequencer();
+    static void deinit_sequencer();
+    static int play_sequencer(MidiFile* file, int seq, int bmp = 120, int volume = 127);
+    static void unload_sequencer(int seq);
+    static bool is_sequencer_loaded(int seq);
+
+    static void start();
     static void stop();
     static bool isPlaying();
     static int timeMs();
@@ -45,11 +55,16 @@ public:
 		 */
     static void panic();
 
+    static PlayerThreadSequencer* filePlayerSequencer;
+
+    static PlayerSequencer* fileSequencer[16];
+
 private:
     static PlayerThread* filePlayer;
     static bool playing;
     static SingleNotePlayer* singleNotePlayer;
     static double _speed;
+
 };
 
 #endif

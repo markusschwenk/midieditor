@@ -20,6 +20,7 @@
 #include "../MidiEvent/MidiEvent.h"
 #include "../MidiEvent/NoteOnEvent.h"
 #include "../MidiEvent/OffEvent.h"
+#include "../midi/MidiTrack.h"
 
 SenderThread::SenderThread()
 {
@@ -33,14 +34,16 @@ void SenderThread::run()
     while (true) {
         // First, send the misc events, such as control change and program change events.
         while (!_eventQueue->isEmpty()) {
+            MidiEvent * e = _eventQueue->head();
             // send command
-            MidiOutput::sendEnqueuedCommand(_eventQueue->head()->save());
+            MidiOutput::sendEnqueuedCommand(e->save(), e->temp_track_index);
             _eventQueue->pop_front();
         }
         // Now send the note events.
         while (!_noteQueue->isEmpty()) {
+            MidiEvent * e = _noteQueue->head();
             // send command
-            MidiOutput::sendEnqueuedCommand(_noteQueue->head()->save());
+            MidiOutput::sendEnqueuedCommand(e->save(), e->temp_track_index);
             _noteQueue->pop_front();
         }
         msleep(1);

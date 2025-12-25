@@ -41,6 +41,8 @@ public:
     void setName(QString name);
 
     int number();
+    int device_index();
+    int fluid_index();
     void setNumber(int number);
 
     void setNameEvent(TextEvent* nameEvent);

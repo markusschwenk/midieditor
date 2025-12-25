@@ -1,6 +1,6 @@
 #ifndef UPDATESETTINGSWIDGET_H
 #define UPDATESETTINGSWIDGET_H
-
+#ifndef CUSTOM_MIDIEDITOR
 #include "SettingsWidget.h"
 
 class QSettings;
@@ -20,5 +20,6 @@ private:
     QCheckBox* _auto;
     QSettings* _settings;
 };
+#endif
 
 #endif

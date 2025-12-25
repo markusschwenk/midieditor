@@ -20,6 +20,9 @@
 #define MIDISETTINGSDIALOG_H_
 
 #include "SettingsWidget.h"
+#include <QGridLayout>
+#include "../midi/MidiInput.h"
+#include "../midi/MidiOutput.h"
 
 class QWidget;
 class QListWidget;
@@ -41,8 +44,11 @@ public slots:
     void manualModeToggled(bool enable);
     void setDefaultTimePerQuarter(int value);
     void setMetronomeLoudness(int value);
+    void omitSysExtLength(bool enable);
+
 private:
     QCheckBox* _alternativePlayerModeBox;
+    QCheckBox* _sendSysExWithoutLength;
     QSettings* _settings;
     QLineEdit* startCmd;
     QSpinBox* _tpqBox;
@@ -65,7 +71,10 @@ public slots:
 
 private:
     QStringList *_inputPorts, *_outputPorts;
-    QListWidget *_inList, *_outList;
+    QListWidget *_inList[MAX_INPUT_DEVICES], *_outList[MAX_OUTPUT_DEVICES];
+    int inListIndex;
+    int outListIndex;
+    QGridLayout* layout;
 };
 
 #endif

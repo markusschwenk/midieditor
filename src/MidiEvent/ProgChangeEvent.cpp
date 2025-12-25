@@ -79,5 +79,6 @@ void ProgChangeEvent::setProgram(int p)
 {
     ProtocolEntry* toCopy = copy();
     _program = p;
+    midi_modified = true;
     protocol(toCopy, this);
 }

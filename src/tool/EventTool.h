@@ -41,6 +41,7 @@ public:
 
     static void copyAction();
     static void pasteAction();
+    static void pasteAction2();
 
     virtual bool showsSelection();
 
@@ -61,6 +62,7 @@ protected:
     static int _pasteChannel;
     static int _pasteTrack;
     static bool _magnet;
+
 };
 
 #endif

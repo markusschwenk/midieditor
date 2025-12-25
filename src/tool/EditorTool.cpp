@@ -108,6 +108,11 @@ bool EditorTool::selected()
     return etool_selected;
 }
 
+bool EditorTool::isStandardTool() {
+    return false;
+}
+
+
 void EditorTool::buttonClick()
 {
     if (_currentTool) {

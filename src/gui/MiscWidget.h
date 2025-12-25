@@ -67,6 +67,7 @@ protected:
 
 private:
     MatrixWidget* matrixWidget;
+    bool paint_in_use;
 
     // Mode is SINGLE_MODE or LINE_MODE
     int edit_mode;

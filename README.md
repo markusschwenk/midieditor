@@ -2,6 +2,21 @@
 
 <img align="left" width="70px" src="run_environment/midieditor.ico">
 
+MidiEditor Custom
+==================
+
+MidiEditor Custom is not just an unofficial version of Marcus Schwenk’s MidiEditor.
+
+Some time ago, enhancements were added such as support for the FluidSynth library,
+VST plugin support, drum machine, sequencer, and many other details that go a bit beyond the
+original, yet the essence of the program remains.
+
+
+This Custom 12 LE version has been adapted to be compiled with the Qt 6.9.0 development environment and the MSYS2 compilers and tools under Windows 10
+
+[Instructions on how to compile (in English and Spanish) everything](https://github.com/Estwald/midieditor/tree/master/building)
+
+
 MidiEditor
 ===========
 

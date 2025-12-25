@@ -27,7 +27,7 @@
 #include "../midi/MidiFile.h"
 #include "../protocol/Protocol.h"
 
-TransposeDialog::TransposeDialog(QList<NoteOnEvent*> toTranspose, MidiFile* file, QWidget* parent)
+TransposeDialog::TransposeDialog(QList<NoteOnEvent*> toTranspose, MidiFile* file, QWidget*)
 {
 
     QLabel* text = new QLabel("Number of semitones: ", this);

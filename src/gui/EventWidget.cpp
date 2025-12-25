@@ -50,6 +50,16 @@
 
 #include "DataEditor.h"
 
+#ifdef IS_QT5
+    #define METATYPE_INT QVariant::Int
+    #define METATYPE_BYTEARRAY QVariant::ByteArray
+    #define METATYPE_STRING QVariant::String
+#else
+    #define METATYPE_INT QMetaType(QMetaType::Int)
+    #define METATYPE_BYTEARRAY QMetaType(QMetaType::fromType<QByteArray>())
+    #define METATYPE_STRING QMetaType(QMetaType::QString)
+#endif
+
 QSize EventWidgetDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
     EventWidget::EditorField field = static_cast<EventWidget::EditorField>(index.data(Qt::UserRole).toInt());
@@ -133,9 +143,9 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     switch (field) {
     case EventWidget::MidiEventTick: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(INT_MAX);
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
@@ -153,47 +163,48 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         box->setCurrentIndex(i);
         break;
     }
+
     case EventWidget::MidiEventNote: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(127);
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
     }
     case EventWidget::NoteEventOffTick: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(INT_MAX);
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
     }
     case EventWidget::NoteEventVelocity: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(127);
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
     }
     case EventWidget::NoteEventDuration: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(INT_MAX);
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
     }
     case EventWidget::MidiEventChannel: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(0);
+        spin->setMinimum(0);
         spin->setMaximum(15);
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
@@ -204,20 +215,23 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         EventWidget::EventType type = eventWidget->type();
         switch (type) {
         case EventWidget::PitchBendEventType: {
+            spin->setMinimum(0);
             spin->setMaximum(16383);
             break;
         }
         case EventWidget::TempoChangeEventType: {
+            spin->setMinimum(1);
             spin->setMaximum(1000);
             break;
         }
         default: {
+            spin->setMinimum(0);
             spin->setMaximum(127);
             break;
         }
         }
 
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
@@ -239,7 +253,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
         QComboBox* box = dynamic_cast<QComboBox*>(editor);
         int current = 0;
         for (int i = 0; i < 128; i++) {
-            QString text = QString::number(i) + ": " + MidiFile::instrumentName(i);
+            QString text = QString::number(i) + ": " + MidiFile::instrumentName(0,i);
             box->addItem(text);
             if (!text.compare(index.data().toString())) {
                 current = i;
@@ -264,9 +278,9 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::TimeSignatureNum: {
         QSpinBox* spin = dynamic_cast<QSpinBox*>(editor);
-        spin->setMaximum(1);
+        spin->setMinimum(1);
         spin->setMaximum(99);
-        if (index.data().canConvert(QVariant::Int)) {
+        if (index.data().canConvert(METATYPE_INT)) {
             spin->setValue(index.data().toInt());
         }
         break;
@@ -297,7 +311,7 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     }
     case EventWidget::TextText: {
         QTextEdit* edit = dynamic_cast<QTextEdit*>(editor);
-        if (index.data().canConvert(QVariant::String)) {
+        if (index.data().canConvert(METATYPE_STRING)) {
             edit->setPlainText(index.data().toString());
         }
         break;
@@ -305,14 +319,14 @@ void EventWidgetDelegate::setEditorData(QWidget* editor, const QModelIndex& inde
     case EventWidget::UnknownType: {
         QLineEdit* edit = dynamic_cast<QLineEdit*>(editor);
         edit->setInputMask("HH");
-        if (index.data().canConvert(QVariant::String)) {
+        if (index.data().canConvert(METATYPE_STRING)) {
             edit->setText(index.data().toString().right(2));
         }
         break;
     }
     case EventWidget::MidiEventData: {
         DataEditor* edit = dynamic_cast<DataEditor*>(editor);
-        if (index.data(Qt::UserRole + 2).canConvert(QVariant::ByteArray)) {
+        if (index.data(Qt::UserRole + 2).canConvert(METATYPE_BYTEARRAY)) {
             edit->setData(index.data(Qt::UserRole + 2).toByteArray());
         }
         break;
@@ -822,7 +836,7 @@ QList<QPair<QString, EventWidget::EditorField> > EventWidget::getFields()
     QList<QPair<QString, EditorField> > fields;
     fields.append(QPair<QString, EditorField>("On Tick", MidiEventTick));
 
-    switch (_currentType) {
+    switch ((int) _currentType) {
     case ChannelPressureEventType: {
         fields.append(QPair<QString, EditorField>("Value", MidiEventValue));
         fields.append(QPair<QString, EditorField>("Channel", MidiEventChannel));
@@ -887,7 +901,9 @@ QList<QPair<QString, EventWidget::EditorField> > EventWidget::getFields()
         break;
     }
     }
-    fields.append(QPair<QString, EditorField>("Track", MidiEventTrack));
+
+    if(!(_currentType == TempoChangeEventType || _currentType == TimeSignatureEventType))
+        fields.append(QPair<QString, EditorField>("Track", MidiEventTrack));
     return fields;
 }
 
@@ -1104,7 +1120,7 @@ QVariant EventWidget::fieldContent(EditorField field)
         if (program < 0) {
             return QVariant("");
         }
-        return QVariant(QString::number(program) + ": " + MidiFile::instrumentName(program));
+        return QVariant(QString::number(program) + ": " + MidiFile::instrumentName(0, program));
     }
     case KeySignatureKey: {
         int key = -1;
@@ -1209,8 +1225,8 @@ QVariant EventWidget::fieldContent(EditorField field)
             return QVariant("");
         }
         QString s;
-        s.sprintf("%02X", n);
-        s = "0x" + s;
+
+        s = s.asprintf("0x%02X", n);
         return QVariant(s);
     }
     case MidiEventData: {
@@ -1279,11 +1295,11 @@ void EventWidget::getKey(int index, int* tonality, bool* minor)
 QString EventWidget::dataToString(QByteArray data)
 {
     QString s;
+
     foreach (unsigned char b, data) {
-        QString t;
-        t.sprintf("%02X", b);
-        s = s + "0x" + t + "\n";
+        s = s + s.asprintf("0x%02X\n", b);
     }
+
     return s.trimmed();
 }
 

@@ -25,6 +25,23 @@ ProtocolItem::ProtocolItem(ProtocolEntry* oldObj, ProtocolEntry* newObj)
 {
     _oldObject = oldObj;
     _newObject = newObj;
+
+    if(newObj->midi_modified) {
+        midi_modified = newObj->midi_modified;
+    }
+
+}
+
+ProtocolItem::~ProtocolItem() {
+
+
+    if (_oldObject && _oldObject->file() != _oldObject) {
+        delete _oldObject;
+        _oldObject = NULL;
+    }
+
+
+    //qWarning("ProtocolItem destroyed");
 }
 
 ProtocolItem* ProtocolItem::release()
@@ -36,7 +53,9 @@ ProtocolItem* ProtocolItem::release()
     //files can be protocolled too but they must not be deleted
     if (!dynamic_cast<MidiTrack*>(entry)) {
         if (_oldObject->file() != _oldObject) {
-            delete _oldObject;
+            if(_oldObject)
+                delete _oldObject;
+            _oldObject = NULL;
         }
     }
     return new ProtocolItem(entry, _newObject);

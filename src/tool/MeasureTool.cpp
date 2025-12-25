@@ -70,7 +70,7 @@ void MeasureTool::draw(QPainter* painter){
     }
 }
 
-bool MeasureTool::press(bool leftClick){
+bool MeasureTool::press(bool /*leftClick*/){
     return true;
 }
 

@@ -41,10 +41,14 @@ public:
     void reloadState(ProtocolEntry* entry);
     bool showsSelection();
 
+    virtual bool isStandardTool();
+
 private:
     EventMoveTool* moveTool;
     SelectTool* selectTool;
+    SelectTool* selectTool2;
     SizeChangeTool* sizeChangeTool;
     NewNoteTool* newNoteTool;
+    int clicked;
 };
 #endif

@@ -1,6 +1,7 @@
 #ifndef UPDATEMANAGER_H
 #define UPDATEMANAGER_H
 
+#ifndef CUSTOM_MIDIEDITOR
 #include <QObject>
 #include <QStringList>
 
@@ -62,5 +63,6 @@ class UpdateManager : public QObject {
 
 		QNetworkAccessManager _webCtrl;
 };
+#endif
 
 #endif
